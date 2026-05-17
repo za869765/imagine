@@ -40,8 +40,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.za869765.imagine.applyScreenshotFlag
+import com.za869765.imagine.data.api.ManagementClient
 import com.za869765.imagine.data.prefs.SecurePrefs
+import kotlinx.coroutines.launch
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -81,6 +89,77 @@ fun SettingsScreen(
 
     var showBudgetEditor by remember { mutableStateOf(false) }
     var showClearDataConfirm by remember { mutableStateOf(false) }
+
+    // ── xAI 後台(Management API) ─────────────────────
+    val scope = rememberCoroutineScope()
+    var managementKey by remember { mutableStateOf(prefs.managementKey.orEmpty()) }
+    var teamId by remember { mutableStateOf(prefs.teamId.orEmpty()) }
+    var showMgmtKeyEditor by remember { mutableStateOf(false) }
+    var showTeamIdEditor by remember { mutableStateOf(false) }
+    var realBalance by remember { mutableStateOf<String?>(null) }
+    var realSpent by remember { mutableStateOf<String?>(null) }
+    var syncing by remember { mutableStateOf(false) }
+    var syncedAt by remember { mutableStateOf<String?>(null) }
+    var syncError by remember { mutableStateOf<String?>(null) }
+
+    fun syncBilling() {
+        if (managementKey.isBlank() || teamId.isBlank()) return
+        scope.launch {
+            syncing = true
+            syncError = null
+            try {
+                val api = ManagementClient.build(managementKey)
+                val balance = api.getPrepaidBalance(teamId)
+                val invoice = api.getInvoicePreview(teamId)
+                realBalance = balance.total?.value
+                realSpent = invoice.coreInvoice?.amountAfterVat
+                    ?: invoice.coreInvoice?.amountBeforeVat
+                syncedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+            } catch (e: retrofit2.HttpException) {
+                val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                syncError = "HTTP ${e.code()}" + (body?.let { " — $it" } ?: "")
+            } catch (e: Throwable) {
+                syncError = "${e::class.simpleName}: ${e.message}"
+            } finally {
+                syncing = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (prefs.isManagementSet) syncBilling()
+    }
+
+    if (showMgmtKeyEditor) {
+        SimpleStringEditDialog(
+            title = "Management Key",
+            hint = "xai-mgmt-...",
+            current = managementKey,
+            mask = true,
+            onDismiss = { showMgmtKeyEditor = false },
+            onSave = {
+                managementKey = it
+                prefs.managementKey = it.ifBlank { null }
+                showMgmtKeyEditor = false
+                syncBilling()
+            },
+        )
+    }
+    if (showTeamIdEditor) {
+        SimpleStringEditDialog(
+            title = "Team ID",
+            hint = "從 console URL 複製,UUID 格式",
+            current = teamId,
+            mask = false,
+            onDismiss = { showTeamIdEditor = false },
+            onSave = {
+                teamId = it
+                prefs.teamId = it.ifBlank { null }
+                showTeamIdEditor = false
+                syncBilling()
+            },
+        )
+    }
 
     if (showClearDataConfirm) {
         com.za869765.imagine.ui.dialog.ClearDataDialog(
@@ -301,6 +380,105 @@ fun SettingsScreen(
                 }
             }
 
+            // ── xAI 後台(真實帳單)──
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("xAI 後台（真實帳單）")
+                ImagineCard(pad = 0) {
+                    Column {
+                        SettingRow(divider = true, onClick = { showMgmtKeyEditor = true }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Management Key", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    maskKey(managementKey.ifBlank { null }),
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            TextActionButton(label = "編輯", onClick = { showMgmtKeyEditor = true })
+                        }
+                        SettingRow(divider = true, onClick = { showTeamIdEditor = true }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Team ID", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    teamId.ifBlank { "未設定" },
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            TextActionButton(label = "編輯", onClick = { showTeamIdEditor = true })
+                        }
+                        if (managementKey.isNotBlank() && teamId.isNotBlank()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text("Prepaid 餘額", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        realBalance?.let { "$$it" } ?: "—",
+                                        fontSize = 16.sp, fontWeight = FontWeight.W700,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text("本期已花(xAI)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        realSpent?.let { "$$it" } ?: "—",
+                                        fontSize = 16.sp, fontWeight = FontWeight.W700,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        syncedAt?.let { "最後同步 $it" } ?: "尚未同步",
+                                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    OutlinedActionButton(
+                                        label = if (syncing) "同步中…" else "同步",
+                                        enabled = !syncing,
+                                        onClick = { syncBilling() },
+                                    )
+                                }
+                                syncError?.let { err ->
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        err,
+                                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.error,
+                                        lineHeight = 16.sp,
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    "輸入 Management Key + Team ID 後可查詢 xAI 後台真實餘額",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 18.sp,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── 安全 ──
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("安全")
@@ -387,7 +565,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.1",
+                    "Imagine v1.0.2",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,
@@ -561,4 +739,78 @@ private fun maskKey(key: String?): String {
     if (key.isNullOrBlank()) return "未設定"
     if (key.length <= 8) return key
     return key.take(4) + "•".repeat(13) + key.takeLast(3)
+}
+
+@Composable
+private fun SimpleStringEditDialog(
+    title: String,
+    current: String,
+    hint: String,
+    mask: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var input by remember { mutableStateOf(current) }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 4.dp,
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    hint,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    BasicTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        textStyle = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        visualTransformation = if (mask) PasswordVisualTransformation() else VisualTransformation.None,
+                        singleLine = true,
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextActionButton(label = "清除", onClick = { onSave("") })
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextActionButton(label = "取消", onClick = onDismiss)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedActionButton(label = "儲存", onClick = { onSave(input.trim()) })
+                }
+            }
+        }
+    }
 }

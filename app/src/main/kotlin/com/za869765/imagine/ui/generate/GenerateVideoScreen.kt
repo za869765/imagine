@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -104,6 +105,7 @@ fun GenerateVideoScreen(
     var elapsed by remember { mutableStateOf(0) }
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
+    var lastError by rememberSaveable { mutableStateOf("") }
     var currentSpent by remember { mutableStateOf(prefs.spent) }
 
     val maxImages = if (mode == VideoMode.Img2Vid) 1 else 3
@@ -179,15 +181,16 @@ fun GenerateVideoScreen(
                         usageTracker.refundVideo(capturedDuration)
                         currentSpent = prefs.spent
                     }
-                    val msg = when (gen.kind) {
+                    val tag = when (gen.kind) {
                         ErrorKind.Unauthorized -> "API Key 無效"
                         ErrorKind.RateLimited -> "請求太頻繁"
-                        ErrorKind.ContentPolicy -> "未通過 xAI 審核（費用以後台為準）"
+                        ErrorKind.ContentPolicy -> "請求被拒（費用以 xAI 後台為準）"
                         ErrorKind.Network -> "網路錯誤（已退費）"
                         ErrorKind.Server -> "xAI 伺服器錯誤"
-                        ErrorKind.Unknown -> "送出失敗：${gen.message.take(80)}"
+                        ErrorKind.Unknown -> "送出失敗"
                     }
-                    Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                    lastError = "$tag\n${gen.message}"
+                    Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
                     return@launch
                 }
                 is ApiResult.Success -> {
@@ -218,6 +221,7 @@ fun GenerateVideoScreen(
                                         done = true
                                     }
                                     "failed", "expired" -> {
+                                        lastError = "影片任務 ${s.status}（費用以 xAI 後台為準）"
                                         Toast.makeText(
                                             ctx, "影片失敗（${s.status}，費用以 xAI 後台為準）",
                                             Toast.LENGTH_LONG,
@@ -230,9 +234,10 @@ fun GenerateVideoScreen(
                             is ApiResult.Error -> {
                                 pollErrors++
                                 if (pollErrors >= 3 || poll.kind == ErrorKind.Unauthorized) {
+                                    lastError = "輪詢失敗（${poll.kind}）\n${poll.message}"
                                     Toast.makeText(
                                         ctx,
-                                        "輪詢失敗（${poll.kind}）：${poll.message.take(60)}",
+                                        "輪詢失敗（${poll.kind}）：${poll.message.take(200)}",
                                         Toast.LENGTH_LONG,
                                     ).show()
                                     done = true
@@ -438,6 +443,36 @@ fun GenerateVideoScreen(
                     enabled = prompt.isNotBlank() && affordable && prefs.isApiKeySet,
                     onClick = ::runGenerate,
                 )
+            }
+
+            if (lastError.isNotBlank()) {
+                ImagineCard(pad = 14) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "錯誤訊息（可長按選取）",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W600,
+                                letterSpacing = 0.08.sp,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            OutlinedActionButton(label = "清除", onClick = { lastError = "" })
+                        }
+                        SelectionContainer {
+                            Text(
+                                lastError,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 18.sp,
+                            )
+                        }
+                    }
+                }
             }
 
             resultVideoUrl?.let { url ->

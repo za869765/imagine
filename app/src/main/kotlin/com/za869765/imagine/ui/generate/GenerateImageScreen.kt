@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,6 +77,7 @@ fun GenerateImageScreen(
     var resultUrls by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastMeta by rememberSaveable { mutableStateOf("") }
+    var lastError by rememberSaveable { mutableStateOf("") }
 
     val estimated = 0.05 * n
     val remaining = (prefs.budgetCap - currentSpent).coerceAtLeast(0.0)
@@ -102,6 +104,7 @@ fun GenerateImageScreen(
                     resultUrls = result.value
                     lastPrompt = capturedPrompt
                     lastMeta = "$capturedAr · $capturedRes · ${capturedN} 張"
+                    lastError = ""
                     result.value.forEach { url ->
                         scope.launch { MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt) }
                     }
@@ -116,15 +119,16 @@ fun GenerateImageScreen(
                         usageTracker.refundImage(capturedN)
                         currentSpent = prefs.spent
                     }
-                    val msg = when (result.kind) {
-                        ErrorKind.Unauthorized -> "API Key 無效 → 請至設定 → API Key"
-                        ErrorKind.RateLimited -> "請求太頻繁，請稍候再試"
-                        ErrorKind.ContentPolicy -> "內容未通過 xAI 審核（費用以 xAI 後台為準）"
-                        ErrorKind.Network -> "網路錯誤，請檢查連線（已退費）"
-                        ErrorKind.Server -> "xAI 伺服器錯誤，請稍後再試"
-                        ErrorKind.Unknown -> "失敗：${result.message.take(80)}"
+                    val tag = when (result.kind) {
+                        ErrorKind.Unauthorized -> "API Key 無效"
+                        ErrorKind.RateLimited -> "請求太頻繁"
+                        ErrorKind.ContentPolicy -> "審核或請求被拒（費用以 xAI 後台為準）"
+                        ErrorKind.Network -> "網路錯誤（已退費）"
+                        ErrorKind.Server -> "xAI 伺服器錯誤"
+                        ErrorKind.Unknown -> "失敗"
                     }
-                    Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                    lastError = "$tag\n${result.message}"
+                    Toast.makeText(ctx, "$tag — ${result.message.take(200)}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -214,6 +218,40 @@ fun GenerateImageScreen(
                 enabled = prompt.isNotBlank() && affordable && !loading && prefs.isApiKeySet,
                 onClick = ::runGenerate,
             )
+
+            if (lastError.isNotBlank()) {
+                ImagineCard(pad = 14) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "錯誤訊息（可長按選取）",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W600,
+                                letterSpacing = 0.08.sp,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            ImagineChip(
+                                label = "清除",
+                                variant = ChipVariant.Tonal,
+                                onClick = { lastError = "" },
+                            )
+                        }
+                        SelectionContainer {
+                            Text(
+                                lastError,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 18.sp,
+                            )
+                        }
+                    }
+                }
+            }
 
             if (resultUrls.isNotEmpty()) {
                 Text(

@@ -95,10 +95,19 @@ class ImagineRepository(private val api: XaiApi) {
             in 500..599 -> ErrorKind.Server
             else -> ErrorKind.Unknown
         }
-        ApiResult.Error(kind, e.message ?: "HTTP ${e.code()}")
+        // Include the response body — Retrofit's e.message() only gives "HTTP 400 ..."
+        // and hides xAI's actual error text. Without this, the user sees a useless toast.
+        val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+        val msg = buildString {
+            append("HTTP ${e.code()}")
+            if (!body.isNullOrBlank()) append(" — ").append(body.trim())
+        }
+        ApiResult.Error(kind, msg)
     } catch (e: java.io.IOException) {
         ApiResult.Error(ErrorKind.Network, e.message ?: "Network error")
+    } catch (e: kotlinx.serialization.SerializationException) {
+        ApiResult.Error(ErrorKind.Unknown, "解析失敗：${e.message ?: "Serialization error"}")
     } catch (e: Throwable) {
-        ApiResult.Error(ErrorKind.Unknown, e.message ?: "Unknown error")
+        ApiResult.Error(ErrorKind.Unknown, "${e::class.simpleName}: ${e.message ?: "Unknown error"}")
     }
 }
