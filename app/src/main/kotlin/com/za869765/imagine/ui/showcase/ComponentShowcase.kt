@@ -104,9 +104,21 @@ fun ComponentShowcase() {
             // ── ParamPicker ──
             SectionHeader("PARAM PICKERS")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ParamPicker(label = "解析度", value = "1k", modifier = Modifier.weight(1f))
-                ParamPicker(label = "長寬比", value = "16:9", modifier = Modifier.weight(1f))
-                ParamPicker(label = "數量", value = "1", modifier = Modifier.weight(1f))
+                ParamPicker(
+                    label = "解析度", value = "1k",
+                    options = listOf("1k", "2k"), onSelect = {},
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "長寬比", value = "16:9",
+                    options = listOf("16:9", "1:1"), onSelect = {},
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "數量", value = "1",
+                    options = listOf("1", "2", "3", "4"), onSelect = {},
+                    modifier = Modifier.weight(1f),
+                )
             }
 
             // ── Chips ──

@@ -38,6 +38,25 @@ fun ImagineRoot() {
     // First time month switch → auto-reset usage
     LaunchedEffect(Unit) { prefs.maybeAutoResetForNewMonth() }
 
+    // Observe lock state. When AppLockManager flips locked=true (because the
+    // app went to background), redirect to the Lock screen — unless we're
+    // already on Splash / PinSetup / ApiKeySetup / Lock.
+    val isLocked = lockManager.lockedState.value
+    LaunchedEffect(isLocked) {
+        if (!isLocked) return@LaunchedEffect
+        if (!prefs.isPinSet) return@LaunchedEffect
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        val onboardingRoutes = setOf(
+            Routes.SPLASH, Routes.PIN_SETUP, Routes.API_KEY_SETUP, Routes.LOCK,
+        )
+        if (currentRoute != null && currentRoute !in onboardingRoutes) {
+            navController.navigate(Routes.LOCK) {
+                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Routes.SPLASH,

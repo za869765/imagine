@@ -132,9 +132,28 @@ fun GenerateVideoScreen(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ParamPicker(label = "秒數", value = "$duration 秒", modifier = Modifier.weight(1f))
-                ParamPicker(label = "長寬比", value = aspect, modifier = Modifier.weight(1f))
-                ParamPicker(label = "解析度", value = resolution, modifier = Modifier.weight(1f))
+                ParamPicker(
+                    label = "秒數",
+                    value = duration.toString(),
+                    options = (1..15).map { it.toString() },
+                    onSelect = { duration = it.toIntOrNull() ?: 8 },
+                    displayName = { "$it 秒" },
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "長寬比",
+                    value = aspect,
+                    options = listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3"),
+                    onSelect = { aspect = it },
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "解析度",
+                    value = resolution,
+                    options = listOf("480p", "720p"),
+                    onSelect = { resolution = it },
+                    modifier = Modifier.weight(1f),
+                )
             }
 
             ImagineCard(pad = 14) {

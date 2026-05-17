@@ -86,9 +86,27 @@ fun GenerateImageScreen(
             PromptInput(value = prompt, onValueChange = { prompt = it })
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ParamPicker(label = "解析度", value = resolution, modifier = Modifier.weight(1f))
-                ParamPicker(label = "長寬比", value = aspectRatio, modifier = Modifier.weight(1f))
-                ParamPicker(label = "數量", value = n.toString(), modifier = Modifier.weight(1f))
+                ParamPicker(
+                    label = "解析度",
+                    value = resolution,
+                    options = listOf("1k", "2k"),
+                    onSelect = { resolution = it },
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "長寬比",
+                    value = aspectRatio,
+                    options = listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3", "auto"),
+                    onSelect = { aspectRatio = it },
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "數量",
+                    value = n.toString(),
+                    options = (1..4).map { it.toString() },
+                    onSelect = { n = it.toIntOrNull() ?: 1 },
+                    modifier = Modifier.weight(1f),
+                )
             }
 
             // 預估費用 Card
