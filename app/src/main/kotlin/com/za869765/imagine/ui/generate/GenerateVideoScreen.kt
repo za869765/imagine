@@ -1,5 +1,9 @@
 package com.za869765.imagine.ui.generate
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,11 +27,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagePlaceholder
 import com.za869765.imagine.ui.component.ImagineBottomNav
@@ -62,6 +69,21 @@ fun GenerateVideoScreen(
     var duration by remember { mutableStateOf(8) }
     var aspect by remember { mutableStateOf("16:9") }
     var resolution by remember { mutableStateOf("480p") }
+    var sourceImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
+
+    val maxImages = if (mode == VideoMode.Img2Vid) 1 else 3
+    val pickImage = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri: Uri? ->
+        if (uri != null && sourceImages.size < maxImages) {
+            sourceImages = sourceImages + uri
+        }
+    }
+    val launchPick: () -> Unit = {
+        pickImage.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
+    }
 
     val estimated = duration * 0.05
     val remaining = (prefs.budgetCap - prefs.spent).coerceAtLeast(0.0)
@@ -117,9 +139,19 @@ fun GenerateVideoScreen(
                         if (mode == VideoMode.Img2Vid) "起始圖" else "參考圖（最多 3 張）",
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AddImageSlot()
-                        SelectedImageSlot()
-                        if (mode == VideoMode.Ref) SelectedImageSlot()
+                        sourceImages.forEachIndexed { index, uri ->
+                            SelectedImageSlot(
+                                uri = uri,
+                                onRemove = {
+                                    sourceImages = sourceImages
+                                        .toMutableList()
+                                        .also { it.removeAt(index) }
+                                },
+                            )
+                        }
+                        if (sourceImages.size < maxImages) {
+                            AddImageSlot(onClick = launchPick)
+                        }
                     }
                 }
             }
@@ -218,17 +250,17 @@ fun GenerateVideoScreen(
 }
 
 @Composable
-private fun AddImageSlot() {
+private fun AddImageSlot(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(80.dp)
             .clip(RoundedCornerShape(12.dp))
             .border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-            .clickable { /* TODO: pick image */ },
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         ImagineIcon(
-            name = "auto_awesome",
+            name = "add_photo_alternate",
             size = 28.dp,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -236,11 +268,16 @@ private fun AddImageSlot() {
 }
 
 @Composable
-private fun SelectedImageSlot() {
+private fun SelectedImageSlot(uri: Uri, onRemove: () -> Unit) {
     Box(modifier = Modifier.size(80.dp)) {
-        ImagePlaceholder(
-            aspect = 1f,
-            modifier = Modifier.size(80.dp),
+        AsyncImage(
+            model = uri,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         )
         Box(
             modifier = Modifier
@@ -248,14 +285,11 @@ private fun SelectedImageSlot() {
                 .size(22.dp)
                 .clip(RoundedCornerShape(11.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(11.dp)),
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(11.dp))
+                .clickable(onClick = onRemove),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                "×",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            ImagineIcon(name = "close", size = 14.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

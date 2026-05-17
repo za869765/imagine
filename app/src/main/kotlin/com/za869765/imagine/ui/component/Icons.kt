@@ -6,14 +6,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
@@ -44,6 +48,12 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "settings" to true -> Icons.Filled.Settings
     "arrow_back" to false -> Icons.AutoMirrored.Outlined.ArrowBack
     "arrow_back" to true -> Icons.AutoMirrored.Outlined.ArrowBack
+    "add" to false -> Icons.Outlined.Add
+    "add" to true -> Icons.Filled.Add
+    "add_photo_alternate" to false -> Icons.Outlined.AddPhotoAlternate
+    "add_photo_alternate" to true -> Icons.Outlined.AddPhotoAlternate
+    "close" to false -> Icons.Outlined.Close
+    "close" to true -> Icons.Outlined.Close
     "auto_awesome" to false -> Icons.Outlined.AutoAwesome
     "auto_awesome" to true -> Icons.Filled.AutoAwesome
     "edit" to false -> Icons.Outlined.Edit

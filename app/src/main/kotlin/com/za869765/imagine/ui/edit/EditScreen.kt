@@ -1,5 +1,9 @@
 package com.za869765.imagine.ui.edit
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,11 +28,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
@@ -55,6 +61,20 @@ fun EditScreen(
 
     var mode by remember { mutableStateOf(EditMode.ImageEdit) }
     var prompt by remember { mutableStateOf("") }
+    var sourceUri by remember { mutableStateOf<Uri?>(null) }
+
+    val pickMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri: Uri? ->
+        if (uri != null) sourceUri = uri
+    }
+    val launchPick: () -> Unit = {
+        val type = if (mode == EditMode.ImageEdit)
+            ActivityResultContracts.PickVisualMedia.ImageOnly
+        else
+            ActivityResultContracts.PickVisualMedia.VideoOnly
+        pickMedia.launch(PickVisualMediaRequest(type))
+    }
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
@@ -80,11 +100,16 @@ fun EditScreen(
                     EditMode.VideoExtend -> "ext"
                 },
                 onSelected = {
-                    mode = when (it) {
+                    val newMode = when (it) {
                         "img" -> EditMode.ImageEdit
                         "vid" -> EditMode.VideoEdit
                         else -> EditMode.VideoExtend
                     }
+                    // 切換 image/video 模式時清掉舊來源（型別不同）
+                    if ((newMode == EditMode.ImageEdit) != (mode == EditMode.ImageEdit)) {
+                        sourceUri = null
+                    }
+                    mode = newMode
                 },
             )
 
@@ -95,43 +120,75 @@ fun EditScreen(
                         .fillMaxWidth()
                         .height(200.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                        .border(
+                            if (sourceUri == null) 1.5.dp else 0.dp,
+                            MaterialTheme.colorScheme.outline,
+                            RoundedCornerShape(12.dp),
+                        )
                         .background(MaterialTheme.colorScheme.surfaceDim)
-                        .clickable { /* TODO: pick source */ },
+                        .clickable(onClick = launchPick),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
+                    if (sourceUri != null) {
+                        AsyncImage(
+                            model = sourceUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                        )
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .size(28.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { sourceUri = null },
                             contentAlignment = Alignment.Center,
                         ) {
                             ImagineIcon(
-                                name = "auto_awesome",
-                                size = 24.dp,
-                                fill = 1,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                name = "close",
+                                size = 18.dp,
+                                tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
-                        Text(
-                            text = when (mode) {
-                                EditMode.ImageEdit -> "選擇圖片"
-                                else -> "選擇影片"
-                            },
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            "或從歷史挑選",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                ImagineIcon(
+                                    name = "add_photo_alternate",
+                                    size = 24.dp,
+                                    fill = 1,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                            Text(
+                                text = when (mode) {
+                                    EditMode.ImageEdit -> "選擇圖片"
+                                    else -> "選擇影片"
+                                },
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "點此從相簿選取",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
