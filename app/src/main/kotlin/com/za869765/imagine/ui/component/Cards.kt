@@ -3,6 +3,7 @@ package com.za869765.imagine.ui.component
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -36,14 +37,20 @@ fun ImagineCard(
     }
 
     Surface(
-        modifier = modifier.then(
-            if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(modifier)
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+            ),
         shape = shape,
         color = bg,
         border = border,
     ) {
-        Box(modifier = Modifier.padding(pad.dp)) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(pad.dp),
+            propagateMinConstraints = true,
+        ) {
             content()
         }
     }

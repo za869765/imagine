@@ -3,6 +3,7 @@ package com.za869765.imagine.ui.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ fun ImagineScreen(
         }
         Column(
             modifier = Modifier
+                .fillMaxWidth()
                 .weight(1f)
                 .background(bg)
                 .let { if (scroll) it.verticalScroll(rememberScrollState()) else it },
