@@ -31,7 +31,6 @@ import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.TextActionButton
-import com.za869765.imagine.ui.theme.LocalBudgetColors
 
 // ─────────────────────────────────────────────────────────────
 // Reusable dialog shell — matches imagine-screens.jsx Dialog
@@ -148,7 +147,6 @@ fun BudgetExceededDialog(
 fun ModerationFailedDialog(
     onConfirm: () -> Unit,
 ) {
-    val budgetColors = LocalBudgetColors.current
     ImagineDialogShell(
         icon = "lock",
         iconBg = MaterialTheme.colorScheme.secondaryContainer,
@@ -182,12 +180,12 @@ fun ModerationFailedDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    ImagineIcon(name = "check", size = 16.dp, fill = 1, tint = budgetColors.ok)
+                    ImagineIcon(name = "warning", size = 16.dp, fill = 1, tint = MaterialTheme.colorScheme.error)
                     Text(
-                        "本次未扣費",
+                        "費用以 xAI 後台為準",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.W600,
-                        color = budgetColors.ok,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }

@@ -31,6 +31,8 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VpnKey
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -82,6 +84,8 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "content_copy" to true -> Icons.Outlined.ContentCopy
     "visibility" to false -> Icons.Outlined.Visibility
     "visibility" to true -> Icons.Outlined.Visibility
+    "warning" to false -> Icons.Outlined.Warning
+    "warning" to true -> Icons.Filled.Warning
     else -> Icons.Outlined.AutoAwesome
 }
 

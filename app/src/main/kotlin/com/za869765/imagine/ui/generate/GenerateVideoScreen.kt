@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
+import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.data.usage.UsageTracker
@@ -85,29 +87,31 @@ fun GenerateVideoScreen(
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
     val usageTracker = remember(prefs) { UsageTracker(prefs) }
 
-    var prompt by remember { mutableStateOf("") }
-    var mode by remember {
+    var prompt by rememberSaveable { mutableStateOf("") }
+    var mode by rememberSaveable {
         mutableStateOf(if (initialImageUri != null) VideoMode.Img2Vid else VideoMode.T2V)
     }
-    var duration by remember { mutableStateOf(8) }
-    var aspect by remember { mutableStateOf("16:9") }
-    var resolution by remember { mutableStateOf("480p") }
-    var sourceImages by remember {
-        mutableStateOf(initialImageUri?.let { listOf(it) } ?: emptyList())
+    var duration by rememberSaveable { mutableStateOf(8) }
+    var aspect by rememberSaveable { mutableStateOf("1:1") }
+    var resolution by rememberSaveable { mutableStateOf("480p") }
+    // sourceImages 是 List<Uri> — Uri 本身可序列化,但 List<Uri> 沒 Saver,改存字串 list
+    var sourceImageStrings by rememberSaveable {
+        mutableStateOf(initialImageUri?.let { listOf(it.toString()) } ?: emptyList())
     }
+    val sourceImages = sourceImageStrings.map { Uri.parse(it) }
 
     var generating by remember { mutableStateOf(false) }
     var elapsed by remember { mutableStateOf(0) }
-    var resultVideoUrl by remember { mutableStateOf<String?>(null) }
-    var lastPrompt by remember { mutableStateOf("") }
+    var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var lastPrompt by rememberSaveable { mutableStateOf("") }
     var currentSpent by remember { mutableStateOf(prefs.spent) }
 
     val maxImages = if (mode == VideoMode.Img2Vid) 1 else 3
     val pickImage = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri: Uri? ->
-        if (uri != null && sourceImages.size < maxImages) {
-            sourceImages = sourceImages + uri
+        if (uri != null && sourceImageStrings.size < maxImages) {
+            sourceImageStrings = sourceImageStrings + uri.toString()
         }
     }
     val launchPick: () -> Unit = {
@@ -171,57 +175,76 @@ fun GenerateVideoScreen(
             when (gen) {
                 is ApiResult.Error -> {
                     generating = false
-                    usageTracker.refundVideo(capturedDuration)
-                    currentSpent = prefs.spent
-                    Toast.makeText(
-                        ctx,
-                        "生成失敗：${gen.message.take(80)}",
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    if (gen.kind == ErrorKind.Network) {
+                        usageTracker.refundVideo(capturedDuration)
+                        currentSpent = prefs.spent
+                    }
+                    val msg = when (gen.kind) {
+                        ErrorKind.Unauthorized -> "API Key 無效"
+                        ErrorKind.RateLimited -> "請求太頻繁"
+                        ErrorKind.ContentPolicy -> "未通過 xAI 審核（費用以後台為準）"
+                        ErrorKind.Network -> "網路錯誤（已退費）"
+                        ErrorKind.Server -> "xAI 伺服器錯誤"
+                        ErrorKind.Unknown -> "送出失敗：${gen.message.take(80)}"
+                    }
+                    Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
                     return@launch
                 }
                 is ApiResult.Success -> {
                     val requestId = gen.value
                     var done = false
                     var attempts = 0
+                    var pollErrors = 0
                     while (generating && !done && attempts < 60) {
                         delay(5000)
                         attempts++
-                        val poll = repository.pollVideoStatus(requestId)
-                        if (poll is ApiResult.Success) {
-                            val s = poll.value
-                            when (s.status) {
-                                "done" -> {
-                                    val url = s.video?.url
-                                    if (url != null) {
-                                        resultVideoUrl = url
-                                        lastPrompt = capturedPrompt
-                                        scope.launch {
-                                            MediaSaver.saveVideoFromUrl(ctx, url, capturedPrompt)
-                                            Toast.makeText(
-                                                ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT,
-                                            ).show()
+                        when (val poll = repository.pollVideoStatus(requestId)) {
+                            is ApiResult.Success -> {
+                                pollErrors = 0
+                                val s = poll.value
+                                when (s.status) {
+                                    "done" -> {
+                                        val url = s.video?.url
+                                        if (url != null) {
+                                            resultVideoUrl = url
+                                            lastPrompt = capturedPrompt
+                                            scope.launch {
+                                                MediaSaver.saveVideoFromUrl(ctx, url, capturedPrompt)
+                                                Toast.makeText(
+                                                    ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT,
+                                                ).show()
+                                            }
                                         }
+                                        done = true
                                     }
-                                    done = true
+                                    "failed", "expired" -> {
+                                        Toast.makeText(
+                                            ctx, "影片失敗（${s.status}，費用以 xAI 後台為準）",
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                        done = true
+                                    }
+                                    else -> { /* still pending */ }
                                 }
-                                "failed", "expired" -> {
-                                    usageTracker.refundVideo(capturedDuration)
-                                    currentSpent = prefs.spent
+                            }
+                            is ApiResult.Error -> {
+                                pollErrors++
+                                if (pollErrors >= 3 || poll.kind == ErrorKind.Unauthorized) {
                                     Toast.makeText(
-                                        ctx, "影片失敗（${s.status}），已退費",
+                                        ctx,
+                                        "輪詢失敗（${poll.kind}）：${poll.message.take(60)}",
                                         Toast.LENGTH_LONG,
                                     ).show()
                                     done = true
                                 }
-                                else -> { /* still pending, keep looping */ }
                             }
                         }
                     }
                     if (!done && generating) {
-                        usageTracker.refundVideo(capturedDuration)
-                        currentSpent = prefs.spent
-                        Toast.makeText(ctx, "等待超時，已退費", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            ctx, "等待超時（5 分鐘）— 費用以 xAI 後台為準",
+                            Toast.LENGTH_LONG,
+                        ).show()
                     }
                     generating = false
                 }
@@ -283,7 +306,7 @@ fun GenerateVideoScreen(
                             SelectedImageSlot(
                                 uri = uri,
                                 onRemove = {
-                                    sourceImages = sourceImages
+                                    sourceImageStrings = sourceImageStrings
                                         .toMutableList()
                                         .also { it.removeAt(index) }
                                 },

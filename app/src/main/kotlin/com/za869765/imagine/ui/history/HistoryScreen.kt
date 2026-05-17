@@ -6,17 +6,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,19 +25,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.za869765.imagine.ui.component.ImagePlaceholder
+import coil3.compose.AsyncImage
+import com.za869765.imagine.data.storage.MediaEntry
+import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.ui.component.ImagineBottomNav
+import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineIconButton
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import java.time.Instant
+import java.time.ZoneId
 
+// Kept for HistoryDetailScreen — eventually replace with MediaEntry navigation.
 data class HistoryItem(
     val id: String,
     val date: String,
@@ -45,36 +53,29 @@ data class HistoryItem(
     val duration: String? = null,
 )
 
-private val SAMPLE_HISTORY = listOf(
-    HistoryItem("1", "2026-05-17"),
-    HistoryItem("2", "2026-05-17", isVideo = true, duration = "0:08"),
-    HistoryItem("3", "2026-05-17"),
-    HistoryItem("4", "2026-05-17"),
-    HistoryItem("5", "2026-05-17"),
-    HistoryItem("6", "2026-05-17"),
-    HistoryItem("7", "2026-05-16", isVideo = true, duration = "0:10"),
-    HistoryItem("8", "2026-05-16"),
-    HistoryItem("9", "2026-05-16"),
-    HistoryItem("10", "2026-05-16"),
-    HistoryItem("11", "2026-05-16"),
-    HistoryItem("12", "2026-05-16", isVideo = true, duration = "0:05"),
-    HistoryItem("13", "2026-05-15"),
-    HistoryItem("14", "2026-05-15"),
-    HistoryItem("15", "2026-05-15"),
-)
-
 @Composable
 fun HistoryScreen(
     onNavSelected: (NavTab) -> Unit,
     onItemClick: (HistoryItem) -> Unit,
 ) {
+    val ctx = LocalContext.current
+    var entries by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("all") }
-    val items = when (filter) {
-        "img" -> SAMPLE_HISTORY.filter { !it.isVideo }
-        "vid" -> SAMPLE_HISTORY.filter { it.isVideo }
-        else -> SAMPLE_HISTORY
+
+    LaunchedEffect(Unit) {
+        entries = MediaHistory.loadAll(ctx)
+        loaded = true
     }
-    val grouped = items.groupBy { it.date }
+
+    val items = when (filter) {
+        "img" -> entries.filter { !it.isVideo }
+        "vid" -> entries.filter { it.isVideo }
+        else -> entries
+    }
+    val grouped = items.groupBy { formatDate(it.addedAtSec) }
+    val imgCount = entries.count { !it.isVideo }
+    val vidCount = entries.count { it.isVideo }
 
     ImagineScreen(
         appBar = {
@@ -91,14 +92,19 @@ fun HistoryScreen(
         Column(modifier = Modifier.padding(16.dp)) {
             SegmentedTab(
                 options = listOf(
-                    SegmentedOption("all", "全部 ${SAMPLE_HISTORY.size}"),
-                    SegmentedOption("img", "圖片 ${SAMPLE_HISTORY.count { !it.isVideo }}"),
-                    SegmentedOption("vid", "影片 ${SAMPLE_HISTORY.count { it.isVideo }}"),
+                    SegmentedOption("all", "全部 ${entries.size}"),
+                    SegmentedOption("img", "圖片 $imgCount"),
+                    SegmentedOption("vid", "影片 $vidCount"),
                 ),
                 activeId = filter,
                 onSelected = { filter = it },
             )
             Spacer(modifier = Modifier.height(20.dp))
+
+            if (loaded && items.isEmpty()) {
+                EmptyState()
+                return@Column
+            }
 
             grouped.forEach { (date, list) ->
                 Text(
@@ -110,7 +116,6 @@ fun HistoryScreen(
                     letterSpacing = 0.04.sp,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
-                // 3-column grid emulated via manual rows since we're already in Column
                 val rows = list.chunked(3)
                 rows.forEach { row ->
                     androidx.compose.foundation.layout.Row(
@@ -119,37 +124,67 @@ fun HistoryScreen(
                             .fillMaxWidth()
                             .padding(bottom = 6.dp),
                     ) {
-                        row.forEach { item ->
+                        row.forEach { entry ->
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { onItemClick(item) },
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .clickable {
+                                        onItemClick(
+                                            HistoryItem(
+                                                id = entry.uri.toString(),
+                                                date = date,
+                                                isVideo = entry.isVideo,
+                                                duration = entry.durationMs?.let { formatDuration(it) },
+                                            ),
+                                        )
+                                    },
                             ) {
-                                ImagePlaceholder(
-                                    aspect = 1f,
-                                    video = item.isVideo,
+                                AsyncImage(
+                                    model = entry.uri,
+                                    contentDescription = entry.displayName,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
                                 )
-                                if (item.isVideo && item.duration != null) {
+                                if (entry.isVideo) {
                                     Box(
                                         modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .padding(6.dp)
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(Color.Black.copy(alpha = 0.6f))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                            .align(Alignment.Center)
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(18.dp))
+                                            .background(Color.Black.copy(alpha = 0.55f)),
+                                        contentAlignment = Alignment.Center,
                                     ) {
-                                        Text(
-                                            item.duration,
-                                            color = Color.White,
-                                            fontSize = 10.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.W500,
+                                        ImagineIcon(
+                                            name = "play_arrow",
+                                            size = 20.dp,
+                                            fill = 1,
+                                            tint = Color.White,
                                         )
+                                    }
+                                    entry.durationMs?.let { ms ->
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(6.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color.Black.copy(alpha = 0.6f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        ) {
+                                            Text(
+                                                formatDuration(ms),
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                fontWeight = FontWeight.W500,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                        // Pad with empty cells if row has fewer than 3
                         repeat(3 - row.size) {
                             Box(modifier = Modifier.weight(1f))
                         }
@@ -159,4 +194,35 @@ fun HistoryScreen(
             }
         }
     }
+}
+
+@Composable
+private fun EmptyState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 60.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "還沒有生成紀錄",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.W600,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            "生成圖片或影片後會自動出現在這裡",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun formatDate(epochSec: Long): String =
+    Instant.ofEpochSecond(epochSec).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+
+private fun formatDuration(ms: Long): String {
+    val s = (ms / 1000).coerceAtLeast(0)
+    return "%d:%02d".format(s / 60, s % 60)
 }

@@ -1,5 +1,6 @@
 package com.za869765.imagine
 
+import android.app.Activity
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.setContent
@@ -13,17 +14,23 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.nav.ImagineRoot
 import com.za869765.imagine.ui.theme.ImagineTheme
 
+fun applyScreenshotFlag(activity: Activity, enabled: Boolean) {
+    if (enabled) {
+        activity.window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE,
+        )
+    } else {
+        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+}
+
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val prefs = SecurePrefs.get(this)
-        if (prefs.preventScreenshots) {
-            window.setFlags(
-                WindowManager.LayoutParams.FLAG_SECURE,
-                WindowManager.LayoutParams.FLAG_SECURE,
-            )
-        }
+        applyScreenshotFlag(this, prefs.preventScreenshots)
 
         enableEdgeToEdge()
         setContent {

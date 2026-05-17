@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.za869765.imagine.applyScreenshotFlag
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
@@ -324,7 +325,11 @@ fun SettingsScreen(
                         SettingRow(divider = false) {
                             Text("防止截圖與錄影", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                             Switch(checked = screenshots, onCheckedChange = {
-                                screenshots = it; prefs.preventScreenshots = it
+                                screenshots = it
+                                prefs.preventScreenshots = it
+                                (ctx as? android.app.Activity)?.let { act ->
+                                    applyScreenshotFlag(act, it)
+                                }
                             })
                         }
                     }
@@ -382,7 +387,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.0",
+                    "Imagine v1.0.1",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

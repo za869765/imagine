@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -49,12 +51,12 @@ fun ParamPicker(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(12.dp))
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
             .clickable { showSheet = true }
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Column(verticalArrangement = Arrangement.Center) {
@@ -93,7 +95,11 @@ fun ParamPicker(
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(bottom = 24.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 Text(
                     text = label,
                     fontSize = 14.sp,

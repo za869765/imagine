@@ -103,6 +103,7 @@ fun ImagineRoot() {
                     lockManager.unlock()
                     navController.navigate(Routes.GENERATE_IMAGE) {
                         popUpTo(Routes.LOCK) { inclusive = true }
+                        restoreState = true
                     }
                 },
                 onForgotPin = {
