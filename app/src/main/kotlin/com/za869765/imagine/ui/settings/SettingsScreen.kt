@@ -1,6 +1,7 @@
 package com.za869765.imagine.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,9 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,11 +29,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
@@ -36,6 +47,8 @@ import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
+import com.za869765.imagine.ui.component.OutlinedActionButton
+import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.theme.LocalBudgetColors
@@ -59,8 +72,27 @@ fun SettingsScreen(
     var lockOnLimit by remember { mutableStateOf(prefs.lockOnLimit) }
     var autoReset by remember { mutableStateOf(prefs.autoResetMonthly) }
 
-    val spent = prefs.spent
-    val cap = prefs.budgetCap
+    // 數字類欄位包成 mutableStateOf 才能即時刷新 UI
+    var budgetCap by remember { mutableStateOf(prefs.budgetCap) }
+    var spent by remember { mutableStateOf(prefs.spent) }
+    var imageCount by remember { mutableStateOf(prefs.imageCount) }
+    var videoSeconds by remember { mutableStateOf(prefs.videoSeconds) }
+
+    var showBudgetEditor by remember { mutableStateOf(false) }
+
+    if (showBudgetEditor) {
+        BudgetEditDialog(
+            current = budgetCap,
+            onDismiss = { showBudgetEditor = false },
+            onSave = { newCap ->
+                budgetCap = newCap
+                prefs.budgetCap = newCap
+                showBudgetEditor = false
+            },
+        )
+    }
+
+    val cap = budgetCap
     val ratio = (spent / cap).toFloat().coerceAtMost(1f)
     val pctText = (ratio * 100).roundToInt().toString() + "%"
 
@@ -136,11 +168,11 @@ fun SettingsScreen(
                 SectionHeader("預算控制")
                 ImagineCard(pad = 0) {
                     Column {
-                        SettingRow(divider = true) {
+                        SettingRow(divider = true, onClick = { showBudgetEditor = true }) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("預算上限", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
                                 Text(
-                                    "$" + "%.2f".format(prefs.budgetCap),
+                                    "$" + "%.2f".format(budgetCap),
                                     fontSize = 13.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.W600,
@@ -148,7 +180,7 @@ fun SettingsScreen(
                                     modifier = Modifier.padding(top = 2.dp),
                                 )
                             }
-                            TextActionButton(label = "編輯", onClick = {})
+                            TextActionButton(label = "編輯", onClick = { showBudgetEditor = true })
                         }
                         SettingRow(divider = true) {
                             Text("達上限時鎖定生成", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
@@ -171,9 +203,9 @@ fun SettingsScreen(
                 SectionHeader("本期用量（${prefs.periodStart} 起）")
                 ImagineCard(pad = 16) {
                     Column {
-                        UsageRow("圖片", "${prefs.imageCount} 張 × \$0.05", "$" + "%.2f".format(prefs.imageCount * 0.05))
+                        UsageRow("圖片", "$imageCount 張 × \$0.05", "$" + "%.2f".format(imageCount * 0.05))
                         Spacer(modifier = Modifier.height(10.dp))
-                        UsageRow("影片", "${prefs.videoSeconds} 秒 × \$0.05", "$" + "%.2f".format(prefs.videoSeconds * 0.05))
+                        UsageRow("影片", "$videoSeconds 秒 × \$0.05", "$" + "%.2f".format(videoSeconds * 0.05))
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier
@@ -245,7 +277,12 @@ fun SettingsScreen(
                             TextActionButton(
                                 label = "立即重設用量",
                                 icon = "history",
-                                onClick = { prefs.resetUsage() },
+                                onClick = {
+                                    prefs.resetUsage()
+                                    spent = 0.0
+                                    imageCount = 0
+                                    videoSeconds = 0
+                                },
                             )
                         }
                     }
@@ -352,6 +389,99 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BudgetEditDialog(
+    current: Double,
+    onDismiss: () -> Unit,
+    onSave: (Double) -> Unit,
+) {
+    var input by remember { mutableStateOf("%.0f".format(current)) }
+    val parsed = input.toDoubleOrNull()
+    val valid = parsed != null && parsed > 0 && parsed <= 9999
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 4.dp,
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    "預算上限",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "輸入新的月預算（美元）",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "$",
+                            fontSize = 20.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        BasicTextField(
+                            value = input,
+                            onValueChange = { s ->
+                                if (s.length <= 6 && s.all { it.isDigit() || it == '.' }) input = s
+                            },
+                            textStyle = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.W700,
+                                fontSize = 24.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
+                            singleLine = true,
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextActionButton(label = "取消", onClick = onDismiss)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedActionButton(
+                        label = "儲存",
+                        enabled = valid,
+                        onClick = { if (valid) onSave(parsed!!) },
+                    )
+                }
             }
         }
     }
