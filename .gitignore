@@ -1,0 +1,42 @@
+# Gradle / Build
+.gradle/
+build/
+**/build/
+local.properties
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+captures/
+.navigation/
+.externalNativeBuild/
+.cxx/
+
+# Output
+*.apk
+*.aab
+*.dex
+*.class
+*.ap_
+
+# Keystore / Secrets
+*.jks
+*.keystore
+keystore.properties
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / Temp
+*.log
+*.bak
+*.tmp
+
+# Design package (reference only, not part of build)
+design/
+design.bin

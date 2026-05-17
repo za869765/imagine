@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="imagine_background">#FFFBFE</color>
+    <color name="imagine_primary">#6750A4</color>
+    <color name="imagine_on_primary">#FFFFFF</color>
+    <color name="ic_launcher_background">#6750A4</color>
+</resources>
