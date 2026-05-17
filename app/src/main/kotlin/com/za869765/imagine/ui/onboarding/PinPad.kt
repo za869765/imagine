@@ -38,7 +38,7 @@ fun PinPad(
     modifier: Modifier = Modifier,
 ) {
     // Layout: 1 2 3 / 4 5 6 / 7 8 9 / [leading] 0 [trailing]
-    Box(modifier = modifier) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
         androidx.compose.foundation.layout.Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
