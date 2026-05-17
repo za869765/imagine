@@ -59,7 +59,7 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     onApiKeyClick: () -> Unit,
     onChangePinClick: () -> Unit,
-    onClearDataClick: () -> Unit,
+    onClearedAndReset: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -79,6 +79,17 @@ fun SettingsScreen(
     var videoSeconds by remember { mutableStateOf(prefs.videoSeconds) }
 
     var showBudgetEditor by remember { mutableStateOf(false) }
+    var showClearDataConfirm by remember { mutableStateOf(false) }
+
+    if (showClearDataConfirm) {
+        com.za869765.imagine.ui.dialog.ClearDataDialog(
+            onCancel = { showClearDataConfirm = false },
+            onConfirm = {
+                showClearDataConfirm = false
+                onClearedAndReset()
+            },
+        )
+    }
 
     if (showBudgetEditor) {
         BudgetEditDialog(
@@ -328,7 +339,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.errorContainer)
-                        .clickable(onClick = onClearDataClick),
+                        .clickable { showClearDataConfirm = true },
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),

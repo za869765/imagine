@@ -1,23 +1,21 @@
 package com.za869765.imagine.nav
 
+import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.lock.AppLockManager
 import com.za869765.imagine.ui.component.NavTab
-import com.za869765.imagine.ui.dialog.ClearDataDialog
 import com.za869765.imagine.ui.edit.EditScreen
 import com.za869765.imagine.ui.generate.GenerateImageScreen
 import com.za869765.imagine.ui.generate.GenerateVideoScreen
-import com.za869765.imagine.ui.generate.VideoGeneratingScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
 import com.za869765.imagine.ui.history.HistoryItem
 import com.za869765.imagine.ui.history.HistoryScreen
@@ -26,7 +24,10 @@ import com.za869765.imagine.ui.onboarding.LockScreen
 import com.za869765.imagine.ui.onboarding.PinSetupScreen
 import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
+import com.za869765.imagine.ui.settings.ChangePinScreen
 import com.za869765.imagine.ui.settings.SettingsScreen
+
+private const val KEY_INIT_MEDIA = "init_media_uri"
 
 @Composable
 fun ImagineRoot() {
@@ -35,12 +36,8 @@ fun ImagineRoot() {
     val lockManager = remember { AppLockManager.get(prefs) }
     val navController = rememberNavController()
 
-    // First time month switch → auto-reset usage
     LaunchedEffect(Unit) { prefs.maybeAutoResetForNewMonth() }
 
-    // Observe lock state. When AppLockManager flips locked=true (because the
-    // app went to background), redirect to the Lock screen — unless we're
-    // already on Splash / PinSetup / ApiKeySetup / Lock.
     val isLocked = lockManager.lockedState.value
     LaunchedEffect(isLocked) {
         if (!isLocked) return@LaunchedEffect
@@ -78,7 +75,6 @@ fun ImagineRoot() {
 
         composable(Routes.PIN_SETUP) {
             PinSetupScreen(onComplete = {
-                prefs.biometricEnabled = false
                 if (prefs.isApiKeySet) {
                     lockManager.unlock()
                     navController.navigate(Routes.GENERATE_IMAGE) {
@@ -123,11 +119,28 @@ fun ImagineRoot() {
                 onSwitchToVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onNavSelected = { tab -> handleTabNav(navController, tab) },
-                onGenerate = { _, _, _, _ -> /* TODO: call API */ },
+                onAnimateImage = { url ->
+                    navController.currentBackStackEntry
+                        ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                    navController.navigate(Routes.GENERATE_VIDEO)
+                },
+                onEditImage = { url ->
+                    navController.currentBackStackEntry
+                        ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                    navController.navigate(Routes.EDIT)
+                },
             )
         }
 
         composable(Routes.GENERATE_VIDEO) {
+            val initUrl = navController.previousBackStackEntry
+                ?.savedStateHandle?.get<String>(KEY_INIT_MEDIA)
+            LaunchedEffect(initUrl) {
+                if (initUrl != null) {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle?.remove<String>(KEY_INIT_MEDIA)
+                }
+            }
             GenerateVideoScreen(
                 onSwitchToImage = {
                     navController.navigate(Routes.GENERATE_IMAGE) {
@@ -136,33 +149,30 @@ fun ImagineRoot() {
                 },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onNavSelected = { tab -> handleTabNav(navController, tab) },
-                onGenerate = { _, _, _, _, _ ->
-                    navController.navigate(Routes.VIDEO_GENERATING)
-                },
-            )
-        }
-
-        composable(Routes.VIDEO_GENERATING) {
-            VideoGeneratingScreen(
-                onCancel = { navController.popBackStack() },
-                onDone = { navController.popBackStack() },
+                initialImageUri = initUrl?.let { Uri.parse(it) },
             )
         }
 
         composable(Routes.EDIT) {
+            val initUrl = navController.previousBackStackEntry
+                ?.savedStateHandle?.get<String>(KEY_INIT_MEDIA)
+            LaunchedEffect(initUrl) {
+                if (initUrl != null) {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle?.remove<String>(KEY_INIT_MEDIA)
+                }
+            }
             EditScreen(
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onNavSelected = { tab -> handleTabNav(navController, tab) },
-                onExecute = { _, _ -> /* TODO */ },
+                initialMediaUri = initUrl?.let { Uri.parse(it) },
             )
         }
 
         composable(Routes.HISTORY) {
             HistoryScreen(
                 onNavSelected = { tab -> handleTabNav(navController, tab) },
-                onItemClick = { _ ->
-                    navController.navigate(Routes.HISTORY_DETAIL)
-                },
+                onItemClick = { _ -> navController.navigate(Routes.HISTORY_DETAIL) },
             )
         }
 
@@ -179,7 +189,12 @@ fun ImagineRoot() {
             SettingsScreen(
                 onApiKeyClick = { navController.navigate(Routes.API_KEY_EDIT) },
                 onChangePinClick = { navController.navigate(Routes.CHANGE_PIN) },
-                onClearDataClick = { /* show confirm dialog handled inside? — kept simple */ },
+                onClearedAndReset = {
+                    prefs.clearAll()
+                    navController.navigate(Routes.PIN_SETUP) {
+                        popUpTo(Routes.SETTINGS) { inclusive = true }
+                    }
+                },
                 onNavSelected = { tab -> handleTabNav(navController, tab) },
             )
         }
@@ -199,7 +214,10 @@ fun ImagineRoot() {
         }
 
         composable(Routes.CHANGE_PIN) {
-            PinSetupScreen(onComplete = { navController.popBackStack() })
+            ChangePinScreen(
+                onBack = { navController.popBackStack() },
+                onComplete = { navController.popBackStack() },
+            )
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.za869765.imagine.ui.edit
 
 import android.net.Uri
+import android.util.Base64
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,18 +14,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,8 +41,17 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
+import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.repo.ApiResult
+import com.za869765.imagine.data.repo.ImagineRepository
+import com.za869765.imagine.data.storage.MediaSaver
+import com.za869765.imagine.data.usage.UsageTracker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -47,6 +63,9 @@ import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 enum class EditMode { ImageEdit, VideoEdit, VideoExtend }
 
@@ -54,26 +73,137 @@ enum class EditMode { ImageEdit, VideoEdit, VideoExtend }
 fun EditScreen(
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
-    onExecute: (mode: EditMode, prompt: String) -> Unit,
+    initialMediaUri: Uri? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
+    val scope = rememberCoroutineScope()
+    val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
+    val usageTracker = remember(prefs) { UsageTracker(prefs) }
 
     var mode by remember { mutableStateOf(EditMode.ImageEdit) }
     var prompt by remember { mutableStateOf("") }
-    var sourceUri by remember { mutableStateOf<Uri?>(null) }
+    var sourceUri by remember { mutableStateOf<Uri?>(initialMediaUri) }
+    var loading by remember { mutableStateOf(false) }
+    var elapsed by remember { mutableStateOf(0) }
+    var resultImageUrl by remember { mutableStateOf<String?>(null) }
+    var resultVideoUrl by remember { mutableStateOf<String?>(null) }
+    var lastPrompt by remember { mutableStateOf("") }
 
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri: Uri? ->
-        if (uri != null) sourceUri = uri
-    }
+    ) { uri: Uri? -> if (uri != null) sourceUri = uri }
     val launchPick: () -> Unit = {
         val type = if (mode == EditMode.ImageEdit)
             ActivityResultContracts.PickVisualMedia.ImageOnly
         else
             ActivityResultContracts.PickVisualMedia.VideoOnly
         pickMedia.launch(PickVisualMediaRequest(type))
+    }
+
+    LaunchedEffect(loading) {
+        if (loading) {
+            elapsed = 0
+            while (isActive && loading) {
+                delay(1000)
+                elapsed++
+            }
+        }
+    }
+
+    fun encodeMedia(uri: Uri): String? = runCatching {
+        if (uri.scheme == "https" || uri.scheme == "http") return@runCatching uri.toString()
+        val mime = ctx.contentResolver.getType(uri)
+            ?: if (mode == EditMode.ImageEdit) "image/png" else "video/mp4"
+        val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: return@runCatching null
+        "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }.getOrNull()
+
+    fun runExecute() {
+        val src = sourceUri
+        if (src == null) {
+            Toast.makeText(ctx, "請先選擇來源", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (prompt.isBlank()) {
+            Toast.makeText(ctx, "請輸入編輯說明", Toast.LENGTH_SHORT).show()
+            return
+        }
+        scope.launch {
+            loading = true
+            val capturedPrompt = prompt
+            val capturedMode = mode
+
+            val encoded = encodeMedia(src)
+            if (encoded == null) {
+                loading = false
+                Toast.makeText(ctx, "讀取來源失敗", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+
+            when (capturedMode) {
+                EditMode.ImageEdit -> {
+                    usageTracker.tentativeImage(1)
+                    val r = repository.editImage(capturedPrompt, listOf(encoded))
+                    loading = false
+                    handleImageResult(r, capturedPrompt, ctx, scope, usageTracker, 1) {
+                        resultImageUrl = it
+                        lastPrompt = capturedPrompt
+                    }
+                }
+                EditMode.VideoEdit, EditMode.VideoExtend -> {
+                    // Estimate duration heuristic = 8 sec until we know exact (refund handled inside)
+                    val estSec = 8
+                    usageTracker.tentativeVideo(estSec)
+                    val gen = if (capturedMode == EditMode.VideoEdit)
+                        repository.editVideo(capturedPrompt, encoded)
+                    else
+                        repository.extendVideo(capturedPrompt, encoded)
+                    if (gen is ApiResult.Error) {
+                        loading = false
+                        usageTracker.refundVideo(estSec)
+                        Toast.makeText(ctx, "失敗：${gen.message.take(80)}", Toast.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    val requestId = (gen as ApiResult.Success).value
+                    var done = false
+                    var attempts = 0
+                    while (loading && !done && attempts < 60) {
+                        delay(5000)
+                        attempts++
+                        val poll = repository.pollVideoStatus(requestId)
+                        if (poll is ApiResult.Success) {
+                            when (poll.value.status) {
+                                "done" -> {
+                                    val url = poll.value.video?.url
+                                    if (url != null) {
+                                        resultVideoUrl = url
+                                        lastPrompt = capturedPrompt
+                                        scope.launch {
+                                            MediaSaver.saveVideoFromUrl(ctx, url, capturedPrompt)
+                                            Toast.makeText(ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    done = true
+                                }
+                                "failed", "expired" -> {
+                                    usageTracker.refundVideo(estSec)
+                                    Toast.makeText(ctx, "影片失敗（${poll.value.status}），已退費", Toast.LENGTH_LONG).show()
+                                    done = true
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
+                    if (!done && loading) {
+                        usageTracker.refundVideo(estSec)
+                        Toast.makeText(ctx, "等待超時，已退費", Toast.LENGTH_LONG).show()
+                    }
+                    loading = false
+                }
+            }
+        }
     }
 
     ImagineScreen(
@@ -105,9 +235,10 @@ fun EditScreen(
                         "vid" -> EditMode.VideoEdit
                         else -> EditMode.VideoExtend
                     }
-                    // 切換 image/video 模式時清掉舊來源（型別不同）
                     if ((newMode == EditMode.ImageEdit) != (mode == EditMode.ImageEdit)) {
                         sourceUri = null
+                        resultImageUrl = null
+                        resultVideoUrl = null
                     }
                     mode = newMode
                 },
@@ -129,16 +260,21 @@ fun EditScreen(
                         .clickable(onClick = launchPick),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (sourceUri != null) {
-                        AsyncImage(
-                            model = sourceUri,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                        )
+                    val src = sourceUri
+                    if (src != null) {
+                        if (mode == EditMode.ImageEdit) {
+                            AsyncImage(
+                                model = src,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                            )
+                        } else {
+                            VideoThumb(uri = src, modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)))
+                        }
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
@@ -146,12 +282,15 @@ fun EditScreen(
                                 .size(28.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surface)
-                                .clickable { sourceUri = null },
+                                .clickable {
+                                    sourceUri = null
+                                    resultImageUrl = null
+                                    resultVideoUrl = null
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             ImagineIcon(
-                                name = "close",
-                                size = 18.dp,
+                                name = "close", size = 18.dp,
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
@@ -168,9 +307,7 @@ fun EditScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 ImagineIcon(
-                                    name = "add_photo_alternate",
-                                    size = 24.dp,
-                                    fill = 1,
+                                    name = "add_photo_alternate", size = 24.dp, fill = 1,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                             }
@@ -179,8 +316,7 @@ fun EditScreen(
                                     EditMode.ImageEdit -> "選擇圖片"
                                     else -> "選擇影片"
                                 },
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.W600,
+                                fontSize = 15.sp, fontWeight = FontWeight.W600,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
@@ -201,7 +337,7 @@ fun EditScreen(
                     label = "",
                     placeholder = when (mode) {
                         EditMode.ImageEdit -> "把背景換成夕陽，加上暖色調濾鏡..."
-                        EditMode.VideoEdit -> "把背景音樂換成爵士樂，畫面更柔和..."
+                        EditMode.VideoEdit -> "把場景換成下雨夜晚..."
                         EditMode.VideoExtend -> "讓主角繼續往街道走..."
                     },
                     minHeight = 104,
@@ -213,28 +349,153 @@ fun EditScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    Text("預估費用", fontSize = 13.sp, fontWeight = FontWeight.W500,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        "預估費用",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.W500,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        "$0.05",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.W600,
+                        if (mode == EditMode.ImageEdit) "$0.05" else "$0.40 (≈8s)",
+                        fontSize = 16.sp, fontWeight = FontWeight.W600,
                         fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
 
-            PrimaryButton(
-                label = "執 行",
-                icon = "edit",
-                enabled = prompt.isNotBlank(),
-                onClick = { onExecute(mode, prompt) },
-            )
+            if (loading) {
+                ImagineCard(pad = 20) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 4.dp,
+                        )
+                        Text(
+                            when (mode) {
+                                EditMode.ImageEdit -> "圖片編輯中…"
+                                EditMode.VideoEdit -> "影片編輯中…"
+                                EditMode.VideoExtend -> "影片延長中…"
+                            },
+                            fontSize = 14.sp, fontWeight = FontWeight.W600,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (mode != EditMode.ImageEdit) {
+                            Text(
+                                "%d:%02d".format(elapsed / 60, elapsed % 60),
+                                fontSize = 22.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            } else {
+                PrimaryButton(
+                    label = "執 行",
+                    icon = "edit",
+                    enabled = prompt.isNotBlank() && sourceUri != null && prefs.isApiKeySet,
+                    onClick = ::runExecute,
+                )
+            }
+
+            resultImageUrl?.let { url ->
+                Text(
+                    "結果",
+                    fontSize = 11.sp, fontWeight = FontWeight.W600,
+                    letterSpacing = 0.08.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                ImagineCard(pad = 0) {
+                    AsyncImage(
+                        model = url,
+                        contentDescription = lastPrompt,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp)),
+                    )
+                }
+            }
+            resultVideoUrl?.let { url ->
+                Text(
+                    "結果",
+                    fontSize = 11.sp, fontWeight = FontWeight.W600,
+                    letterSpacing = 0.08.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                ImagineCard(pad = 0) {
+                    EditVideoPreview(
+                        url = url,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(RoundedCornerShape(12.dp)),
+                    )
+                }
+            }
         }
     }
+}
+
+// Image edit-specific handler since launching coroutine here would lose closure.
+private suspend fun handleImageResult(
+    r: ApiResult<List<String>>,
+    capturedPrompt: String,
+    ctx: android.content.Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+    usageTracker: UsageTracker,
+    count: Int,
+    onSuccess: (String) -> Unit,
+) {
+    when (r) {
+        is ApiResult.Success -> {
+            val url = r.value.firstOrNull()
+            if (url != null) {
+                onSuccess(url)
+                scope.launch {
+                    MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
+                    Toast.makeText(ctx, "已存到相簿", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(ctx, "未收到結果", Toast.LENGTH_SHORT).show()
+            }
+        }
+        is ApiResult.Error -> {
+            usageTracker.refundImage(count)
+            Toast.makeText(ctx, "失敗：${r.message.take(80)}", Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
+@Composable
+private fun VideoThumb(uri: Uri, modifier: Modifier = Modifier) {
+    // Show first frame using ExoPlayer paused for content uris too
+    EditVideoPreview(url = uri.toString(), modifier = modifier)
+}
+
+@Composable
+private fun EditVideoPreview(url: String, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val player = remember(url) {
+        ExoPlayer.Builder(ctx).build().apply {
+            setMediaItem(MediaItem.fromUri(url))
+            prepare()
+            playWhenReady = false
+        }
+    }
+    DisposableEffect(url) {
+        onDispose { player.release() }
+    }
+    AndroidView(
+        factory = { c ->
+            PlayerView(c).apply {
+                this.player = player
+                useController = true
+            }
+        },
+        modifier = modifier,
+    )
 }
