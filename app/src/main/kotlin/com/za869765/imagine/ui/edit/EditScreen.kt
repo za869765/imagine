@@ -47,11 +47,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
+import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.storage.MediaSaver
-import com.za869765.imagine.data.usage.UsageTracker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -79,7 +79,6 @@ fun EditScreen(
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
-    val usageTracker = remember(prefs) { UsageTracker(prefs) }
 
     var mode by remember { mutableStateOf(EditMode.ImageEdit) }
     var prompt by remember { mutableStateOf("") }
@@ -144,26 +143,23 @@ fun EditScreen(
 
             when (capturedMode) {
                 EditMode.ImageEdit -> {
-                    usageTracker.tentativeImage(1)
                     val r = repository.editImage(capturedPrompt, listOf(encoded))
                     loading = false
-                    handleImageResult(r, capturedPrompt, ctx, scope, usageTracker, 1) {
+                    handleImageResult(r, capturedPrompt, ctx, scope) {
                         resultImageUrl = it
                         lastPrompt = capturedPrompt
                     }
+                    BillingState.sync(prefs, scope)
                 }
                 EditMode.VideoEdit, EditMode.VideoExtend -> {
-                    // Estimate duration heuristic = 8 sec until we know exact (refund handled inside)
-                    val estSec = 8
-                    usageTracker.tentativeVideo(estSec)
                     val gen = if (capturedMode == EditMode.VideoEdit)
                         repository.editVideo(capturedPrompt, encoded)
                     else
                         repository.extendVideo(capturedPrompt, encoded)
                     if (gen is ApiResult.Error) {
                         loading = false
-                        usageTracker.refundVideo(estSec)
-                        Toast.makeText(ctx, "失敗：${gen.message.take(80)}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, "失敗：${gen.message.take(200)}", Toast.LENGTH_LONG).show()
+                        BillingState.sync(prefs, scope)
                         return@launch
                     }
                     val requestId = (gen as ApiResult.Success).value
@@ -188,8 +184,7 @@ fun EditScreen(
                                     done = true
                                 }
                                 "failed", "expired" -> {
-                                    usageTracker.refundVideo(estSec)
-                                    Toast.makeText(ctx, "影片失敗（${poll.value.status}），已退費", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(ctx, "影片失敗（${poll.value.status}，費用以 xAI 後台為準）", Toast.LENGTH_LONG).show()
                                     done = true
                                 }
                                 else -> {}
@@ -197,10 +192,10 @@ fun EditScreen(
                         }
                     }
                     if (!done && loading) {
-                        usageTracker.refundVideo(estSec)
-                        Toast.makeText(ctx, "等待超時，已退費", Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, "等待超時(5 分鐘) — 費用以 xAI 後台為準", Toast.LENGTH_LONG).show()
                     }
                     loading = false
+                    BillingState.sync(prefs, scope)
                 }
             }
         }
@@ -209,8 +204,6 @@ fun EditScreen(
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.EDIT, onTabSelected = onNavSelected) },
-        spent = prefs.spent,
-        budgetCap = prefs.budgetCap,
     ) {
         Column(
             modifier = Modifier
@@ -344,22 +337,6 @@ fun EditScreen(
                 )
             }
 
-            ImagineCard(pad = 14) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("預估費用", fontSize = 13.sp, fontWeight = FontWeight.W500,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        if (mode == EditMode.ImageEdit) "$0.05" else "$0.40 (≈8s)",
-                        fontSize = 16.sp, fontWeight = FontWeight.W600,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-
             if (loading) {
                 ImagineCard(pad = 20) {
                     Column(
@@ -440,14 +417,11 @@ fun EditScreen(
     }
 }
 
-// Image edit-specific handler since launching coroutine here would lose closure.
 private suspend fun handleImageResult(
     r: ApiResult<List<String>>,
     capturedPrompt: String,
     ctx: android.content.Context,
     scope: kotlinx.coroutines.CoroutineScope,
-    usageTracker: UsageTracker,
-    count: Int,
     onSuccess: (String) -> Unit,
 ) {
     when (r) {
@@ -464,8 +438,7 @@ private suspend fun handleImageResult(
             }
         }
         is ApiResult.Error -> {
-            usageTracker.refundImage(count)
-            Toast.makeText(ctx, "失敗：${r.message.take(80)}", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, "失敗：${r.message.take(200)}", Toast.LENGTH_LONG).show()
         }
     }
 }

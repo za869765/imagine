@@ -4,9 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 
 // All persistent state, encrypted at rest via Android Keystore.
 class SecurePrefs private constructor(ctx: Context) {
@@ -75,58 +72,13 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getBoolean(K_FLAG_SECURE, true)
         set(v) = prefs.edit().putBoolean(K_FLAG_SECURE, v).apply()
 
-    // ── Budget ──────────────────────────────────────────────────
-    var budgetCap: Double
-        get() = java.lang.Double.longBitsToDouble(prefs.getLong(K_BUDGET_CAP, java.lang.Double.doubleToRawLongBits(20.0)))
-        set(v) = prefs.edit().putLong(K_BUDGET_CAP, java.lang.Double.doubleToRawLongBits(v)).apply()
-
-    var lockOnLimit: Boolean
-        get() = prefs.getBoolean(K_LOCK_ON_LIMIT, true)
-        set(v) = prefs.edit().putBoolean(K_LOCK_ON_LIMIT, v).apply()
-
-    var autoResetMonthly: Boolean
-        get() = prefs.getBoolean(K_AUTO_RESET, true)
-        set(v) = prefs.edit().putBoolean(K_AUTO_RESET, v).apply()
-
-    // Period state
-    var periodStart: String
-        get() = prefs.getString(K_PERIOD_START, LocalDate.now().withDayOfMonth(1).format(DATE_FMT))!!
-        set(v) = prefs.edit().putString(K_PERIOD_START, v).apply()
-
-    var spent: Double
-        get() = java.lang.Double.longBitsToDouble(prefs.getLong(K_SPENT, 0L))
-        set(v) = prefs.edit().putLong(K_SPENT, java.lang.Double.doubleToRawLongBits(v)).apply()
-
-    var imageCount: Int
-        get() = prefs.getInt(K_IMG_COUNT, 0)
-        set(v) = prefs.edit().putInt(K_IMG_COUNT, v).apply()
-
-    var videoSeconds: Int
-        get() = prefs.getInt(K_VID_SEC, 0)
-        set(v) = prefs.edit().putInt(K_VID_SEC, v).apply()
-
-    // ── Theme + locale (lightweight prefs that mustn't survive uninstall either) ──
+    // ── Theme + locale ──────────────────────────────────────────
     var themeMode: String
         get() = prefs.getString(K_THEME, "system")!!
         set(v) = prefs.edit().putString(K_THEME, v).apply()
 
     // ── Bulk reset (clears everything) ──────────────────────────
     fun clearAll() = prefs.edit().clear().apply()
-
-    fun resetUsage() {
-        spent = 0.0
-        imageCount = 0
-        videoSeconds = 0
-        periodStart = LocalDate.now().withDayOfMonth(1).format(DATE_FMT)
-    }
-
-    fun maybeAutoResetForNewMonth() {
-        if (!autoResetMonthly) return
-        val now = YearMonth.now()
-        val periodMonth = runCatching { YearMonth.from(LocalDate.parse(periodStart, DATE_FMT)) }
-            .getOrNull() ?: return resetUsage()
-        if (now != periodMonth) resetUsage()
-    }
 
     companion object {
         private const val K_API_KEY = "api_key"
@@ -139,16 +91,7 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_BIOMETRIC = "biometric_enabled"
         private const val K_LOCK_BG = "lock_on_bg"
         private const val K_FLAG_SECURE = "prevent_screenshots"
-        private const val K_BUDGET_CAP = "budget_cap"
-        private const val K_LOCK_ON_LIMIT = "lock_on_limit"
-        private const val K_AUTO_RESET = "auto_reset_monthly"
-        private const val K_PERIOD_START = "period_start"
-        private const val K_SPENT = "spent"
-        private const val K_IMG_COUNT = "image_count"
-        private const val K_VID_SEC = "video_seconds"
         private const val K_THEME = "theme_mode"
-
-        val DATE_FMT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
         @Volatile private var instance: SecurePrefs? = null
         fun get(ctx: Context): SecurePrefs = instance ?: synchronized(this) {

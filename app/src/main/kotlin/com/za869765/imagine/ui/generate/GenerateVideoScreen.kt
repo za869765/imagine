@@ -48,12 +48,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
+import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.storage.MediaSaver
-import com.za869765.imagine.data.usage.UsageTracker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -67,7 +67,6 @@ import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
-import com.za869765.imagine.ui.theme.LocalBudgetColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -83,10 +82,8 @@ fun GenerateVideoScreen(
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    val budgetColors = LocalBudgetColors.current
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
-    val usageTracker = remember(prefs) { UsageTracker(prefs) }
 
     var prompt by rememberSaveable { mutableStateOf("") }
     var mode by rememberSaveable {
@@ -106,7 +103,6 @@ fun GenerateVideoScreen(
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
-    var currentSpent by remember { mutableStateOf(prefs.spent) }
 
     val maxImages = if (mode == VideoMode.Img2Vid) 1 else 3
     val pickImage = rememberLauncherForActivityResult(
@@ -137,10 +133,6 @@ fun GenerateVideoScreen(
         "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
     }.getOrNull()
 
-    val estimated = duration * 0.05
-    val remaining = (prefs.budgetCap - currentSpent).coerceAtLeast(0.0)
-    val affordable = remaining >= estimated
-
     fun runGenerate() {
         if (mode != VideoMode.T2V && sourceImages.isEmpty()) {
             Toast.makeText(
@@ -152,8 +144,6 @@ fun GenerateVideoScreen(
         }
         scope.launch {
             generating = true
-            usageTracker.tentativeVideo(duration)
-            currentSpent = prefs.spent
 
             val capturedPrompt = prompt
             val capturedMode = mode
@@ -177,20 +167,17 @@ fun GenerateVideoScreen(
             when (gen) {
                 is ApiResult.Error -> {
                     generating = false
-                    if (gen.kind == ErrorKind.Network) {
-                        usageTracker.refundVideo(capturedDuration)
-                        currentSpent = prefs.spent
-                    }
                     val tag = when (gen.kind) {
                         ErrorKind.Unauthorized -> "API Key 無效"
                         ErrorKind.RateLimited -> "請求太頻繁"
                         ErrorKind.ContentPolicy -> "請求被拒（費用以 xAI 後台為準）"
-                        ErrorKind.Network -> "網路錯誤（已退費）"
+                        ErrorKind.Network -> "網路錯誤"
                         ErrorKind.Server -> "xAI 伺服器錯誤"
                         ErrorKind.Unknown -> "送出失敗"
                     }
                     lastError = "$tag\n${gen.message}"
                     Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
+                    BillingState.sync(prefs, scope)
                     return@launch
                 }
                 is ApiResult.Success -> {
@@ -252,6 +239,7 @@ fun GenerateVideoScreen(
                         ).show()
                     }
                     generating = false
+                    BillingState.sync(prefs, scope)
                 }
             }
         }
@@ -260,8 +248,6 @@ fun GenerateVideoScreen(
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.GENERATE, onTabSelected = onNavSelected) },
-        spent = currentSpent,
-        budgetCap = prefs.budgetCap,
     ) {
         Column(
             modifier = Modifier
@@ -356,50 +342,6 @@ fun GenerateVideoScreen(
                 )
             }
 
-            ImagineCard(pad = 14) {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Text(
-                            "預估費用", fontSize = 13.sp, fontWeight = FontWeight.W500,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                "$" + "%.2f".format(estimated),
-                                fontSize = 16.sp, fontWeight = FontWeight.W600,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                " (${duration}s × \$0.05)",
-                                fontSize = 12.sp, fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            "剩餘預算", fontSize = 13.sp, fontWeight = FontWeight.W500,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "$" + "%.2f".format(remaining),
-                            fontSize = 16.sp, fontWeight = FontWeight.W600,
-                            fontFamily = FontFamily.Monospace,
-                            color = if (affordable) budgetColors.ok else budgetColors.high,
-                        )
-                    }
-                }
-            }
-
             if (generating) {
                 ImagineCard(pad = 24) {
                     Column(
@@ -440,7 +382,7 @@ fun GenerateVideoScreen(
                 PrimaryButton(
                     label = "生 成",
                     icon = "movie",
-                    enabled = prompt.isNotBlank() && affordable && prefs.isApiKeySet,
+                    enabled = prompt.isNotBlank() && prefs.isApiKeySet,
                     onClick = ::runGenerate,
                 )
             }

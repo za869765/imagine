@@ -36,8 +36,6 @@ fun ImagineRoot() {
     val lockManager = remember { AppLockManager.get(prefs) }
     val navController = rememberNavController()
 
-    LaunchedEffect(Unit) { prefs.maybeAutoResetForNewMonth() }
-
     val isLocked = lockManager.lockedState.value
     LaunchedEffect(isLocked) {
         if (!isLocked) return@LaunchedEffect

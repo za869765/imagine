@@ -68,7 +68,7 @@ fun ApiKeyEditScreen(
                 trailing = { Box(modifier = Modifier.size(48.dp)) },
             )
         },
-        showBudgetBar = false,
+        showBalanceBar = false,
         bottomNav = null,
     ) {
         Column(

@@ -86,7 +86,7 @@ fun HistoryScreen(
                 },
             )
         },
-        showBudgetBar = false,
+        showBalanceBar = false,
         bottomNav = { ImagineBottomNav(active = NavTab.HISTORY, onTabSelected = onNavSelected) },
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

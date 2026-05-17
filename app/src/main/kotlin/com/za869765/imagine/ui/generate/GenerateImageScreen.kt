@@ -36,7 +36,6 @@ import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.storage.MediaSaver
-import com.za869765.imagine.data.usage.UsageTracker
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ChipVariant
 import com.za869765.imagine.ui.component.ImagineBottomNav
@@ -48,8 +47,8 @@ import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
+import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.ui.theme.ImagineCustomShapes
-import com.za869765.imagine.ui.theme.LocalBudgetColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -62,10 +61,8 @@ fun GenerateImageScreen(
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    val budgetColors = LocalBudgetColors.current
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
-    val usageTracker = remember(prefs) { UsageTracker(prefs) }
 
     var prompt by rememberSaveable { mutableStateOf("") }
     var resolution by rememberSaveable { mutableStateOf("1k") }
@@ -73,21 +70,14 @@ fun GenerateImageScreen(
     var n by rememberSaveable { mutableStateOf(1) }
     var loading by remember { mutableStateOf(false) }
 
-    var currentSpent by remember { mutableStateOf(prefs.spent) }
     var resultUrls by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastMeta by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
 
-    val estimated = 0.05 * n
-    val remaining = (prefs.budgetCap - currentSpent).coerceAtLeast(0.0)
-    val affordable = remaining >= estimated
-
     fun runGenerate() {
         scope.launch {
             loading = true
-            usageTracker.tentativeImage(n)
-            currentSpent = prefs.spent
             val capturedPrompt = prompt
             val capturedRes = resolution
             val capturedAr = aspectRatio
@@ -113,22 +103,20 @@ fun GenerateImageScreen(
                         "已生成 ${result.value.size} 張，已存到相簿",
                         Toast.LENGTH_SHORT,
                     ).show()
+                    BillingState.sync(prefs, scope)
                 }
                 is ApiResult.Error -> {
-                    if (result.kind == ErrorKind.Network) {
-                        usageTracker.refundImage(capturedN)
-                        currentSpent = prefs.spent
-                    }
                     val tag = when (result.kind) {
                         ErrorKind.Unauthorized -> "API Key 無效"
                         ErrorKind.RateLimited -> "請求太頻繁"
                         ErrorKind.ContentPolicy -> "審核或請求被拒（費用以 xAI 後台為準）"
-                        ErrorKind.Network -> "網路錯誤（已退費）"
+                        ErrorKind.Network -> "網路錯誤"
                         ErrorKind.Server -> "xAI 伺服器錯誤"
                         ErrorKind.Unknown -> "失敗"
                     }
                     lastError = "$tag\n${result.message}"
                     Toast.makeText(ctx, "$tag — ${result.message.take(200)}", Toast.LENGTH_LONG).show()
+                    BillingState.sync(prefs, scope)
                 }
             }
         }
@@ -137,8 +125,6 @@ fun GenerateImageScreen(
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.GENERATE, onTabSelected = onNavSelected) },
-        spent = currentSpent,
-        budgetCap = prefs.budgetCap,
     ) {
         Column(
             modifier = Modifier
@@ -181,41 +167,11 @@ fun GenerateImageScreen(
                 )
             }
 
-            ImagineCard(pad = 14) {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("預估費用", fontSize = 13.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            "$" + "%.2f".format(estimated),
-                            fontSize = 16.sp, fontWeight = FontWeight.W600,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("剩餘預算", fontSize = 13.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            "$" + "%.2f".format(remaining),
-                            fontSize = 16.sp, fontWeight = FontWeight.W600,
-                            fontFamily = FontFamily.Monospace,
-                            color = if (affordable) budgetColors.ok else budgetColors.high,
-                        )
-                    }
-                }
-            }
-
             PrimaryButton(
                 label = if (loading) "生成中…" else "生 成",
                 icon = if (loading) null else "auto_awesome",
                 loading = loading,
-                enabled = prompt.isNotBlank() && affordable && !loading && prefs.isApiKeySet,
+                enabled = prompt.isNotBlank() && !loading && prefs.isApiKeySet,
                 onClick = ::runGenerate,
             )
 

@@ -44,7 +44,7 @@ fun HistoryDetailScreen(
                 trailing = { ImagineIconButton(name = "edit", onClick = onDelete) },
             )
         },
-        showBudgetBar = false,
+        showBalanceBar = false,
         bottomNav = null,
     ) {
         Column(

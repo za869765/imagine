@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.za869765.imagine.ui.component.BudgetBar
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ChipVariant
 import com.za869765.imagine.ui.component.ImagePlaceholder
@@ -46,8 +45,7 @@ fun ComponentShowcase() {
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine · Showcase") },
-        showBudgetBar = true,
-        spent = 2.85,
+        showBalanceBar = true,
         bottomNav = { ImagineBottomNav(active = activeNavTab) { activeNavTab = it } },
     ) {
         Column(
@@ -56,17 +54,6 @@ fun ComponentShowcase() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            // ── 預算狀態（不同百分比） ──
-            SectionHeader("BUDGET BAR — 預算狀態變色")
-            ImagineCard(pad = 0) {
-                Column {
-                    BudgetBar(spent = 4.0, cap = 20.0)
-                    BudgetBar(spent = 15.0, cap = 20.0)
-                    BudgetBar(spent = 18.5, cap = 20.0)
-                    BudgetBar(spent = 21.0, cap = 20.0)
-                }
-            }
-
             // ── Buttons ──
             SectionHeader("BUTTONS")
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

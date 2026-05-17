@@ -11,14 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 
-// Standard chrome — AppBar + BudgetBar + content + BottomNav
-// Mirrors imagine-components.jsx Screen
+// AppBar + (optional) XaiBalanceBar + content + BottomNav.
 @Composable
 fun ImagineScreen(
     appBar: @Composable (() -> Unit)? = { ImagineTopAppBar() },
-    showBudgetBar: Boolean = true,
-    spent: Double = 2.85,
-    budgetCap: Double = 20.0,
+    showBalanceBar: Boolean = true,
     bottomNav: @Composable (() -> Unit)? = { ImagineBottomNav() },
     contentBackground: Color? = null,
     scroll: Boolean = true,
@@ -32,8 +29,8 @@ fun ImagineScreen(
             .background(MaterialTheme.colorScheme.surface),
     ) {
         appBar?.invoke()
-        if (showBudgetBar) {
-            BudgetBar(spent = spent, cap = budgetCap)
+        if (showBalanceBar) {
+            XaiBalanceBar()
         }
         Column(
             modifier = Modifier

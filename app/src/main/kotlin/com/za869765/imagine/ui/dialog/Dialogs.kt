@@ -93,57 +93,6 @@ private fun ImagineDialogShell(
 }
 
 @Composable
-fun BudgetExceededDialog(
-    spent: Double,
-    cap: Double,
-    estimated: Double,
-    onCancel: () -> Unit,
-    onGoToSettings: () -> Unit,
-) {
-    ImagineDialogShell(
-        icon = "history",
-        iconBg = Color(0xFFFFF3E0),
-        iconFg = Color(0xFFE65100),
-        title = "本期預算已達上限",
-        onDismiss = onCancel,
-        actions = {
-            TextActionButton(label = "取消", onClick = onCancel)
-            Spacer(modifier = Modifier.size(8.dp))
-            PrimaryButton(
-                label = "前往設定",
-                onClick = onGoToSettings,
-                modifier = Modifier.height(44.dp).fillMaxWidth(0f).padding(horizontal = 24.dp),
-            )
-        },
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "$" + "%.2f".format(spent) + " / $" + "%.2f".format(cap),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.W600,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "本次預估：\$" + "%.2f".format(estimated),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                "無法繼續生成。\n請至設定頁提高上限，\n或關閉「達上限時鎖定」。",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 21.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
 fun ModerationFailedDialog(
     onConfirm: () -> Unit,
 ) {
