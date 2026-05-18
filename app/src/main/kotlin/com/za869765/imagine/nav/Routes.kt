@@ -3,7 +3,6 @@ package com.za869765.imagine.nav
 object Routes {
     const val SPLASH = "splash"
     const val PIN_SETUP = "pin_setup"
-    const val API_KEY_SETUP = "api_key_setup"
     const val LOCK = "lock"
 
     const val GENERATE_IMAGE = "generate_image"

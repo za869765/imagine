@@ -19,7 +19,6 @@ import com.za869765.imagine.ui.generate.GenerateVideoScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
 import com.za869765.imagine.ui.history.HistoryItem
 import com.za869765.imagine.ui.history.HistoryScreen
-import com.za869765.imagine.ui.onboarding.ApiKeySetupScreen
 import com.za869765.imagine.ui.onboarding.LockScreen
 import com.za869765.imagine.ui.onboarding.PinSetupScreen
 import com.za869765.imagine.ui.onboarding.SplashScreen
@@ -42,7 +41,7 @@ fun ImagineRoot() {
         if (!prefs.isPinSet) return@LaunchedEffect
         val currentRoute = navController.currentBackStackEntry?.destination?.route
         val onboardingRoutes = setOf(
-            Routes.SPLASH, Routes.PIN_SETUP, Routes.API_KEY_SETUP, Routes.LOCK,
+            Routes.SPLASH, Routes.PIN_SETUP, Routes.LOCK,
         )
         if (currentRoute != null && currentRoute !in onboardingRoutes) {
             navController.navigate(Routes.LOCK) {
@@ -61,7 +60,6 @@ fun ImagineRoot() {
             SplashScreen(onTimeout = {
                 val next = when {
                     !prefs.isPinSet -> Routes.PIN_SETUP
-                    !prefs.isApiKeySet -> Routes.API_KEY_SETUP
                     lockManager.isLocked -> Routes.LOCK
                     else -> Routes.GENERATE_IMAGE
                 }
@@ -73,24 +71,9 @@ fun ImagineRoot() {
 
         composable(Routes.PIN_SETUP) {
             PinSetupScreen(onComplete = {
-                if (prefs.isApiKeySet) {
-                    lockManager.unlock()
-                    navController.navigate(Routes.GENERATE_IMAGE) {
-                        popUpTo(Routes.PIN_SETUP) { inclusive = true }
-                    }
-                } else {
-                    navController.navigate(Routes.API_KEY_SETUP) {
-                        popUpTo(Routes.PIN_SETUP) { inclusive = true }
-                    }
-                }
-            })
-        }
-
-        composable(Routes.API_KEY_SETUP) {
-            ApiKeySetupScreen(onSaved = {
                 lockManager.unlock()
                 navController.navigate(Routes.GENERATE_IMAGE) {
-                    popUpTo(Routes.API_KEY_SETUP) { inclusive = true }
+                    popUpTo(Routes.PIN_SETUP) { inclusive = true }
                 }
             })
         }
@@ -205,9 +188,7 @@ fun ImagineRoot() {
                 onRemove = {
                     prefs.apiKey = null
                     prefs.apiKeyVerifiedAt = null
-                    navController.navigate(Routes.API_KEY_SETUP) {
-                        popUpTo(Routes.SETTINGS) { inclusive = true }
-                    }
+                    navController.popBackStack()
                 },
             )
         }
