@@ -36,8 +36,10 @@ object BillingState {
                 val api = ManagementClient.build(key)
                 val b = withContext(Dispatchers.IO) { api.getPrepaidBalance(TEAM_ID) }
                 val inv = withContext(Dispatchers.IO) { api.getInvoicePreview(TEAM_ID) }
-                balance.value = b.total?.value
-                spent.value = inv.coreInvoice?.amountAfterVat ?: inv.coreInvoice?.amountBeforeVat
+                balance.value = fmtMoney(b.total?.value)
+                spent.value = fmtMoney(
+                    inv.coreInvoice?.amountAfterVat ?: inv.coreInvoice?.amountBeforeVat,
+                )
                 syncedAt.value = LocalTime.now().format(fmt)
             } catch (e: retrofit2.HttpException) {
                 val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
@@ -48,6 +50,19 @@ object BillingState {
                 syncing.value = false
             }
         }
+    }
+
+    // xAI Management API 金額用 cents 為單位(整數字串)。
+    // 例:"2089" → "$20.89";"-2500" → "-$25.00"。
+    // 不能 parse 成 Long 的字串保留原樣顯示,方便除錯。
+    private fun fmtMoney(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val cents = raw.toLongOrNull() ?: return raw
+        val dollars = cents / 100.0
+        return if (dollars < 0)
+            "-$" + "%.2f".format(-dollars)
+        else
+            "$" + "%.2f".format(dollars)
     }
 
     fun clear() {

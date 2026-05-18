@@ -144,6 +144,17 @@ fun GenerateImageScreen(
                 onSelected = { if (it == "video") onSwitchToVideo() },
             )
 
+            if (!prefs.isApiKeySet) {
+                ImagineCard(pad = 14, onClick = onSettingsClick) {
+                    Text(
+                        "未設定 API Key — 點此到設定填入或從 Keys 備份匯入",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        lineHeight = 19.sp,
+                    )
+                }
+            }
+
             com.za869765.imagine.ui.component.SegmentedTab(
                 options = listOf(
                     com.za869765.imagine.ui.component.SegmentedOption("rapid", "Rapid 快速"),

@@ -249,7 +249,7 @@ fun SettingsScreen(
                                 ) {
                                     Text("Prepaid 餘額", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
-                                        realBalance?.let { "$$it" } ?: "—",
+                                        realBalance ?: "—",
                                         fontSize = 16.sp, fontWeight = FontWeight.W700,
                                         fontFamily = FontFamily.Monospace,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -262,7 +262,7 @@ fun SettingsScreen(
                                 ) {
                                     Text("本期已花(xAI)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
-                                        realSpent?.let { "$$it" } ?: "—",
+                                        realSpent ?: "—",
                                         fontSize = 16.sp, fontWeight = FontWeight.W700,
                                         fontFamily = FontFamily.Monospace,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -347,31 +347,28 @@ fun SettingsScreen(
             // ── Keys 備份 ──
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("Keys 備份")
-                ImagineCard(pad = 0) {
-                    Column {
-                        SettingRow(divider = true, onClick = { doExport() }) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("匯出 Keys", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
-                                Text(
-                                    "用系統分享匯出 JSON(避免剪貼簿)",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp),
-                                )
-                            }
-                            ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        SettingRow(divider = false, onClick = { showImportEditor = true }) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("匯入 Keys", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
-                                Text(
-                                    "貼上之前匯出的 JSON",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp),
-                                )
-                            }
-                            ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                ImagineCard(pad = 16) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "匯出走系統分享面板(分享到 Drive/Keep/Email 等,避免剪貼簿);匯入貼上之前匯出的 JSON。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            OutlinedActionButton(
+                                label = "匯出",
+                                onClick = { doExport() },
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedActionButton(
+                                label = "匯入",
+                                onClick = { showImportEditor = true },
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
                 }
@@ -428,7 +425,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.7",
+                    "Imagine v1.0.8",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

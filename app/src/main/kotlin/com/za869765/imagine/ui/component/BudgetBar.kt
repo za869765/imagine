@@ -78,11 +78,11 @@ fun XaiBalanceBar(
                     text = buildAnnotatedString {
                         append("餘額 ")
                         withStyle(SpanStyle(fontWeight = FontWeight.W700)) {
-                            append(balance?.let { "$$it" } ?: "—")
+                            append(balance ?: "—")
                         }
                         append("   本期 ")
                         withStyle(SpanStyle(fontWeight = FontWeight.W700)) {
-                            append(spent?.let { "$$it" } ?: "—")
+                            append(spent ?: "—")
                         }
                     },
                     fontSize = 13.sp,
