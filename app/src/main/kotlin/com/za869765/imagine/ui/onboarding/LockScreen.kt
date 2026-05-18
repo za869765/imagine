@@ -135,10 +135,15 @@ fun LockScreen(
     }
 }
 
+// S22 Ultra 的指紋是 BIOMETRIC_STRONG，Android 13+ 對 WEAK-only 的 BiometricPrompt 有限制，
+// 改用 STRONG or WEAK，三星指紋/臉部/低階感應器都吃得到。
+private const val BIOMETRIC_LEVELS =
+    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+        BiometricManager.Authenticators.BIOMETRIC_WEAK
+
 private fun canAuthenticateWithBiometric(ctx: android.content.Context): Boolean {
     val bm = BiometricManager.from(ctx)
-    val canAuth = bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
-    return canAuth == BiometricManager.BIOMETRIC_SUCCESS
+    return bm.canAuthenticate(BIOMETRIC_LEVELS) == BiometricManager.BIOMETRIC_SUCCESS
 }
 
 private fun runBiometric(
@@ -160,7 +165,7 @@ private fun runBiometric(
         .setTitle("解鎖 Imagine")
         .setSubtitle("使用生物辨識解鎖")
         .setNegativeButtonText("使用 PIN")
-        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+        .setAllowedAuthenticators(BIOMETRIC_LEVELS)
         .build()
     prompt.authenticate(info)
 }

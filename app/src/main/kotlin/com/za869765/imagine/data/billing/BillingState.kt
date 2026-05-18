@@ -19,6 +19,9 @@ object BillingState {
 
     val balance: MutableState<String?> = mutableStateOf(null)
     val spent: MutableState<String?> = mutableStateOf(null)
+    // Raw 字串 — Settings 旁邊顯示讓使用者比對 xAI 後台真實數字決定正確單位
+    val balanceRaw: MutableState<String?> = mutableStateOf(null)
+    val spentRaw: MutableState<String?> = mutableStateOf(null)
     val syncedAt: MutableState<String?> = mutableStateOf(null)
     val syncing: MutableState<Boolean> = mutableStateOf(false)
     val error: MutableState<String?> = mutableStateOf(null)
@@ -36,10 +39,12 @@ object BillingState {
                 val api = ManagementClient.build(key)
                 val b = withContext(Dispatchers.IO) { api.getPrepaidBalance(TEAM_ID) }
                 val inv = withContext(Dispatchers.IO) { api.getInvoicePreview(TEAM_ID) }
-                balance.value = fmtMoney(b.total?.value)
-                spent.value = fmtMoney(
-                    inv.coreInvoice?.amountAfterVat ?: inv.coreInvoice?.amountBeforeVat,
-                )
+                val bRaw = b.total?.value
+                val sRaw = inv.coreInvoice?.amountAfterVat ?: inv.coreInvoice?.amountBeforeVat
+                balanceRaw.value = bRaw
+                spentRaw.value = sRaw
+                balance.value = fmtMoney(bRaw)
+                spent.value = fmtMoney(sRaw)
                 syncedAt.value = LocalTime.now().format(fmt)
             } catch (e: retrofit2.HttpException) {
                 val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
@@ -55,6 +60,7 @@ object BillingState {
     // xAI Management API 金額用 cents 為單位(整數字串)。
     // 例:"2089" → "$20.89";"-2500" → "-$25.00"。
     // 不能 parse 成 Long 的字串保留原樣顯示,方便除錯。
+    // ※單位假設待驗證 — Settings 同時顯示 raw 字串供使用者比對。
     private fun fmtMoney(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
         val cents = raw.toLongOrNull() ?: return raw
@@ -68,6 +74,8 @@ object BillingState {
     fun clear() {
         balance.value = null
         spent.value = null
+        balanceRaw.value = null
+        spentRaw.value = null
         syncedAt.value = null
         error.value = null
     }

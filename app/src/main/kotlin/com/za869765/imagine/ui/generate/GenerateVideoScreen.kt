@@ -186,6 +186,13 @@ fun GenerateVideoScreen(
                     var done = false
                     var attempts = 0
                     var pollErrors = 0
+                    // pending 系列只有這幾個算「還在跑」；其他狀態（含 xAI 沒文件化的）都當失敗終止，
+                    // 避免被審核擋下後 status 不是 "failed" 而是 "rejected" / "moderation_failed" 等
+                    // 不在白名單就無限 pending。
+                    val pendingStatuses = setOf(
+                        "pending", "queued", "processing", "running",
+                        "in_progress", "starting", "generating",
+                    )
                     while (generating && !done && attempts < 60) {
                         delay(5000)
                         attempts++
@@ -193,8 +200,9 @@ fun GenerateVideoScreen(
                             is ApiResult.Success -> {
                                 pollErrors = 0
                                 val s = poll.value
-                                when (s.status.lowercase()) {
-                                    "done", "succeeded", "completed" -> {
+                                val status = s.status.lowercase()
+                                when {
+                                    status in setOf("done", "succeeded", "completed") -> {
                                         val url = s.video?.url
                                         if (url != null) {
                                             resultVideoUrl = url
@@ -205,10 +213,13 @@ fun GenerateVideoScreen(
                                                     ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT,
                                                 ).show()
                                             }
+                                        } else {
+                                            lastError = "影片回報 ${s.status} 但沒拿到 URL（費用以 xAI 後台為準）"
                                         }
                                         done = true
                                     }
-                                    "failed", "expired", "error", "canceled", "cancelled" -> {
+                                    status in pendingStatuses -> { /* 還在跑 */ }
+                                    else -> {
                                         val msg = s.error?.let { "\n$it" } ?: ""
                                         lastError = "影片任務 ${s.status}（費用以 xAI 後台為準）$msg"
                                         Toast.makeText(
@@ -217,7 +228,6 @@ fun GenerateVideoScreen(
                                         ).show()
                                         done = true
                                     }
-                                    else -> { /* still pending */ }
                                 }
                             }
                             is ApiResult.Error -> {
@@ -235,6 +245,7 @@ fun GenerateVideoScreen(
                         }
                     }
                     if (!done && generating) {
+                        lastError = "等待超時（5 分鐘）— 任務可能仍在 xAI 後台執行，費用以 xAI 後台為準"
                         Toast.makeText(
                             ctx, "等待超時（5 分鐘）— 費用以 xAI 後台為準",
                             Toast.LENGTH_LONG,

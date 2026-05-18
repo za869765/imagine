@@ -109,6 +109,8 @@ fun SettingsScreen(
     }
     val realBalance by BillingState.balance
     val realSpent by BillingState.spent
+    val realBalanceRaw by BillingState.balanceRaw
+    val realSpentRaw by BillingState.spentRaw
     val syncing by BillingState.syncing
     val syncedAt by BillingState.syncedAt
     val syncError by BillingState.error
@@ -246,27 +248,49 @@ fun SettingsScreen(
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text("Prepaid 餘額", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(
-                                        realBalance ?: "—",
-                                        fontSize = 16.sp, fontWeight = FontWeight.W700,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            realBalance ?: "—",
+                                            fontSize = 16.sp, fontWeight = FontWeight.W700,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        realBalanceRaw?.let { raw ->
+                                            Text(
+                                                "raw: $raw",
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text("本期已花(xAI)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(
-                                        realSpent ?: "—",
-                                        fontSize = 16.sp, fontWeight = FontWeight.W700,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            realSpent ?: "—",
+                                            fontSize = 16.sp, fontWeight = FontWeight.W700,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        realSpentRaw?.let { raw ->
+                                            Text(
+                                                "raw: $raw",
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Row(
@@ -425,7 +449,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.8",
+                    "Imagine v1.0.9",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

@@ -94,18 +94,29 @@ fun GenerateImageScreen(
             loading = false
             when (result) {
                 is ApiResult.Success -> {
-                    resultUrls = result.value
-                    lastPrompt = capturedPrompt
-                    lastMeta = "$capturedAr · $capturedRes · ${capturedN} 張"
-                    lastError = ""
-                    result.value.forEach { url ->
-                        scope.launch { MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt) }
+                    if (result.value.isEmpty()) {
+                        // server 回 200 但 data 是空陣列 — 多半是審核擋下卻不回 4xx。
+                        // 不寫 lastError 的話 UI 看起來像「成功 0 張」沒解釋。
+                        resultUrls = emptyList()
+                        lastError = "未收到任何圖片 — 可能被審核擋下（費用以 xAI 後台為準）"
+                        Toast.makeText(
+                            ctx, "未收到任何圖片（可能被審核擋下）",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    } else {
+                        resultUrls = result.value
+                        lastPrompt = capturedPrompt
+                        lastMeta = "$capturedAr · $capturedRes · ${capturedN} 張"
+                        lastError = ""
+                        result.value.forEach { url ->
+                            scope.launch { MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt) }
+                        }
+                        Toast.makeText(
+                            ctx,
+                            "已生成 ${result.value.size} 張，已存到相簿",
+                            Toast.LENGTH_SHORT,
+                        ).show()
                     }
-                    Toast.makeText(
-                        ctx,
-                        "已生成 ${result.value.size} 張，已存到相簿",
-                        Toast.LENGTH_SHORT,
-                    ).show()
                     BillingState.sync(prefs, scope)
                 }
                 is ApiResult.Error -> {
