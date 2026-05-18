@@ -30,9 +30,11 @@ class ImagineRepository(private val api: XaiApi) {
         n: Int = 1,
         resolution: String? = null,
         aspectRatio: String? = null,
+        model: String = "grok-imagine-image-quality",
     ): ApiResult<List<String>> = safeCall {
         api.generateImage(
             ImageGenerationRequest(
+                model = model,
                 prompt = prompt,
                 n = n,
                 resolution = resolution,

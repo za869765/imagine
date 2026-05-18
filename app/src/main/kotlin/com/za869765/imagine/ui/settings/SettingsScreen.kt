@@ -45,6 +45,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.za869765.imagine.applyScreenshotFlag
+import android.content.Intent
+import android.widget.Toast
+import com.za869765.imagine.data.backup.KeyBackupCodec
 import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagineBottomNav
@@ -80,6 +83,30 @@ fun SettingsScreen(
     // ── xAI 後台(Management API) ─────────────────────
     var managementKey by remember { mutableStateOf(prefs.managementKey.orEmpty()) }
     var showMgmtKeyEditor by remember { mutableStateOf(false) }
+    var showImportEditor by remember { mutableStateOf(false) }
+
+    fun doExport() {
+        val payload = KeyBackupCodec.export(prefs)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "imagine keys backup")
+            putExtra(Intent.EXTRA_TEXT, payload)
+        }
+        ctx.startActivity(Intent.createChooser(intent, "匯出 Keys"))
+    }
+
+    fun doImport(jsonStr: String): Boolean {
+        return try {
+            KeyBackupCodec.importInto(prefs, jsonStr)
+            managementKey = prefs.managementKey.orEmpty()
+            Toast.makeText(ctx, "已匯入,請重新進入畫面或同步", Toast.LENGTH_SHORT).show()
+            BillingState.sync(prefs, scope)
+            true
+        } catch (e: Throwable) {
+            Toast.makeText(ctx, "匯入失敗:${e.message?.take(120)}", Toast.LENGTH_LONG).show()
+            false
+        }
+    }
     val realBalance by BillingState.balance
     val realSpent by BillingState.spent
     val syncing by BillingState.syncing
@@ -105,6 +132,20 @@ fun SettingsScreen(
             },
         )
     }
+    if (showImportEditor) {
+        SimpleStringEditDialog(
+            title = "匯入 Keys",
+            hint = "貼上之前匯出的 JSON(含 apiKey + managementKey)",
+            current = "",
+            mask = false,
+            onDismiss = { showImportEditor = false },
+            onSave = { input ->
+                if (input.isBlank()) { showImportEditor = false; return@SimpleStringEditDialog }
+                if (doImport(input)) showImportEditor = false
+            },
+        )
+    }
+
     if (showClearDataConfirm) {
         com.za869765.imagine.ui.dialog.ClearDataDialog(
             onCancel = { showClearDataConfirm = false },
@@ -303,6 +344,39 @@ fun SettingsScreen(
                 }
             }
 
+            // ── Keys 備份 ──
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("Keys 備份")
+                ImagineCard(pad = 0) {
+                    Column {
+                        SettingRow(divider = true, onClick = { doExport() }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("匯出 Keys", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    "用系統分享匯出 JSON(避免剪貼簿)",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        SettingRow(divider = false, onClick = { showImportEditor = true }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("匯入 Keys", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    "貼上之前匯出的 JSON",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
             // ── 危險區 ──
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("危險區")
@@ -354,7 +428,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.5",
+                    "Imagine v1.0.6",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

@@ -68,6 +68,7 @@ fun GenerateImageScreen(
     var resolution by rememberSaveable { mutableStateOf("1k") }
     var aspectRatio by rememberSaveable { mutableStateOf("1:1") }
     var n by rememberSaveable { mutableStateOf(1) }
+    var quality by rememberSaveable { mutableStateOf("rapid") }  // rapid (快) / quality (好)
     var loading by remember { mutableStateOf(false) }
 
     var resultUrls by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
@@ -82,11 +83,13 @@ fun GenerateImageScreen(
             val capturedRes = resolution
             val capturedAr = aspectRatio
             val capturedN = n
+            val capturedModel = if (quality == "quality") "grok-imagine-image-quality" else "grok-imagine-image"
             val result = repository.generateImage(
                 prompt = capturedPrompt,
                 n = capturedN,
                 resolution = capturedRes,
                 aspectRatio = capturedAr.takeIf { it != "auto" },
+                model = capturedModel,
             )
             loading = false
             when (result) {
@@ -139,6 +142,15 @@ fun GenerateImageScreen(
                 ),
                 activeId = "image",
                 onSelected = { if (it == "video") onSwitchToVideo() },
+            )
+
+            com.za869765.imagine.ui.component.SegmentedTab(
+                options = listOf(
+                    com.za869765.imagine.ui.component.SegmentedOption("rapid", "Rapid 快速"),
+                    com.za869765.imagine.ui.component.SegmentedOption("quality", "Quality 高品質"),
+                ),
+                activeId = quality,
+                onSelected = { quality = it },
             )
 
             PromptInput(value = prompt, onValueChange = { prompt = it })

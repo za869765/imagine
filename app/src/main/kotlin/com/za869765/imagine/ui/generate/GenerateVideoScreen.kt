@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
@@ -192,8 +193,8 @@ fun GenerateVideoScreen(
                             is ApiResult.Success -> {
                                 pollErrors = 0
                                 val s = poll.value
-                                when (s.status) {
-                                    "done" -> {
+                                when (s.status.lowercase()) {
+                                    "done", "succeeded", "completed" -> {
                                         val url = s.video?.url
                                         if (url != null) {
                                             resultVideoUrl = url
@@ -207,10 +208,11 @@ fun GenerateVideoScreen(
                                         }
                                         done = true
                                     }
-                                    "failed", "expired" -> {
-                                        lastError = "影片任務 ${s.status}（費用以 xAI 後台為準）"
+                                    "failed", "expired", "error", "canceled", "cancelled" -> {
+                                        val msg = s.error?.let { "\n$it" } ?: ""
+                                        lastError = "影片任務 ${s.status}（費用以 xAI 後台為準）$msg"
                                         Toast.makeText(
-                                            ctx, "影片失敗（${s.status}，費用以 xAI 後台為準）",
+                                            ctx, "影片失敗（${s.status}）${msg.take(180)}",
                                             Toast.LENGTH_LONG,
                                         ).show()
                                         done = true
@@ -432,7 +434,7 @@ fun GenerateVideoScreen(
                             url = url,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(16f / 9f)
+                                .heightIn(min = 280.dp, max = 480.dp)
                                 .clip(RoundedCornerShape(12.dp)),
                         )
                         Column(modifier = Modifier.padding(14.dp)) {
@@ -467,6 +469,7 @@ private fun VideoPreview(url: String, modifier: Modifier = Modifier) {
             PlayerView(c).apply {
                 this.player = player
                 useController = true
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             }
         },
         modifier = modifier,
