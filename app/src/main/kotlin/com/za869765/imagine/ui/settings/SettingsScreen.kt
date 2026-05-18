@@ -79,9 +79,7 @@ fun SettingsScreen(
 
     // ── xAI 後台(Management API) ─────────────────────
     var managementKey by remember { mutableStateOf(prefs.managementKey.orEmpty()) }
-    var teamId by remember { mutableStateOf(prefs.teamId.orEmpty()) }
     var showMgmtKeyEditor by remember { mutableStateOf(false) }
-    var showTeamIdEditor by remember { mutableStateOf(false) }
     val realBalance by BillingState.balance
     val realSpent by BillingState.spent
     val syncing by BillingState.syncing
@@ -107,22 +105,6 @@ fun SettingsScreen(
             },
         )
     }
-    if (showTeamIdEditor) {
-        SimpleStringEditDialog(
-            title = "Team ID",
-            hint = "從 console URL 複製,UUID 格式",
-            current = teamId,
-            mask = false,
-            onDismiss = { showTeamIdEditor = false },
-            onSave = {
-                teamId = it
-                prefs.teamId = it.ifBlank { null }
-                showTeamIdEditor = false
-                BillingState.sync(prefs, scope)
-            },
-        )
-    }
-
     if (showClearDataConfirm) {
         com.za869765.imagine.ui.dialog.ClearDataDialog(
             onCancel = { showClearDataConfirm = false },
@@ -218,20 +200,7 @@ fun SettingsScreen(
                             }
                             TextActionButton(label = "編輯", onClick = { showMgmtKeyEditor = true })
                         }
-                        SettingRow(divider = true, onClick = { showTeamIdEditor = true }) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Team ID", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
-                                Text(
-                                    teamId.ifBlank { "未設定" },
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp),
-                                )
-                            }
-                            TextActionButton(label = "編輯", onClick = { showTeamIdEditor = true })
-                        }
-                        if (managementKey.isNotBlank() && teamId.isNotBlank()) {
+                        if (managementKey.isNotBlank()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -288,7 +257,7 @@ fun SettingsScreen(
                         } else {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    "輸入 Management Key + Team ID 後可查詢 xAI 後台真實餘額",
+                                    "輸入 Management Key 後可查詢 xAI 後台真實餘額",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     lineHeight = 18.sp,
@@ -385,7 +354,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.4",
+                    "Imagine v1.0.5",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

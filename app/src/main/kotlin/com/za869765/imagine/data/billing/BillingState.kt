@@ -14,6 +14,9 @@ import java.time.format.DateTimeFormatter
 // Singleton mirror of the xAI billing snapshot — kept in memory only.
 // Subscribed by XaiBalanceBar (top of every main screen) and the SettingsScreen.
 object BillingState {
+    // Hard-coded because this app is single-user. To switch teams change here + rebuild.
+    private const val TEAM_ID = "02192454-54ee-4835-9680-212eda8ba708"
+
     val balance: MutableState<String?> = mutableStateOf(null)
     val spent: MutableState<String?> = mutableStateOf(null)
     val syncedAt: MutableState<String?> = mutableStateOf(null)
@@ -24,16 +27,15 @@ object BillingState {
 
     fun sync(prefs: SecurePrefs, scope: CoroutineScope) {
         val key = prefs.managementKey ?: return
-        val team = prefs.teamId ?: return
-        if (key.isBlank() || team.isBlank()) return
+        if (key.isBlank()) return
         if (syncing.value) return
         scope.launch {
             syncing.value = true
             error.value = null
             try {
                 val api = ManagementClient.build(key)
-                val b = withContext(Dispatchers.IO) { api.getPrepaidBalance(team) }
-                val inv = withContext(Dispatchers.IO) { api.getInvoicePreview(team) }
+                val b = withContext(Dispatchers.IO) { api.getPrepaidBalance(TEAM_ID) }
+                val inv = withContext(Dispatchers.IO) { api.getInvoicePreview(TEAM_ID) }
                 balance.value = b.total?.value
                 spent.value = inv.coreInvoice?.amountAfterVat ?: inv.coreInvoice?.amountBeforeVat
                 syncedAt.value = LocalTime.now().format(fmt)

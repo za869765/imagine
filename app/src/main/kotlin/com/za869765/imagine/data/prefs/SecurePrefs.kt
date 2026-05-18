@@ -30,17 +30,14 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getString(K_API_KEY_VERIFIED_AT, null)
         set(v) = prefs.edit().putString(K_API_KEY_VERIFIED_AT, v).apply()
 
-    // ── Management API (查 xAI 後台真實餘額/帳單) ─────────────────
-    // 跟 apiKey 不同把,console → API Keys 建立時勾「Management」權限。
+    // ── Management API(查 xAI 後台真實餘額/帳單)─────────────
+    // 跟 apiKey 不同把:console → Settings → Management Keys 建立。
+    // Team ID 寫死在 BillingState(純自用)。
     var managementKey: String?
         get() = prefs.getString(K_MGMT_KEY, null)
         set(v) = prefs.edit().putString(K_MGMT_KEY, v).apply()
 
-    var teamId: String?
-        get() = prefs.getString(K_TEAM_ID, null)
-        set(v) = prefs.edit().putString(K_TEAM_ID, v).apply()
-
-    val isManagementSet: Boolean get() = !managementKey.isNullOrBlank() && !teamId.isNullOrBlank()
+    val isManagementSet: Boolean get() = !managementKey.isNullOrBlank()
 
     // ── PIN (hash + salt + length-hint) ──────────────────────────
     var pinHash: String?
@@ -84,7 +81,6 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_API_KEY = "api_key"
         private const val K_API_KEY_VERIFIED_AT = "api_key_verified_at"
         private const val K_MGMT_KEY = "management_key"
-        private const val K_TEAM_ID = "team_id"
         private const val K_PIN_HASH = "pin_hash"
         private const val K_PIN_SALT = "pin_salt"
         private const val K_PIN_LENGTH = "pin_length"
