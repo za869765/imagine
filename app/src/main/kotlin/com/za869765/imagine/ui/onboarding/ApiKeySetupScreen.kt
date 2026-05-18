@@ -219,7 +219,7 @@ fun ApiKeySetupScreen(
                 enabled = canSave,
                 onClick = {
                     prefs.apiKey = keyInput
-                    prefs.apiKeyVerifiedAt = LocalDate.now().format(SecurePrefs.DATE_FMT)
+                    prefs.apiKeyVerifiedAt = LocalDate.now().toString()
                     onSaved()
                 },
             )

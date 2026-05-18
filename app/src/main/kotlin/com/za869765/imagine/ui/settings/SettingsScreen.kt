@@ -45,11 +45,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.za869765.imagine.applyScreenshotFlag
-import com.za869765.imagine.data.api.ManagementClient
+import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.data.prefs.SecurePrefs
-import kotlinx.coroutines.launch
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -61,8 +58,6 @@ import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.theme.LocalBudgetColors
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
@@ -390,7 +385,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.3",
+                    "Imagine v1.0.4",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

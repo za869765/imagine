@@ -176,7 +176,7 @@ fun ApiKeyEditScreen(
                 enabled = canSave,
                 onClick = {
                     prefs.apiKey = newKey
-                    prefs.apiKeyVerifiedAt = LocalDate.now().format(SecurePrefs.DATE_FMT)
+                    prefs.apiKeyVerifiedAt = LocalDate.now().toString()
                     onSaved()
                 },
             )
