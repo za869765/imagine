@@ -449,7 +449,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.9",
+                    "Imagine v1.0.10",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

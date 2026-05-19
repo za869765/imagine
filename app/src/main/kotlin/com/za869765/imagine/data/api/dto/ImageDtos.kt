@@ -29,8 +29,8 @@ data class ImageInput(
 
 @Serializable
 data class ImageGenerationResponse(
-    val created: Long,
-    val data: List<ImageData>,
+    val created: Long? = null,
+    val data: List<ImageData> = emptyList(),
 )
 
 @Serializable

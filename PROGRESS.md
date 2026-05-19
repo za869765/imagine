@@ -94,6 +94,14 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 | 5 | 主題切換（系統/淺/深 三選） | 目前跟隨系統 |
 | 6 | HistoryDetailScreen 接真實資料 | 點進清單後仍是樣本 prompt + 寫死 meta（v1.0.6 後 HistoryScreen 清單已真實，Detail 還沒同步） |
 
+## v1.0.10 修正（2026-05-19）
+
+實機回報：圖片生成 toast 跳「失敗 — 解析失敗：Field 'created' is required ...」，但 xAI 後台已扣費 → 表示圖其實有產，只是 client 解析掛掉。
+
+| # | 修 | 檔案 |
+|---|---|---|
+| 1 | `ImageGenerationResponse.created` 改 `Long? = null`、`data` 改 `List<ImageData> = emptyList()` — xAI Imagine response 無 `created` 欄，required 設定會 SerializationException 整個攔下，連 data 都拿不到 | `data/api/dto/ImageDtos.kt` |
+
 ## v1.0.9 待實機驗證（2026-05-18 push 完待 user 裝機回報）
 
 | # | 待驗 | 怎麼驗 |
@@ -121,6 +129,7 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 - ⚠️ **鎖屏改 overlay 不 navigate**（v1.0.9 修正）：用 Box 把 LockScreen 疊在 NavHost 之上，不要 `navigate(LOCK)` + `popUpTo`，否則底層 composable 被 dispose，`rememberSaveable` state 全失。BackHandler 擋系統 back 鍵
 - ⚠️ **Biometric 用 `STRONG or WEAK`**（v1.0.9 修正）：S22 Ultra 的指紋是 BIOMETRIC_STRONG，Android 13+ 對 WEAK-only 的 BiometricPrompt 有限制。`canAuthenticate` 跟 `setAllowedAuthenticators` 都改成 `BIOMETRIC_STRONG or BIOMETRIC_WEAK`
 - ⚠️ **影片 polling status 比對要 fail-safe**（v1.0.9 修正）：白名單列「還在跑」的 status（pending/queued/processing/running/in_progress/starting/generating），其餘狀態（含 xAI 沒文件化的 rejected / moderation_failed 等）都當失敗終止。Timeout 也要寫 `lastError` 不只 toast，否則 toast 一閃使用者看不到
+- ⚠️ **xAI response DTO 寫 lenient**（v1.0.10 教訓）：xAI Imagine 的 `/v1/images/generations` 回傳**沒有** `created` 欄位（OpenAI 標準有，xAI 沒跟）。Kotlinx `@Serializable data class` 預設所有欄位 required，缺一個就整個 SerializationException、retrofit converter 連 `data` 都不解就 fail。**所有 xAI response DTO 都應該設 `field: T? = null` 或 `field: T = default`**，不要相信「OpenAI compat」這句話
 - ⚠️ **SVG 內配色用 hardcode oklch string 不用 CSS var**（PNG 匯出問題類比 Sample-recovery）：但 Imagine 內沒這需求，僅供參考
 - **`mutableStateOf` 包 prefs 讀取的數值** 才會即時刷新（如 spent, imageCount）
 - **Composable 內 `Canvas` 的 lambda 不是 @Composable context**，不能讀 MaterialTheme — 要在 Canvas 外 capture color
@@ -155,6 +164,7 @@ cd imagine
 
 ## 重要 commits（最近 → 早期）
 
+- `v1.0.10` — 修圖片 ImageGenerationResponse DTO 容錯（xAI 無 `created` 欄 → SerializationException）
 - `67ab5f8` — v1.0.9 鎖屏 overlay 不中斷 state + 審核失敗回報 + Biometric STRONG/WEAK + Bill raw 顯示
 - `f8c1542` — v1.0.8 Balance cents 格式化 + Keys 備份 UI 合一 + API Key 未設提示
 - `b4c8c73` — v1.0.7 砍 ApiKeySetup onboarding 強制步驟（之前 onboarding 強制要 user 設 key，現在改用主畫面提示卡）
