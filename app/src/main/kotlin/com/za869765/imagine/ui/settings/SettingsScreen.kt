@@ -324,46 +324,75 @@ fun SettingsScreen(
                 }
             }
 
-            // ── 危險區 ──
+            // ── 危險區 (collapsed by default 避免誤按) ──
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("危險區")
+                var dangerExpanded by remember { mutableStateOf(false) }
+
+                // 收合 header — 低調灰色 outline 一行；點才展開
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.errorContainer)
-                        .clickable { showClearDataConfirm = true },
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable { dangerExpanded = !dangerExpanded }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        ImagineIcon(
-                            name = "history",
-                            size = 22.dp,
-                            fill = 1,
-                            tint = MaterialTheme.colorScheme.error,
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "⚠️ 危險區",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.W500,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
                         )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "清除所有資料",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.W600,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
+                        ImagineIcon(
+                            name = if (dangerExpanded) "expand_less" else "expand_more",
+                            size = 20.dp,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                // 展開後才出現紅色「清除所有資料」按鈕
+                if (dangerExpanded) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .clickable { showClearDataConfirm = true },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            ImagineIcon(
+                                name = "history",
+                                size = 22.dp,
+                                fill = 1,
+                                tint = MaterialTheme.colorScheme.error,
                             )
-                            Text(
-                                "API Key、用量、歷史全清",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.75f),
-                                modifier = Modifier.padding(top = 2.dp),
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "清除所有資料",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.W600,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                )
+                                Text(
+                                    "API Key、用量、歷史全清",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.75f),
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(
+                                name = "chevron_right",
+                                size = 22.dp,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
                             )
                         }
-                        ImagineIcon(
-                            name = "expand_more",
-                            size = 22.dp,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                        )
                     }
                 }
             }
