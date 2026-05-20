@@ -90,11 +90,12 @@ fun SettingsScreen(
     fun doExport() {
         val payload = KeyBackupCodec.export(prefs)
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "imagine keys backup")
+            type = "text/csv"
+            putExtra(Intent.EXTRA_SUBJECT, "imagine_keys.csv")
+            putExtra(Intent.EXTRA_TITLE, "imagine_keys.csv")
             putExtra(Intent.EXTRA_TEXT, payload)
         }
-        ctx.startActivity(Intent.createChooser(intent, "匯出 Keys"))
+        ctx.startActivity(Intent.createChooser(intent, "匯出 Keys (CSV)"))
     }
 
     fun doImport(jsonStr: String): Boolean {
@@ -154,8 +155,8 @@ fun SettingsScreen(
     }
     if (showImportEditor) {
         SimpleStringEditDialog(
-            title = "匯入 Keys",
-            hint = "貼上之前匯出的 JSON(含 apiKey + managementKey)",
+            title = "匯入 Keys (CSV)",
+            hint = "貼上 CSV：每行 key,value (支援 api_key / management_key / team_id / api_key_verified_at)。也接受舊版 JSON",
             current = "",
             mask = false,
             onDismiss = { showImportEditor = false },
@@ -405,7 +406,7 @@ fun SettingsScreen(
                 ImagineCard(pad = 16) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            "匯出走系統分享面板(分享到 Drive/Keep/Email 等,避免剪貼簿);匯入貼上之前匯出的 JSON。",
+                            "CSV 格式：key,value 兩欄。匯出走系統分享面板分享到 Drive / Keep / Email (避免剪貼簿)；匯入貼上 CSV 內容 (也兼容舊版 JSON 匯出)。",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp,
