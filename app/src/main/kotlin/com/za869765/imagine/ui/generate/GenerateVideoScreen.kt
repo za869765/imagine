@@ -128,6 +128,12 @@ fun GenerateVideoScreen(
     }
 
     fun encodeImage(uri: Uri): String? = runCatching {
+        // xAI REST 對 image.url 規格: 只接受 public https URL。
+        // 從「動起來」/「當參考圖」入口帶進來的 uri 本來就是 xAI 圖片生成回傳的
+        // https URL — 直接傳字串，不要 contentResolver re-encode (對 https uri
+        // ContentResolver 會回 null，結果整個 image 欄位變 null 等於沒帶圖)。
+        val scheme = uri.scheme?.lowercase()
+        if (scheme == "http" || scheme == "https") return@runCatching uri.toString()
         val mime = ctx.contentResolver.getType(uri) ?: "image/png"
         val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: return@runCatching null
@@ -142,6 +148,21 @@ fun GenerateVideoScreen(
                 Toast.LENGTH_SHORT,
             ).show()
             return
+        }
+        // 本地圖警告: xAI REST 只接受 https URL，從手機相簿選的圖會被忽略，
+        // 結果跟純文生影一樣。建議走「動起來」/「當參考圖」入口帶 xAI 回傳的 URL。
+        if (mode != VideoMode.T2V) {
+            val localPicked = sourceImages.any { uri ->
+                val s = uri.scheme?.lowercase()
+                s != "http" && s != "https"
+            }
+            if (localPicked) {
+                Toast.makeText(
+                    ctx,
+                    "⚠️ 手機相簿選的圖 xAI 可能不會參考；建議從歷史頁/圖片頁「動起來」",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
         }
         scope.launch {
             generating = true
