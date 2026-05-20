@@ -63,12 +63,17 @@ import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
+import com.za869765.imagine.ui.component.ChipVariant
+import com.za869765.imagine.ui.component.ImagineChip
 import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.util.Clipboard
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -148,6 +153,37 @@ fun GenerateVideoScreen(
             ?: return@runCatching null
         "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
     }.getOrNull()
+
+    // 把起始圖/參考圖第一張存到相簿 (相同 imagine 目錄)。Grok 風格：
+    // 即使這次 video gen 失敗或還沒按生成，使用者仍能把原圖拿走收藏 / 之後再改 prompt 試。
+    fun downloadFirstSourceImage() {
+        val uri = sourceImages.firstOrNull() ?: run {
+            Toast.makeText(ctx, "沒有原圖可下載", Toast.LENGTH_SHORT).show()
+            return
+        }
+        scope.launch {
+            val bytes = withContext(Dispatchers.IO) {
+                runCatching {
+                    val scheme = uri.scheme?.lowercase()
+                    if (scheme == "http" || scheme == "https") {
+                        URL(uri.toString()).openStream().use { it.readBytes() }
+                    } else {
+                        ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    }
+                }.getOrNull()
+            }
+            if (bytes == null || bytes.isEmpty()) {
+                Toast.makeText(ctx, "讀取原圖失敗", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val saved = MediaSaver.saveImage(ctx, bytes, prompt.ifBlank { "imagine source" })
+            Toast.makeText(
+                ctx,
+                if (saved != null) "原圖已存到相簿 (Imagine)" else "存檔失敗",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
 
     fun runGenerate() {
         if (mode != VideoMode.T2V && sourceImages.isEmpty()) {
@@ -349,6 +385,31 @@ fun GenerateVideoScreen(
                             AddImageSlot(onClick = launchPick)
                         }
                     }
+                    // 起始圖 / 參考圖常駐 chip — Grok 風格：原圖跟 prompt 永遠能拿走，
+                    // 不論還沒生成 / 生成中 / 成功 / 400 失敗。
+                    if (sourceImages.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) {
+                            if (prompt.isNotBlank()) {
+                                ImagineChip(
+                                    label = "複製 prompt",
+                                    icon = "content_copy",
+                                    variant = ChipVariant.Tonal,
+                                    onClick = {
+                                        Clipboard.copy(ctx, prompt, toastMsg = "已複製 prompt")
+                                    },
+                                )
+                            }
+                            ImagineChip(
+                                label = "下載原圖",
+                                icon = "download",
+                                variant = ChipVariant.Tonal,
+                                onClick = { downloadFirstSourceImage() },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -466,6 +527,22 @@ fun GenerateVideoScreen(
                                 color = cardFg,
                                 lineHeight = 20.sp,
                             )
+                        }
+                        // Grok 風格：失敗時就在錯誤卡內提供「重試」捷徑，省得使用者再捲回去找生成鈕
+                        if (!generating && prompt.isNotBlank()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                ImagineChip(
+                                    label = "重試",
+                                    icon = "refresh",
+                                    variant = ChipVariant.Tonal,
+                                    onClick = { runGenerate() },
+                                )
+                            }
                         }
                     }
                 }
