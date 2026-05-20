@@ -1,7 +1,8 @@
 package com.za869765.imagine.ui.history
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -42,6 +44,7 @@ import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.ui.util.Clipboard
 import java.time.Instant
 import java.time.ZoneId
 
@@ -53,6 +56,7 @@ data class HistoryItem(
     val duration: String? = null,
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
     onNavSelected: (NavTab) -> Unit,
@@ -131,16 +135,29 @@ fun HistoryScreen(
                                     .aspectRatio(1f)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                    .clickable {
-                                        onItemClick(
-                                            HistoryItem(
-                                                id = entry.uri.toString(),
-                                                date = date,
-                                                isVideo = entry.isVideo,
-                                                duration = entry.durationMs?.let { formatDuration(it) },
-                                            ),
-                                        )
-                                    },
+                                    .combinedClickable(
+                                        onClick = {
+                                            onItemClick(
+                                                HistoryItem(
+                                                    id = entry.uri.toString(),
+                                                    date = date,
+                                                    isVideo = entry.isVideo,
+                                                    duration = entry.durationMs?.let { formatDuration(it) },
+                                                ),
+                                            )
+                                        },
+                                        // 長按複製 prompt — 「成功案例」可直接拿走再修
+                                        onLongClick = {
+                                            val p = entry.prompt
+                                            if (!p.isNullOrBlank()) {
+                                                Clipboard.copy(ctx, p, toastMsg = "已複製 prompt")
+                                            } else {
+                                                android.widget.Toast.makeText(
+                                                    ctx, "此項沒有 prompt 紀錄", android.widget.Toast.LENGTH_SHORT,
+                                                ).show()
+                                            }
+                                        },
+                                    ),
                             ) {
                                 AsyncImage(
                                     model = entry.uri,
@@ -148,6 +165,26 @@ fun HistoryScreen(
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize(),
                                 )
+                                // 縮圖底部 overlay prompt 縮寫 — 點縮圖可進 detail 看完整 + 複製，
+                                // 長按縮圖直接複製整段 prompt
+                                if (!entry.prompt.isNullOrBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .fillMaxWidth()
+                                            .background(Color.Black.copy(alpha = 0.55f))
+                                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                                    ) {
+                                        Text(
+                                            entry.prompt,
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            lineHeight = 12.sp,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
                                 if (entry.isVideo) {
                                     Box(
                                         modifier = Modifier

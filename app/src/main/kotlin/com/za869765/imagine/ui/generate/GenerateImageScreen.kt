@@ -76,6 +76,7 @@ fun GenerateImageScreen(
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastMeta by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
+    var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
 
     fun runGenerate() {
         scope.launch {
@@ -109,6 +110,7 @@ fun GenerateImageScreen(
                         lastPrompt = capturedPrompt
                         lastMeta = "$capturedAr · $capturedRes · ${capturedN} 張"
                         lastError = ""
+                        lastErrorIsPolicy = false
                         result.value.forEach { url ->
                             scope.launch { MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt) }
                         }
@@ -124,12 +126,13 @@ fun GenerateImageScreen(
                     val tag = when (result.kind) {
                         ErrorKind.Unauthorized -> "API Key 無效"
                         ErrorKind.RateLimited -> "請求太頻繁"
-                        ErrorKind.ContentPolicy -> "審核或請求被拒（費用以 xAI 後台為準）"
+                        ErrorKind.ContentPolicy -> "🚨 內容審核被拒（HTTP 400）"
                         ErrorKind.Network -> "網路錯誤"
                         ErrorKind.Server -> "xAI 伺服器錯誤"
                         ErrorKind.Unknown -> "失敗"
                     }
                     lastError = "$tag\n${result.message}"
+                    lastErrorIsPolicy = (result.kind == ErrorKind.ContentPolicy)
                     Toast.makeText(ctx, "$tag — ${result.message.take(200)}", Toast.LENGTH_LONG).show()
                     BillingState.sync(prefs, scope)
                 }
@@ -211,7 +214,18 @@ fun GenerateImageScreen(
             )
 
             if (lastError.isNotBlank()) {
-                ImagineCard(pad = 14) {
+                // 審核被拒 (HTTP 400 content policy) 用紅色 errorContainer 突出，
+                // 一般錯誤維持 default card style 避免眼花
+                val cardBg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.errorContainer
+                else MaterialTheme.colorScheme.surfaceContainerHigh
+                val cardFg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.onErrorContainer
+                else MaterialTheme.colorScheme.onSurface
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(cardBg, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                        .padding(14.dp),
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -219,25 +233,25 @@ fun GenerateImageScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "錯誤訊息（可長按選取）",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.W600,
+                                if (lastErrorIsPolicy) "🚨 審核被拒（HTTP 400）" else "錯誤訊息（可長按選取）",
+                                fontSize = if (lastErrorIsPolicy) 14.sp else 11.sp,
+                                fontWeight = FontWeight.W700,
                                 letterSpacing = 0.08.sp,
-                                color = MaterialTheme.colorScheme.error,
+                                color = if (lastErrorIsPolicy) cardFg else MaterialTheme.colorScheme.error,
                             )
                             ImagineChip(
                                 label = "清除",
                                 variant = ChipVariant.Tonal,
-                                onClick = { lastError = "" },
+                                onClick = { lastError = ""; lastErrorIsPolicy = false },
                             )
                         }
                         SelectionContainer {
                             Text(
                                 lastError,
-                                fontSize = 12.sp,
+                                fontSize = if (lastErrorIsPolicy) 13.sp else 12.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 18.sp,
+                                color = cardFg,
+                                lineHeight = 20.sp,
                             )
                         }
                     }

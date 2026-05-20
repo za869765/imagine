@@ -113,6 +113,7 @@ fun GenerateVideoScreen(
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
+    var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
 
     val maxImages = if (mode == VideoMode.Img2Vid) 1 else 3
     val pickImage = rememberLauncherForActivityResult(
@@ -201,12 +202,13 @@ fun GenerateVideoScreen(
                     val tag = when (gen.kind) {
                         ErrorKind.Unauthorized -> "API Key 無效"
                         ErrorKind.RateLimited -> "請求太頻繁"
-                        ErrorKind.ContentPolicy -> "請求被拒（費用以 xAI 後台為準）"
+                        ErrorKind.ContentPolicy -> "🚨 內容審核被拒（HTTP 400）"
                         ErrorKind.Network -> "網路錯誤"
                         ErrorKind.Server -> "xAI 伺服器錯誤"
                         ErrorKind.Unknown -> "送出失敗"
                     }
                     lastError = "$tag\n${gen.message}"
+                    lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
                     Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
                     BillingState.sync(prefs, scope)
                     return@launch
@@ -431,7 +433,16 @@ fun GenerateVideoScreen(
             }
 
             if (lastError.isNotBlank()) {
-                ImagineCard(pad = 14) {
+                val cardBg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.errorContainer
+                else MaterialTheme.colorScheme.surfaceContainerHigh
+                val cardFg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.onErrorContainer
+                else MaterialTheme.colorScheme.onSurface
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(cardBg, RoundedCornerShape(12.dp))
+                        .padding(14.dp),
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -439,21 +450,24 @@ fun GenerateVideoScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "錯誤訊息（可長按選取）",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.W600,
+                                if (lastErrorIsPolicy) "🚨 審核被拒（HTTP 400）" else "錯誤訊息（可長按選取）",
+                                fontSize = if (lastErrorIsPolicy) 14.sp else 11.sp,
+                                fontWeight = FontWeight.W700,
                                 letterSpacing = 0.08.sp,
-                                color = MaterialTheme.colorScheme.error,
+                                color = if (lastErrorIsPolicy) cardFg else MaterialTheme.colorScheme.error,
                             )
-                            OutlinedActionButton(label = "清除", onClick = { lastError = "" })
+                            OutlinedActionButton(
+                                label = "清除",
+                                onClick = { lastError = ""; lastErrorIsPolicy = false },
+                            )
                         }
                         SelectionContainer {
                             Text(
                                 lastError,
-                                fontSize = 12.sp,
+                                fontSize = if (lastErrorIsPolicy) 13.sp else 12.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 18.sp,
+                                color = cardFg,
+                                lineHeight = 20.sp,
                             )
                         }
                     }
