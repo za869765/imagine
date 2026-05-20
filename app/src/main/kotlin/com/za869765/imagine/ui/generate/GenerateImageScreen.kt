@@ -56,8 +56,8 @@ fun GenerateImageScreen(
     onSwitchToVideo: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
-    onAnimateImage: (String) -> Unit = {},
-    onEditImage: (String) -> Unit = {},
+    onAnimateImage: (String, String) -> Unit = { _, _ -> },
+    onEditImage: (String, String) -> Unit = { _, _ -> },
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -307,13 +307,13 @@ fun GenerateImageScreen(
                                     label = "編輯",
                                     icon = "edit",
                                     variant = ChipVariant.Tonal,
-                                    onClick = { onEditImage(resultUrls.first()) },
+                                    onClick = { onEditImage(resultUrls.first(), lastPrompt) },
                                 )
                                 ImagineChip(
                                     label = "動起來",
                                     icon = "movie",
                                     variant = ChipVariant.Tonal,
-                                    onClick = { onAnimateImage(resultUrls.first()) },
+                                    onClick = { onAnimateImage(resultUrls.first(), lastPrompt) },
                                 )
                             }
                         }

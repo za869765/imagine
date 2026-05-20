@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 
 private const val KEY_INIT_MEDIA = "init_media_uri"
+private const val KEY_INIT_PROMPT = "init_media_prompt"
 private const val KEY_HISTORY_URI = "history_entry_uri"
 
 @Composable
@@ -119,14 +120,18 @@ fun ImagineRoot() {
                     onSwitchToVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
-                    onAnimateImage = { url ->
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                    onAnimateImage = { url, prompt ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            set(KEY_INIT_PROMPT, prompt)
+                        }
                         navController.navigate(Routes.GENERATE_VIDEO)
                     },
-                    onEditImage = { url ->
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                    onEditImage = { url, prompt ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            set(KEY_INIT_PROMPT, prompt)
+                        }
                         navController.navigate(Routes.EDIT)
                     },
                 )
@@ -135,10 +140,14 @@ fun ImagineRoot() {
             composable(Routes.GENERATE_VIDEO) {
                 val initUrl = navController.previousBackStackEntry
                     ?.savedStateHandle?.get<String>(KEY_INIT_MEDIA)
+                val initPrompt = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_PROMPT)
                 LaunchedEffect(initUrl) {
                     if (initUrl != null) {
-                        navController.previousBackStackEntry
-                            ?.savedStateHandle?.remove<String>(KEY_INIT_MEDIA)
+                        navController.previousBackStackEntry?.savedStateHandle?.apply {
+                            remove<String>(KEY_INIT_MEDIA)
+                            remove<String>(KEY_INIT_PROMPT)
+                        }
                     }
                 }
                 GenerateVideoScreen(
@@ -150,22 +159,28 @@ fun ImagineRoot() {
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     initialImageUri = initUrl?.let { Uri.parse(it) },
+                    initialPrompt = initPrompt,
                 )
             }
 
             composable(Routes.EDIT) {
                 val initUrl = navController.previousBackStackEntry
                     ?.savedStateHandle?.get<String>(KEY_INIT_MEDIA)
+                val initPrompt = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_PROMPT)
                 LaunchedEffect(initUrl) {
                     if (initUrl != null) {
-                        navController.previousBackStackEntry
-                            ?.savedStateHandle?.remove<String>(KEY_INIT_MEDIA)
+                        navController.previousBackStackEntry?.savedStateHandle?.apply {
+                            remove<String>(KEY_INIT_MEDIA)
+                            remove<String>(KEY_INIT_PROMPT)
+                        }
                     }
                 }
                 EditScreen(
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     initialMediaUri = initUrl?.let { Uri.parse(it) },
+                    initialPrompt = initPrompt,
                 )
             }
 
@@ -196,15 +211,20 @@ fun ImagineRoot() {
                     onAction = { label ->
                         val e = entry ?: return@HistoryDetailScreen
                         val url = e.uri.toString()
+                        val p = e.prompt.orEmpty()
                         when (label) {
                             "動起來（生影片）", "當參考圖", "延長影片" -> {
-                                navController.currentBackStackEntry
-                                    ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                                navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                    set(KEY_INIT_MEDIA, url)
+                                    set(KEY_INIT_PROMPT, p)
+                                }
                                 navController.navigate(Routes.GENERATE_VIDEO)
                             }
                             "編輯這張", "編輯這段" -> {
-                                navController.currentBackStackEntry
-                                    ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                                navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                    set(KEY_INIT_MEDIA, url)
+                                    set(KEY_INIT_PROMPT, p)
+                                }
                                 navController.navigate(Routes.EDIT)
                             }
                             else -> { /* "copy" 之類 HistoryDetailScreen 內處理 */ }

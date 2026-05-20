@@ -79,14 +79,21 @@ fun GenerateVideoScreen(
     onSwitchToImage: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
-    initialImageUri: Uri? = null,  // 從圖片頁「動起來」帶過來
+    initialImageUri: Uri? = null,    // 從圖片頁「動起來」帶過來
+    initialPrompt: String? = null,    // 「動起來」時順帶把圖片的 prompt 預填 (對齊 grok-imagine console 行為)
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
 
-    var prompt by rememberSaveable { mutableStateOf("") }
+    var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
+    // initialPrompt 變動 (例如使用者從 History 不同筆動起來) 時覆蓋已存 prompt
+    LaunchedEffect(initialPrompt) {
+        if (!initialPrompt.isNullOrBlank() && initialPrompt != prompt) {
+            prompt = initialPrompt
+        }
+    }
     var mode by rememberSaveable {
         mutableStateOf(if (initialImageUri != null) VideoMode.Img2Vid else VideoMode.T2V)
     }

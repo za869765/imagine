@@ -74,6 +74,7 @@ fun EditScreen(
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     initialMediaUri: Uri? = null,
+    initialPrompt: String? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -81,7 +82,12 @@ fun EditScreen(
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
 
     var mode by remember { mutableStateOf(EditMode.ImageEdit) }
-    var prompt by remember { mutableStateOf("") }
+    var prompt by remember { mutableStateOf(initialPrompt.orEmpty()) }
+    LaunchedEffect(initialPrompt) {
+        if (!initialPrompt.isNullOrBlank() && initialPrompt != prompt) {
+            prompt = initialPrompt
+        }
+    }
     var sourceUri by remember { mutableStateOf<Uri?>(initialMediaUri) }
     var loading by remember { mutableStateOf(false) }
     var elapsed by remember { mutableStateOf(0) }
