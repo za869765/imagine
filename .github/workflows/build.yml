@@ -1,4 +1,4 @@
-name: Build Release APK
+name: Build & Release APK
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+
+permissions:
+  contents: write   # softprops/action-gh-release 需要 release write
 
 jobs:
   build:
@@ -29,16 +32,40 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Read version from gradle
+        id: ver
+        run: |
+          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "tag=v${NAME}+${CODE}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Building $NAME (code $CODE) → tag v${NAME}+${CODE}"
+
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace
 
-      - name: Upload APK artifact
+      - name: Upload APK artifact (Actions tab)
         uses: actions/upload-artifact@v4
         with:
           name: imagine-release-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release (only on push to main)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: v${{ steps.ver.outputs.name }}
+          body: |
+            Automated build of commit ${{ github.sha }}.
+
+            APK: `app-release.apk` (debug-key signed; merge install over previous version).
+          files: app/build/outputs/apk/release/*.apk
+          fail_on_unmatched_files: true
+          make_latest: "true"
 
       - name: Upload lint reports (on failure)
         if: failure()

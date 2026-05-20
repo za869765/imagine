@@ -18,7 +18,8 @@ data class KeyBackup(
     val apiKeyVerifiedAt: String? = null,
     val managementKey: String? = null,
     val teamId: String? = null,
-    val version: Int = 2,
+    val githubPat: String? = null,
+    val version: Int = 3,
 )
 
 object KeyBackupCodec {
@@ -33,6 +34,7 @@ object KeyBackupCodec {
             prefs.apiKey?.takeIf { it.isNotBlank() }?.let { add("api_key" to it) }
             prefs.managementKey?.takeIf { it.isNotBlank() }?.let { add("management_key" to it) }
             prefs.teamId?.takeIf { it.isNotBlank() }?.let { add("team_id" to it) }
+            prefs.githubPat?.takeIf { it.isNotBlank() }?.let { add("github_pat" to it) }
             prefs.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { add("api_key_verified_at" to it) }
         }
         val body = rows.joinToString("\n") { (k, v) -> "${csvCell(k)},${csvCell(v)}" }
@@ -52,6 +54,7 @@ object KeyBackupCodec {
         b.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { prefs.apiKeyVerifiedAt = it }
         b.managementKey?.takeIf { it.isNotBlank() }?.let { prefs.managementKey = it }
         b.teamId?.takeIf { it.isNotBlank() }?.let { prefs.teamId = it }
+        b.githubPat?.takeIf { it.isNotBlank() }?.let { prefs.githubPat = it }
         return b
     }
 
@@ -59,6 +62,7 @@ object KeyBackupCodec {
         var apiKey: String? = null
         var managementKey: String? = null
         var teamId: String? = null
+        var githubPat: String? = null
         var verifiedAt: String? = null
         csv.lineSequence()
             .map { it.trim().removePrefix("﻿") }  // 砍 UTF-8 BOM (Excel 存 CSV 常有)
@@ -71,17 +75,20 @@ object KeyBackupCodec {
                     "api_key", "apikey" -> apiKey = v
                     "management_key", "managementkey" -> managementKey = v
                     "team_id", "teamid" -> teamId = v
+                    "github_pat", "githubpat" -> githubPat = v
                     "api_key_verified_at", "apikeyverifiedat" -> verifiedAt = v
                 }
             }
         apiKey?.let { prefs.apiKey = it }
         managementKey?.let { prefs.managementKey = it }
         teamId?.let { prefs.teamId = it }
+        githubPat?.let { prefs.githubPat = it }
         verifiedAt?.let { prefs.apiKeyVerifiedAt = it }
         return KeyBackup(
             apiKey = apiKey,
             managementKey = managementKey,
             teamId = teamId,
+            githubPat = githubPat,
             apiKeyVerifiedAt = verifiedAt,
         )
     }

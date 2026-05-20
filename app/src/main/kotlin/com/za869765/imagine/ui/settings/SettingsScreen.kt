@@ -83,8 +83,10 @@ fun SettingsScreen(
     // ── xAI 後台(Management API) ─────────────────────
     var managementKey by remember { mutableStateOf(prefs.managementKey.orEmpty()) }
     var teamId by remember { mutableStateOf(prefs.teamId.orEmpty()) }
+    var githubPat by remember { mutableStateOf(prefs.githubPat.orEmpty()) }
     var showMgmtKeyEditor by remember { mutableStateOf(false) }
     var showTeamIdEditor by remember { mutableStateOf(false) }
+    var showGithubPatEditor by remember { mutableStateOf(false) }
     var showImportEditor by remember { mutableStateOf(false) }
 
     fun doExport() {
@@ -125,7 +127,7 @@ fun SettingsScreen(
     if (showTeamIdEditor) {
         SimpleStringEditDialog(
             title = "Team ID (UUID)",
-            hint = "從 console.x.ai 取得，格式 02192454-54ee-4835-...",
+            hint = "從 console.x.ai 取得；不填會用內建預設 02192454-...",
             current = teamId,
             mask = false,
             onDismiss = { showTeamIdEditor = false },
@@ -134,6 +136,21 @@ fun SettingsScreen(
                 prefs.teamId = teamId.ifBlank { null }
                 showTeamIdEditor = false
                 BillingState.sync(prefs, scope)
+            },
+        )
+    }
+
+    if (showGithubPatEditor) {
+        SimpleStringEditDialog(
+            title = "GitHub PAT (檢查更新用)",
+            hint = "fine-grained PAT，imagine repo Contents: read 即可",
+            current = githubPat,
+            mask = true,
+            onDismiss = { showGithubPatEditor = false },
+            onSave = {
+                githubPat = it.trim()
+                prefs.githubPat = githubPat.ifBlank { null }
+                showGithubPatEditor = false
             },
         )
     }
@@ -266,7 +283,7 @@ fun SettingsScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Team ID", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
                                 Text(
-                                    teamId.ifBlank { "（預設 — 從 console.x.ai 取得 UUID）" },
+                                    teamId.ifBlank { "（已使用內建預設，可不填）" },
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -274,6 +291,19 @@ fun SettingsScreen(
                                 )
                             }
                             TextActionButton(label = "編輯", onClick = { showTeamIdEditor = true })
+                        }
+                        SettingRow(divider = true, onClick = { showGithubPatEditor = true }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("GitHub PAT", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    if (githubPat.isBlank()) "（未設定 — 不會檢查更新）" else maskKey(githubPat),
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            TextActionButton(label = "編輯", onClick = { showGithubPatEditor = true })
                         }
                         if (managementKey.isNotBlank()) {
                             Column(modifier = Modifier.padding(16.dp)) {

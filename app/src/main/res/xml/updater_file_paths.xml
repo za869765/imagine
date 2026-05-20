@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- ImagineUpdater 把 release APK 下載到 cacheDir/updates/ 之後 grantUriPermission 給 PackageInstaller -->
+    <cache-path name="updates" path="updates/" />
+</paths>

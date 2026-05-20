@@ -17,8 +17,12 @@ import androidx.navigation.compose.rememberNavController
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
+import com.za869765.imagine.data.update.Installer
+import com.za869765.imagine.data.update.UpdateChecker
+import com.za869765.imagine.data.update.UpdateInfo
 import com.za869765.imagine.lock.AppLockManager
 import com.za869765.imagine.ui.component.NavTab
+import com.za869765.imagine.ui.component.UpdateBanner
 import com.za869765.imagine.ui.edit.EditScreen
 import com.za869765.imagine.ui.generate.GenerateImageScreen
 import com.za869765.imagine.ui.generate.GenerateVideoScreen
@@ -30,8 +34,12 @@ import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
 import com.za869765.imagine.ui.settings.ChangePinScreen
 import com.za869765.imagine.ui.settings.SettingsScreen
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 
 private const val KEY_INIT_MEDIA = "init_media_uri"
 private const val KEY_HISTORY_URI = "history_entry_uri"
@@ -42,6 +50,7 @@ fun ImagineRoot() {
     val prefs = remember { SecurePrefs.get(ctx) }
     val lockManager = remember { AppLockManager.get(prefs) }
     val navController = rememberNavController()
+    val scope = rememberCoroutineScope()
 
     val currentRoute by navController.currentBackStackEntryAsState()
     val isLocked = lockManager.lockedState.value
@@ -50,12 +59,43 @@ fun ImagineRoot() {
     val showLockOverlay = isLocked && prefs.isPinSet &&
         routeId != null && routeId != Routes.SPLASH && routeId != Routes.PIN_SETUP
 
+    // ── in-app updater ────────────────────────────────────────────────
+    var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    var bannerDismissed by remember { mutableStateOf(false) }
+    val installerState by Installer.state.collectAsState()
+
+    // 開機 + 切回前景時拉一次最新 release。沒 PAT 就直接 noop (UpdateChecker 內擋掉)。
+    LaunchedEffect(Unit) {
+        val pat = prefs.githubPat.orEmpty()
+        if (pat.isNotBlank()) {
+            updateInfo = UpdateChecker.check(pat)
+        }
+    }
+
+    val showUpdateBanner = !bannerDismissed &&
+        routeId != null && routeId != Routes.SPLASH && routeId != Routes.PIN_SETUP &&
+        !isLocked &&
+        (updateInfo != null || installerState.stage != Installer.Stage.Idle)
+
     Box(modifier = Modifier.fillMaxSize()) {
-        NavHost(
-            navController = navController,
-            startDestination = Routes.SPLASH,
-            modifier = Modifier.fillMaxSize(),
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (showUpdateBanner) {
+                UpdateBanner(
+                    info = updateInfo,
+                    progress = installerState,
+                    onUpdateClick = {
+                        val info = updateInfo ?: return@UpdateBanner
+                        val pat = prefs.githubPat.orEmpty()
+                        scope.launch { Installer.downloadAndLaunch(ctx, info, pat) }
+                    },
+                    onDismiss = { bannerDismissed = true },
+                )
+            }
+            NavHost(
+                navController = navController,
+                startDestination = Routes.SPLASH,
+                modifier = Modifier.weight(1f),
+            ) {
             composable(Routes.SPLASH) {
                 SplashScreen(onTimeout = {
                     val next = if (!prefs.isPinSet) Routes.PIN_SETUP else Routes.GENERATE_IMAGE

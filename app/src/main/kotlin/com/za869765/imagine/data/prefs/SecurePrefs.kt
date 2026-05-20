@@ -45,6 +45,13 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getString(K_TEAM_ID, null)
         set(v) = prefs.edit().putString(K_TEAM_ID, v).apply()
 
+    // ── GitHub PAT (in-app updater 拉 private repo releases 用) ──────────
+    // Fine-grained PAT，scope 只給 imagine repo Contents:read。空值時 UpdateChecker
+    // 不主動檢查更新 (使用者要手動下載 APK)。
+    var githubPat: String?
+        get() = prefs.getString(K_GITHUB_PAT, null)
+        set(v) = prefs.edit().putString(K_GITHUB_PAT, v).apply()
+
     // ── PIN (hash + salt + length-hint) ──────────────────────────
     var pinHash: String?
         get() = prefs.getString(K_PIN_HASH, null)
@@ -88,6 +95,7 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_API_KEY_VERIFIED_AT = "api_key_verified_at"
         private const val K_MGMT_KEY = "management_key"
         private const val K_TEAM_ID = "team_id"
+        private const val K_GITHUB_PAT = "github_pat"
         private const val K_PIN_HASH = "pin_hash"
         private const val K_PIN_SALT = "pin_salt"
         private const val K_PIN_LENGTH = "pin_length"
