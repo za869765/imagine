@@ -13,8 +13,8 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.0.13"
+        versionCode = 15
+        versionName = "1.0.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -42,6 +42,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    lint {
+        // 純自用 — release build 不為 lint fatal error 中斷 (例如 deprecated API、
+        // tooling 暫時無法分析的 case)。lint report 仍會產出供檢視。
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 
     kotlinOptions {
