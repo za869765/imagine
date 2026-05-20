@@ -1,9 +1,6 @@
 package com.za869765.imagine.ui.history
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +43,7 @@ import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.TextActionButton
+import com.za869765.imagine.ui.util.Clipboard
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -136,8 +134,7 @@ fun HistoryDetailScreen(
                                     label = "複製",
                                     icon = "content_copy",
                                     onClick = {
-                                        copyToClipboard(ctx, entry.prompt)
-                                        Toast.makeText(ctx, "已複製 prompt", Toast.LENGTH_SHORT).show()
+                                        Clipboard.copy(ctx, entry.prompt, toastMsg = "已複製 prompt")
                                         onAction("copy")
                                     },
                                 )
@@ -267,11 +264,6 @@ private fun ActionRow(icon: String, label: String, onClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
-}
-
-private fun copyToClipboard(ctx: Context, text: String) {
-    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    cm.setPrimaryClip(ClipData.newPlainText("prompt", text))
 }
 
 private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")

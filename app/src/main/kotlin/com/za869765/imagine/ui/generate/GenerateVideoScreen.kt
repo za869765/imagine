@@ -68,6 +68,8 @@ import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.ui.component.TextActionButton
+import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -476,13 +478,28 @@ fun GenerateVideoScreen(
                                 .heightIn(min = 280.dp, max = 480.dp)
                                 .clip(RoundedCornerShape(12.dp)),
                         )
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
                             // bug #4: prompt 區用 SelectionContainer 包起來可長按複製，不再截斷
                             SelectionContainer {
                                 Text(
                                     lastPrompt,
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextActionButton(
+                                    label = "複製 prompt",
+                                    icon = "content_copy",
+                                    onClick = {
+                                        Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
+                                    },
                                 )
                             }
                         }

@@ -49,6 +49,7 @@ import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.ui.theme.ImagineCustomShapes
+import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
 
 @Composable
@@ -290,6 +291,14 @@ fun GenerateImageScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.padding(top = 4.dp),
                             ) {
+                                ImagineChip(
+                                    label = "複製 prompt",
+                                    icon = "content_copy",
+                                    variant = ChipVariant.Tonal,
+                                    onClick = {
+                                        Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
+                                    },
+                                )
                                 ImagineChip(
                                     label = "下載",
                                     icon = "download",
