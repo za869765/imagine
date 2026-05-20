@@ -84,10 +84,13 @@ object UpdateChecker {
         val assets: List<Asset> = emptyList(),
     )
 
+    // 對 private repo，下載要走 GitHub asset API endpoint (這裡的 `url` field)
+    // 配 `Accept: application/octet-stream` 才會收到 302 → signed URL；
+    // `browser_download_url` 是 web 用，直接 GET 對 private repo 會回 404 even with PAT.
     @Serializable
     private data class Asset(
         val name: String,
-        @SerialName("browser_download_url") val url: String,
+        val url: String,
         val size: Long = 0,
     )
 }
