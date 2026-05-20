@@ -34,11 +34,11 @@ object UpdateChecker {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun check(pat: String): UpdateInfo? = withContext(Dispatchers.IO) {
-        if (pat.isBlank()) return@withContext null
+    suspend fun check(): UpdateInfo? = withContext(Dispatchers.IO) {
+        // repo 已改 public (v1.0.29 起)，匿名 access 就能讀 release info + 下載 asset，
+        // 不再需要使用者輸入 PAT。
         val req = Request.Builder()
             .url(API)
-            .header("Authorization", "Bearer $pat")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .build()

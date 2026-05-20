@@ -80,8 +80,6 @@ fun SettingsScreen(
     var showClearDataConfirm by remember { mutableStateOf(false) }
 
     // ── Settings 狀態 ─────────────────────
-    var githubPat by remember { mutableStateOf(prefs.githubPat.orEmpty()) }
-    var showGithubPatEditor by remember { mutableStateOf(false) }
     var showImportEditor by remember { mutableStateOf(false) }
 
     fun doExport() {
@@ -98,7 +96,6 @@ fun SettingsScreen(
     fun doImport(jsonStr: String): Boolean {
         return try {
             KeyBackupCodec.importInto(prefs, jsonStr)
-            githubPat = prefs.githubPat.orEmpty()
             Toast.makeText(ctx, "已匯入", Toast.LENGTH_SHORT).show()
             true
         } catch (e: Throwable) {
@@ -107,20 +104,8 @@ fun SettingsScreen(
         }
     }
 
-    if (showGithubPatEditor) {
-        SimpleStringEditDialog(
-            title = "GitHub PAT (檢查更新用)",
-            hint = "fine-grained PAT，imagine repo Contents: read 即可",
-            current = githubPat,
-            mask = true,
-            onDismiss = { showGithubPatEditor = false },
-            onSave = {
-                githubPat = it.trim()
-                prefs.githubPat = githubPat.ifBlank { null }
-                showGithubPatEditor = false
-            },
-        )
-    }
+    // v1.0.29 砍 GitHub PAT 整段 — repo 改 public 後 in-app updater 不需 token
+
     if (showImportEditor) {
         SimpleStringEditDialog(
             title = "匯入 Keys (CSV)",
@@ -241,19 +226,6 @@ fun SettingsScreen(
                                 )
                             }
                             ImagineIcon(name = "open_in_new", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        SettingRow(divider = true, onClick = { showGithubPatEditor = true }) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("GitHub PAT", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
-                                Text(
-                                    if (githubPat.isBlank()) "（未設定 — 不會檢查更新）" else maskKey(githubPat),
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp),
-                                )
-                            }
-                            TextActionButton(label = "編輯", onClick = { showGithubPatEditor = true })
                         }
                     }
                 }

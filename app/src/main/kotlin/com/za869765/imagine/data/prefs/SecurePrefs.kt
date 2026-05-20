@@ -30,12 +30,8 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getString(K_API_KEY_VERIFIED_AT, null)
         set(v) = prefs.edit().putString(K_API_KEY_VERIFIED_AT, v).apply()
 
-    // ── GitHub PAT (in-app updater 拉 private repo releases 用) ──────────
-    // Fine-grained PAT，scope 只給 imagine repo Contents:read。空值時 UpdateChecker
-    // 不主動檢查更新 (使用者要手動下載 APK)。
-    var githubPat: String?
-        get() = prefs.getString(K_GITHUB_PAT, null)
-        set(v) = prefs.edit().putString(K_GITHUB_PAT, v).apply()
+    // v1.0.29 砍 GitHub PAT — repo 改 public 後 in-app updater 匿名 access 即可
+    // 舊資料 (K_GITHUB_PAT) 留在 prefs 不主動清，後續升級若 K_* 重用同名 key 才會覆蓋
 
     // ── PIN (hash + salt + length-hint) ──────────────────────────
     var pinHash: String?
@@ -78,7 +74,6 @@ class SecurePrefs private constructor(ctx: Context) {
     companion object {
         private const val K_API_KEY = "api_key"
         private const val K_API_KEY_VERIFIED_AT = "api_key_verified_at"
-        private const val K_GITHUB_PAT = "github_pat"
         private const val K_PIN_HASH = "pin_hash"
         private const val K_PIN_SALT = "pin_salt"
         private const val K_PIN_LENGTH = "pin_length"

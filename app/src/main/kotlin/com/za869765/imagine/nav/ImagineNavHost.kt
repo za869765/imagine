@@ -65,12 +65,9 @@ fun ImagineRoot() {
     var bannerDismissed by remember { mutableStateOf(false) }
     val installerState by Installer.state.collectAsState()
 
-    // 開機 + 切回前景時拉一次最新 release。沒 PAT 就直接 noop (UpdateChecker 內擋掉)。
+    // 開機拉一次最新 release (repo 已 public, 不需 PAT)
     LaunchedEffect(Unit) {
-        val pat = prefs.githubPat.orEmpty()
-        if (pat.isNotBlank()) {
-            updateInfo = UpdateChecker.check(pat)
-        }
+        updateInfo = UpdateChecker.check()
     }
 
     val showUpdateBanner = !bannerDismissed &&
@@ -86,8 +83,7 @@ fun ImagineRoot() {
                     progress = installerState,
                     onUpdateClick = {
                         val info = updateInfo ?: return@UpdateBanner
-                        val pat = prefs.githubPat.orEmpty()
-                        scope.launch { Installer.downloadAndLaunch(ctx, info, pat) }
+                        scope.launch { Installer.downloadAndLaunch(ctx, info) }
                     },
                     onDismiss = { bannerDismissed = true },
                 )

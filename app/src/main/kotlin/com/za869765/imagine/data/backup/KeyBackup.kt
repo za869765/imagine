@@ -32,7 +32,6 @@ object KeyBackupCodec {
     fun export(prefs: SecurePrefs): String {
         val rows = buildList {
             prefs.apiKey?.takeIf { it.isNotBlank() }?.let { add("api_key" to it) }
-            prefs.githubPat?.takeIf { it.isNotBlank() }?.let { add("github_pat" to it) }
             prefs.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { add("api_key_verified_at" to it) }
         }
         val body = rows.joinToString("\n") { (k, v) -> "${csvCell(k)},${csvCell(v)}" }
@@ -50,15 +49,13 @@ object KeyBackupCodec {
         val b = json.decodeFromString<KeyBackup>(jsonStr)
         b.apiKey?.takeIf { it.isNotBlank() }?.let { prefs.apiKey = it }
         b.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { prefs.apiKeyVerifiedAt = it }
-        b.githubPat?.takeIf { it.isNotBlank() }?.let { prefs.githubPat = it }
-        // v1.0.21 之後砍 BillingState — 舊 backup 內的 managementKey / teamId 仍會
-        // parse 進 KeyBackup data class 但這裡 silently ignore 不寫進 SecurePrefs
+        // v1.0.21 砍 BillingState、v1.0.29 砍 GitHub PAT — 舊 backup 內這些欄位
+        // 仍 parse 進 data class，但這裡 silently ignore 不寫進 SecurePrefs
         return b
     }
 
     private fun importCsv(prefs: SecurePrefs, csv: String): KeyBackup {
         var apiKey: String? = null
-        var githubPat: String? = null
         var verifiedAt: String? = null
         csv.lineSequence()
             .map { it.trim().removePrefix("﻿") }  // 砍 UTF-8 BOM (Excel 存 CSV 常有)
@@ -69,19 +66,17 @@ object KeyBackupCodec {
                 if (v.isEmpty()) return@forEachIndexed
                 when (k.lowercase()) {
                     "api_key", "apikey" -> apiKey = v
-                    "github_pat", "githubpat" -> githubPat = v
                     "api_key_verified_at", "apikeyverifiedat" -> verifiedAt = v
-                    "management_key", "managementkey", "team_id", "teamid" -> {
-                        /* v1.0.21 砍 BillingState — silently ignore for legacy backups */
+                    "management_key", "managementkey", "team_id", "teamid",
+                    "github_pat", "githubpat" -> {
+                        /* 舊 backup 兼容欄位 — silently ignore */
                     }
                 }
             }
         apiKey?.let { prefs.apiKey = it }
-        githubPat?.let { prefs.githubPat = it }
         verifiedAt?.let { prefs.apiKeyVerifiedAt = it }
         return KeyBackup(
             apiKey = apiKey,
-            githubPat = githubPat,
             apiKeyVerifiedAt = verifiedAt,
         )
     }

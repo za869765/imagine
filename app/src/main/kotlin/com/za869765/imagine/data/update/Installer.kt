@@ -46,12 +46,7 @@ object Installer {
     suspend fun downloadAndLaunch(
         ctx: Context,
         info: UpdateInfo,
-        pat: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
-        if (pat.isBlank()) {
-            _state.value = Progress(Stage.Error, message = "GitHub PAT 未設定")
-            return@withContext Result.failure(IllegalStateException("PAT missing"))
-        }
         val cacheRoot = File(ctx.cacheDir, "updates").apply { mkdirs() }
         // 清理舊 APK，避免 cache 堆爆
         cacheRoot.listFiles()?.forEach { runCatching { it.delete() } }
@@ -59,10 +54,11 @@ object Installer {
 
         _state.value = Progress(Stage.Downloading, total = info.apkSize)
         try {
+            // repo 已 public — 匿名 GET asset API endpoint + Accept octet-stream
+            // 仍會回 302 redirect 到 S3 signed URL，OkHttp 自動 follow。
             val req = Request.Builder()
                 .url(info.apkUrl)
-                .header("Authorization", "Bearer $pat")
-                .header("Accept", "application/octet-stream") // GitHub asset 必要：純文字 vs binary
+                .header("Accept", "application/octet-stream")
                 .build()
             http.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
