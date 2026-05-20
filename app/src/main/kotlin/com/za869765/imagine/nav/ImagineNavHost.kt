@@ -265,6 +265,7 @@ fun ImagineRoot() {
                     onComplete = { navController.popBackStack() },
                 )
             }
+            }
         }
 
         if (showLockOverlay) {
