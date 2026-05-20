@@ -13,11 +13,24 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.0.27"
+        versionCode = 29
+        versionName = "1.0.28"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    signingConfigs {
+        // 純自用 — 用 repo 內 commit 的固定 keystore，所有 CI build 簽名一致。
+        // 之前用 Android SDK 預設 debug.keystore，但 CI runner 每次跑新建 random
+        // debug key → v1.0.24 跟 v1.0.26 簽名不符 → Android 拒裝「應用程式套件
+        // 與現有套件衝突」。Private repo 安全把 keystore commit 進來。
+        create("imagine") {
+            storeFile = file("imagine.keystore")
+            storePassword = "imagine123"
+            keyAlias = "imagine"
+            keyPassword = "imagine123"
+        }
     }
 
     buildTypes {
@@ -33,9 +46,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // 純自用 — 用 Android SDK 內建 debug key 簽 release APK，免管 keystore secret。
-            // 缺點：跟 debug 共用 cert 不能上 Play Store；但本專案只 GitHub Actions artifact 自裝，OK。
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("imagine")
         }
     }
 

@@ -40,3 +40,5 @@ desktop.ini
 # Design package (reference only, not part of build)
 design/
 design.bin
+# v1.0.28: imagine.keystore 故意 commit 進 private repo 跨 CI 一致簽名
+!app/imagine.keystore
