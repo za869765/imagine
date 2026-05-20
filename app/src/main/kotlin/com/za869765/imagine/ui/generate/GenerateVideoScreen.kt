@@ -49,7 +49,6 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
-import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
@@ -210,7 +209,6 @@ fun GenerateVideoScreen(
                     lastError = "$tag\n${gen.message}"
                     lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
                     Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
-                    BillingState.sync(prefs, scope)
                     return@launch
                 }
                 is ApiResult.Success -> {
@@ -284,7 +282,6 @@ fun GenerateVideoScreen(
                         ).show()
                     }
                     generating = false
-                    BillingState.sync(prefs, scope)
                 }
             }
         }

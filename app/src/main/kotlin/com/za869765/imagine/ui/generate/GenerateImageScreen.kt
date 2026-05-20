@@ -47,7 +47,6 @@ import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
-import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.ui.theme.ImagineCustomShapes
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
@@ -120,7 +119,6 @@ fun GenerateImageScreen(
                             Toast.LENGTH_SHORT,
                         ).show()
                     }
-                    BillingState.sync(prefs, scope)
                 }
                 is ApiResult.Error -> {
                     val tag = when (result.kind) {
@@ -134,7 +132,6 @@ fun GenerateImageScreen(
                     lastError = "$tag\n${result.message}"
                     lastErrorIsPolicy = (result.kind == ErrorKind.ContentPolicy)
                     Toast.makeText(ctx, "$tag — ${result.message.take(200)}", Toast.LENGTH_LONG).show()
-                    BillingState.sync(prefs, scope)
                 }
             }
         }

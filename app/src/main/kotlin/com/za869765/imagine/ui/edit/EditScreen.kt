@@ -47,7 +47,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
-import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ImagineRepository
@@ -155,7 +154,6 @@ fun EditScreen(
                         resultImageUrl = it
                         lastPrompt = capturedPrompt
                     }
-                    BillingState.sync(prefs, scope)
                 }
                 EditMode.VideoEdit, EditMode.VideoExtend -> {
                     val gen = if (capturedMode == EditMode.VideoEdit)
@@ -165,8 +163,7 @@ fun EditScreen(
                     if (gen is ApiResult.Error) {
                         loading = false
                         Toast.makeText(ctx, "失敗：${gen.message.take(200)}", Toast.LENGTH_LONG).show()
-                        BillingState.sync(prefs, scope)
-                        return@launch
+                            return@launch
                     }
                     val requestId = (gen as ApiResult.Success).value
                     var done = false
@@ -201,7 +198,6 @@ fun EditScreen(
                         Toast.makeText(ctx, "等待超時(5 分鐘) — 費用以 xAI 後台為準", Toast.LENGTH_LONG).show()
                     }
                     loading = false
-                    BillingState.sync(prefs, scope)
                 }
             }
         }

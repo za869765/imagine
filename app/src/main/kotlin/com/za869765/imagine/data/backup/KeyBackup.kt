@@ -32,8 +32,6 @@ object KeyBackupCodec {
     fun export(prefs: SecurePrefs): String {
         val rows = buildList {
             prefs.apiKey?.takeIf { it.isNotBlank() }?.let { add("api_key" to it) }
-            prefs.managementKey?.takeIf { it.isNotBlank() }?.let { add("management_key" to it) }
-            prefs.teamId?.takeIf { it.isNotBlank() }?.let { add("team_id" to it) }
             prefs.githubPat?.takeIf { it.isNotBlank() }?.let { add("github_pat" to it) }
             prefs.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { add("api_key_verified_at" to it) }
         }
@@ -52,16 +50,14 @@ object KeyBackupCodec {
         val b = json.decodeFromString<KeyBackup>(jsonStr)
         b.apiKey?.takeIf { it.isNotBlank() }?.let { prefs.apiKey = it }
         b.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { prefs.apiKeyVerifiedAt = it }
-        b.managementKey?.takeIf { it.isNotBlank() }?.let { prefs.managementKey = it }
-        b.teamId?.takeIf { it.isNotBlank() }?.let { prefs.teamId = it }
         b.githubPat?.takeIf { it.isNotBlank() }?.let { prefs.githubPat = it }
+        // v1.0.21 之後砍 BillingState — 舊 backup 內的 managementKey / teamId 仍會
+        // parse 進 KeyBackup data class 但這裡 silently ignore 不寫進 SecurePrefs
         return b
     }
 
     private fun importCsv(prefs: SecurePrefs, csv: String): KeyBackup {
         var apiKey: String? = null
-        var managementKey: String? = null
-        var teamId: String? = null
         var githubPat: String? = null
         var verifiedAt: String? = null
         csv.lineSequence()
@@ -73,21 +69,18 @@ object KeyBackupCodec {
                 if (v.isEmpty()) return@forEachIndexed
                 when (k.lowercase()) {
                     "api_key", "apikey" -> apiKey = v
-                    "management_key", "managementkey" -> managementKey = v
-                    "team_id", "teamid" -> teamId = v
                     "github_pat", "githubpat" -> githubPat = v
                     "api_key_verified_at", "apikeyverifiedat" -> verifiedAt = v
+                    "management_key", "managementkey", "team_id", "teamid" -> {
+                        /* v1.0.21 砍 BillingState — silently ignore for legacy backups */
+                    }
                 }
             }
         apiKey?.let { prefs.apiKey = it }
-        managementKey?.let { prefs.managementKey = it }
-        teamId?.let { prefs.teamId = it }
         githubPat?.let { prefs.githubPat = it }
         verifiedAt?.let { prefs.apiKeyVerifiedAt = it }
         return KeyBackup(
             apiKey = apiKey,
-            managementKey = managementKey,
-            teamId = teamId,
             githubPat = githubPat,
             apiKeyVerifiedAt = verifiedAt,
         )

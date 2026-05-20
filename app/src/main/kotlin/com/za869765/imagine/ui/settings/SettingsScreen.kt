@@ -48,7 +48,6 @@ import com.za869765.imagine.applyScreenshotFlag
 import android.content.Intent
 import android.widget.Toast
 import com.za869765.imagine.data.backup.KeyBackupCodec
-import com.za869765.imagine.data.billing.BillingState
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
@@ -80,12 +79,8 @@ fun SettingsScreen(
 
     var showClearDataConfirm by remember { mutableStateOf(false) }
 
-    // ── xAI 後台(Management API) ─────────────────────
-    var managementKey by remember { mutableStateOf(prefs.managementKey.orEmpty()) }
-    var teamId by remember { mutableStateOf(prefs.teamId.orEmpty()) }
+    // ── Settings 狀態 ─────────────────────
     var githubPat by remember { mutableStateOf(prefs.githubPat.orEmpty()) }
-    var showMgmtKeyEditor by remember { mutableStateOf(false) }
-    var showTeamIdEditor by remember { mutableStateOf(false) }
     var showGithubPatEditor by remember { mutableStateOf(false) }
     var showImportEditor by remember { mutableStateOf(false) }
 
@@ -103,41 +98,13 @@ fun SettingsScreen(
     fun doImport(jsonStr: String): Boolean {
         return try {
             KeyBackupCodec.importInto(prefs, jsonStr)
-            managementKey = prefs.managementKey.orEmpty()
-            Toast.makeText(ctx, "已匯入,請重新進入畫面或同步", Toast.LENGTH_SHORT).show()
-            BillingState.sync(prefs, scope)
+            githubPat = prefs.githubPat.orEmpty()
+            Toast.makeText(ctx, "已匯入", Toast.LENGTH_SHORT).show()
             true
         } catch (e: Throwable) {
             Toast.makeText(ctx, "匯入失敗:${e.message?.take(120)}", Toast.LENGTH_LONG).show()
             false
         }
-    }
-    val realBalance by BillingState.balance
-    val realSpent by BillingState.spent
-    val realBalanceRaw by BillingState.balanceRaw
-    val realSpentRaw by BillingState.spentRaw
-    val syncing by BillingState.syncing
-    val syncedAt by BillingState.syncedAt
-    val syncError by BillingState.error
-
-    LaunchedEffect(Unit) {
-        if (prefs.isManagementSet) BillingState.sync(prefs, scope)
-    }
-
-    if (showTeamIdEditor) {
-        SimpleStringEditDialog(
-            title = "Team ID (UUID)",
-            hint = "從 console.x.ai 取得；不填會用內建預設 02192454-...",
-            current = teamId,
-            mask = false,
-            onDismiss = { showTeamIdEditor = false },
-            onSave = {
-                teamId = it.trim()
-                prefs.teamId = teamId.ifBlank { null }
-                showTeamIdEditor = false
-                BillingState.sync(prefs, scope)
-            },
-        )
     }
 
     if (showGithubPatEditor) {
@@ -151,22 +118,6 @@ fun SettingsScreen(
                 githubPat = it.trim()
                 prefs.githubPat = githubPat.ifBlank { null }
                 showGithubPatEditor = false
-            },
-        )
-    }
-
-    if (showMgmtKeyEditor) {
-        SimpleStringEditDialog(
-            title = "Management Key",
-            hint = "xai-mgmt-...",
-            current = managementKey,
-            mask = true,
-            onDismiss = { showMgmtKeyEditor = false },
-            onSave = {
-                managementKey = it
-                prefs.managementKey = it.ifBlank { null }
-                showMgmtKeyEditor = false
-                BillingState.sync(prefs, scope)
             },
         )
     }
@@ -261,36 +212,35 @@ fun SettingsScreen(
                 }
             }
 
-            // ── xAI 後台(真實帳單)──
+            // ── xAI 後台（用量 / 帳單）──
+            // v1.0.21: 砍 Management API 拉真實餘額 (xAI 回傳單位不準怎樣都對不上),
+            // 改成直接開 console.x.ai 用量頁。Token / 計算都用 xAI 後台原生。
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("xAI 後台（真實帳單）")
+                SectionHeader("xAI 後台")
                 ImagineCard(pad = 0) {
                     Column {
-                        SettingRow(divider = true, onClick = { showMgmtKeyEditor = true }) {
+                        SettingRow(divider = true, onClick = {
+                            val url = "https://console.x.ai/team/02192454-54ee-4835-9680-212eda8ba708/usage?category=image"
+                            ctx.startActivity(
+                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Management Key", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
                                 Text(
-                                    maskKey(managementKey.ifBlank { null }),
+                                    "在 console.x.ai 看用量 / 帳單",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.W500,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "瀏覽器開啟 — token / 圖片 / 影片數據以官方為準",
                                     fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 2.dp),
                                 )
                             }
-                            TextActionButton(label = "編輯", onClick = { showMgmtKeyEditor = true })
-                        }
-                        SettingRow(divider = true, onClick = { showTeamIdEditor = true }) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Team ID", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
-                                Text(
-                                    teamId.ifBlank { "（已使用內建預設，可不填）" },
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp),
-                                )
-                            }
-                            TextActionButton(label = "編輯", onClick = { showTeamIdEditor = true })
+                            ImagineIcon(name = "open_in_new", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         SettingRow(divider = true, onClick = { showGithubPatEditor = true }) {
                             Column(modifier = Modifier.weight(1f)) {
@@ -304,92 +254,6 @@ fun SettingsScreen(
                                 )
                             }
                             TextActionButton(label = "編輯", onClick = { showGithubPatEditor = true })
-                        }
-                        if (managementKey.isNotBlank()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text("Prepaid 餘額", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            realBalance ?: "—",
-                                            fontSize = 16.sp, fontWeight = FontWeight.W700,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                        realBalanceRaw?.let { raw ->
-                                            Text(
-                                                "raw: $raw",
-                                                fontSize = 10.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text("本期已花(xAI)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            realSpent ?: "—",
-                                            fontSize = 16.sp, fontWeight = FontWeight.W700,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                        realSpentRaw?.let { raw ->
-                                            Text(
-                                                "raw: $raw",
-                                                fontSize = 10.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        syncedAt?.let { "最後同步 $it" } ?: "尚未同步",
-                                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    OutlinedActionButton(
-                                        label = if (syncing) "同步中…" else "同步",
-                                        enabled = !syncing,
-                                        onClick = { BillingState.sync(prefs, scope) },
-                                    )
-                                }
-                                syncError?.let { err ->
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        err,
-                                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.error,
-                                        lineHeight = 16.sp,
-                                    )
-                                }
-                            }
-                        } else {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    "輸入 Management Key 後可查詢 xAI 後台真實餘額",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    lineHeight = 18.sp,
-                                )
-                            }
                         }
                     }
                 }
