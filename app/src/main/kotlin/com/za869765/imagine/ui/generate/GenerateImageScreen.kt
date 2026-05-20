@@ -195,7 +195,7 @@ fun GenerateImageScreen(
                 ParamPicker(
                     label = "數量",
                     value = n.toString(),
-                    options = (1..4).map { it.toString() },
+                    options = (1..10).map { it.toString() },
                     onSelect = { n = it.toIntOrNull() ?: 1 },
                     modifier = Modifier.weight(1f),
                 )
@@ -271,12 +271,15 @@ fun GenerateImageScreen(
                             modifier = Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(
-                                text = "\"${lastPrompt.take(80)}${if (lastPrompt.length > 80) "..." else ""}\"",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 20.sp,
-                            )
+                            // bug #3: prompt 區用 SelectionContainer 包起來可長按複製，不再截斷
+                            SelectionContainer {
+                                Text(
+                                    text = lastPrompt,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 20.sp,
+                                )
+                            }
                             Text(
                                 text = lastMeta,
                                 fontSize = 11.sp,

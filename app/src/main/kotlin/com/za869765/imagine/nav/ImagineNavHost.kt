@@ -15,13 +15,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.storage.MediaEntry
+import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.lock.AppLockManager
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.edit.EditScreen
 import com.za869765.imagine.ui.generate.GenerateImageScreen
 import com.za869765.imagine.ui.generate.GenerateVideoScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
-import com.za869765.imagine.ui.history.HistoryItem
 import com.za869765.imagine.ui.history.HistoryScreen
 import com.za869765.imagine.ui.onboarding.LockScreen
 import com.za869765.imagine.ui.onboarding.PinSetupScreen
@@ -29,8 +30,11 @@ import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
 import com.za869765.imagine.ui.settings.ChangePinScreen
 import com.za869765.imagine.ui.settings.SettingsScreen
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 private const val KEY_INIT_MEDIA = "init_media_uri"
+private const val KEY_HISTORY_URI = "history_entry_uri"
 
 @Composable
 fun ImagineRoot() {
@@ -128,16 +132,44 @@ fun ImagineRoot() {
             composable(Routes.HISTORY) {
                 HistoryScreen(
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
-                    onItemClick = { _ -> navController.navigate(Routes.HISTORY_DETAIL) },
+                    onItemClick = { item ->
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle?.set(KEY_HISTORY_URI, item.id)
+                        navController.navigate(Routes.HISTORY_DETAIL)
+                    },
                 )
             }
 
             composable(Routes.HISTORY_DETAIL) {
+                val uriStr = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_HISTORY_URI)
+                var entry by remember { mutableStateOf<MediaEntry?>(null) }
+                LaunchedEffect(uriStr) {
+                    if (uriStr != null) {
+                        entry = MediaHistory.findByUri(ctx, Uri.parse(uriStr))
+                    }
+                }
                 HistoryDetailScreen(
-                    item = HistoryItem(id = "demo", date = "2026-05-17", isVideo = false),
+                    entry = entry,
                     onBack = { navController.popBackStack() },
                     onDelete = { navController.popBackStack() },
-                    onAction = {},
+                    onAction = { label ->
+                        val e = entry ?: return@HistoryDetailScreen
+                        val url = e.uri.toString()
+                        when (label) {
+                            "動起來（生影片）", "當參考圖", "延長影片" -> {
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                                navController.navigate(Routes.GENERATE_VIDEO)
+                            }
+                            "編輯這張", "編輯這段" -> {
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle?.set(KEY_INIT_MEDIA, url)
+                                navController.navigate(Routes.EDIT)
+                            }
+                            else -> { /* "copy" 之類 HistoryDetailScreen 內處理 */ }
+                        }
+                    },
                 )
             }
 

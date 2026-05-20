@@ -82,7 +82,9 @@ fun SettingsScreen(
 
     // ── xAI 後台(Management API) ─────────────────────
     var managementKey by remember { mutableStateOf(prefs.managementKey.orEmpty()) }
+    var teamId by remember { mutableStateOf(prefs.teamId.orEmpty()) }
     var showMgmtKeyEditor by remember { mutableStateOf(false) }
+    var showTeamIdEditor by remember { mutableStateOf(false) }
     var showImportEditor by remember { mutableStateOf(false) }
 
     fun doExport() {
@@ -117,6 +119,22 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         if (prefs.isManagementSet) BillingState.sync(prefs, scope)
+    }
+
+    if (showTeamIdEditor) {
+        SimpleStringEditDialog(
+            title = "Team ID (UUID)",
+            hint = "從 console.x.ai 取得，格式 02192454-54ee-4835-...",
+            current = teamId,
+            mask = false,
+            onDismiss = { showTeamIdEditor = false },
+            onSave = {
+                teamId = it.trim()
+                prefs.teamId = teamId.ifBlank { null }
+                showTeamIdEditor = false
+                BillingState.sync(prefs, scope)
+            },
+        )
     }
 
     if (showMgmtKeyEditor) {
@@ -242,6 +260,19 @@ fun SettingsScreen(
                                 )
                             }
                             TextActionButton(label = "編輯", onClick = { showMgmtKeyEditor = true })
+                        }
+                        SettingRow(divider = true, onClick = { showTeamIdEditor = true }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Team ID", fontSize = 15.sp, fontWeight = FontWeight.W500, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    teamId.ifBlank { "（預設 — 從 console.x.ai 取得 UUID）" },
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            TextActionButton(label = "編輯", onClick = { showTeamIdEditor = true })
                         }
                         if (managementKey.isNotBlank()) {
                             Column(modifier = Modifier.padding(16.dp)) {

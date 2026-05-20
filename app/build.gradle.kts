@@ -13,8 +13,8 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.0.11"
+        versionCode = 13
+        versionName = "1.0.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -33,6 +33,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // 純自用 — 用 Android SDK 內建 debug key 簽 release APK，免管 keystore secret。
+            // 缺點：跟 debug 共用 cert 不能上 Play Store；但本專案只 GitHub Actions artifact 自裝，OK。
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

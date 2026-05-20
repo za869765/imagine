@@ -32,3 +32,11 @@
 
 # Compose
 -keep class androidx.compose.runtime.** { *; }
+
+# Media3 (ExoPlayer / PlayerView 透過 AndroidView 嵌進來，R8 靜態看不到引用)
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+
+# Coil 3 (AsyncImage 反射載入 fetcher)
+-keep class coil3.** { *; }
+-dontwarn coil3.**

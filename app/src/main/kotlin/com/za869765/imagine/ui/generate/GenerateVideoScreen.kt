@@ -470,11 +470,14 @@ fun GenerateVideoScreen(
                                 .clip(RoundedCornerShape(12.dp)),
                         )
                         Column(modifier = Modifier.padding(14.dp)) {
-                            Text(
-                                "\"${lastPrompt.take(80)}${if (lastPrompt.length > 80) "..." else ""}\"",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
+                            // bug #4: prompt 區用 SelectionContainer 包起來可長按複製，不再截斷
+                            SelectionContainer {
+                                Text(
+                                    lastPrompt,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
                     }
                 }

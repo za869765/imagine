@@ -13,6 +13,7 @@ data class MediaEntry(
     val addedAtSec: Long,
     val isVideo: Boolean,
     val durationMs: Long? = null,
+    val prompt: String? = null,
 )
 
 object MediaHistory {
@@ -24,12 +25,17 @@ object MediaHistory {
         (loadImages(ctx) + loadVideos(ctx)).sortedByDescending { it.addedAtSec }
     }
 
+    suspend fun findByUri(ctx: Context, uri: Uri): MediaEntry? = withContext(Dispatchers.IO) {
+        loadAll(ctx).firstOrNull { it.uri == uri }
+    }
+
     private fun loadImages(ctx: Context): List<MediaEntry> {
         val list = mutableListOf<MediaEntry>()
         val proj = arrayOf(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.DATE_ADDED,
+            MediaStore.Images.Media.DESCRIPTION,  // MediaSaver 寫進去的 prompt
         )
         ctx.contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -39,6 +45,7 @@ object MediaHistory {
             val idCol = c.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+            val descCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DESCRIPTION)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
                 list += MediaEntry(
@@ -46,6 +53,7 @@ object MediaHistory {
                     displayName = c.getString(nameCol).orEmpty(),
                     addedAtSec = c.getLong(dateCol),
                     isVideo = false,
+                    prompt = c.getString(descCol)?.takeIf { it.isNotBlank() },
                 )
             }
         }
@@ -59,6 +67,7 @@ object MediaHistory {
             MediaStore.Video.Media.DISPLAY_NAME,
             MediaStore.Video.Media.DATE_ADDED,
             MediaStore.Video.Media.DURATION,
+            MediaStore.Video.Media.DESCRIPTION,  // MediaSaver 寫進去的 prompt
         )
         ctx.contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
@@ -69,6 +78,7 @@ object MediaHistory {
             val nameCol = c.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
             val dateCol = c.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
             val durCol = c.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+            val descCol = c.getColumnIndexOrThrow(MediaStore.Video.Media.DESCRIPTION)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
                 list += MediaEntry(
@@ -77,6 +87,7 @@ object MediaHistory {
                     addedAtSec = c.getLong(dateCol),
                     isVideo = true,
                     durationMs = c.getLong(durCol),
+                    prompt = c.getString(descCol)?.takeIf { it.isNotBlank() },
                 )
             }
         }
