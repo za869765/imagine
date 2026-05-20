@@ -116,7 +116,7 @@ fun HistoryDetailScreen(
                         // bug #3/4: prompt 用 SelectionContainer 包，使用者可長按選取複製
                         SelectionContainer {
                             Text(
-                                entry.prompt ?: "（沒有 prompt 紀錄 — v1.0.11 前產生的舊檔不會有）",
+                                entry.prompt ?: "（沒有 prompt 紀錄 — v1.0.24 前產生的舊檔不會有；新生圖會記錄）",
                                 fontSize = 14.sp,
                                 color = if (entry.prompt == null)
                                     MaterialTheme.colorScheme.onSurfaceVariant

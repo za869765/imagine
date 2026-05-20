@@ -35,7 +35,7 @@ object MediaHistory {
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.DESCRIPTION,  // MediaSaver 寫進去的 prompt
+            MediaStore.Images.Media.DESCRIPTION,  // 舊版寫進去 (Samsung 通常回 null)
         )
         ctx.contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -48,12 +48,16 @@ object MediaHistory {
             val descCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DESCRIPTION)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
+                val name = c.getString(nameCol).orEmpty()
+                // 先試 MediaStore.DESCRIPTION (寫入沒被擋的舊機型)，沒有就走 PromptIndex
+                val prompt = c.getString(descCol)?.takeIf { it.isNotBlank() }
+                    ?: PromptIndex.get(ctx, name)
                 list += MediaEntry(
                     uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id),
-                    displayName = c.getString(nameCol).orEmpty(),
+                    displayName = name,
                     addedAtSec = c.getLong(dateCol),
                     isVideo = false,
-                    prompt = c.getString(descCol)?.takeIf { it.isNotBlank() },
+                    prompt = prompt,
                 )
             }
         }
@@ -67,7 +71,7 @@ object MediaHistory {
             MediaStore.Video.Media.DISPLAY_NAME,
             MediaStore.Video.Media.DATE_ADDED,
             MediaStore.Video.Media.DURATION,
-            MediaStore.Video.Media.DESCRIPTION,  // MediaSaver 寫進去的 prompt
+            MediaStore.Video.Media.DESCRIPTION,  // 同上 — Samsung 多半回 null
         )
         ctx.contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
@@ -81,13 +85,16 @@ object MediaHistory {
             val descCol = c.getColumnIndexOrThrow(MediaStore.Video.Media.DESCRIPTION)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
+                val name = c.getString(nameCol).orEmpty()
+                val prompt = c.getString(descCol)?.takeIf { it.isNotBlank() }
+                    ?: PromptIndex.get(ctx, name)
                 list += MediaEntry(
                     uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id),
-                    displayName = c.getString(nameCol).orEmpty(),
+                    displayName = name,
                     addedAtSec = c.getLong(dateCol),
                     isVideo = true,
                     durationMs = c.getLong(durCol),
-                    prompt = c.getString(descCol)?.takeIf { it.isNotBlank() },
+                    prompt = prompt,
                 )
             }
         }

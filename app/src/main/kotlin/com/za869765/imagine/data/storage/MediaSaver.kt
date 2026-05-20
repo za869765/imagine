@@ -45,6 +45,8 @@ object MediaSaver {
                 values.put(MediaStore.Images.Media.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
             }
+            // 寫 PromptIndex (主要持久化來源 — MediaStore.DESCRIPTION 在 Samsung 系統實際讀回 null)
+            PromptIndex.put(ctx, filename, prompt)
             uri.toString()
         }.getOrNull()
     }
@@ -105,6 +107,7 @@ object MediaSaver {
                 values.put(MediaStore.Images.Media.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
             }
+            PromptIndex.put(ctx, filename, prompt)
             uri.toString()
         }.getOrNull()
     }
@@ -136,6 +139,7 @@ object MediaSaver {
                 values.put(MediaStore.Video.Media.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
             }
+            PromptIndex.put(ctx, filename, prompt)
             uri.toString()
         }.getOrNull()
     }
