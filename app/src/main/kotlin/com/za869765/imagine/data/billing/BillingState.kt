@@ -59,19 +59,28 @@ object BillingState {
         }
     }
 
-    // xAI Management API 金額用 cents 為單位(整數字串)。
-    // 例:"2089" → "$20.89";"-2500" → "-$25.00"。
-    // 不能 parse 成 Long 的字串保留原樣顯示,方便除錯。
-    // ※單位假設待驗證 — Settings 同時顯示 raw 字串供使用者比對。
+    // xAI Management API 金額單位未官方文件化，從 raw 字串特徵 heuristic 猜:
+    //   * 含 "."          → 已是 dollars decimal 字串 (如 "20.89")
+    //   * 整數絕對值 < 10^8 → 當 cents 解 (典型帳戶餘額 $0.01~$1M 對應 1~10^8 cents)
+    //   * 整數絕對值 ≥ 10^8 → 當 micro-USD 解 (有些 xAI billing API 用 10^-6 USD)
+    // Settings 內仍會顯示 raw 字串讓使用者比對 console.x.ai 後台真實 USD。
+    // 若猜錯回報實際單位後改寫死分支。
     private fun fmtMoney(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
-        val cents = raw.toLongOrNull() ?: return raw
-        val dollars = cents / 100.0
-        return if (dollars < 0)
-            "-$" + "%.2f".format(-dollars)
-        else
-            "$" + "%.2f".format(dollars)
+        val trimmed = raw.trim()
+        // 含 "." 視為 dollars decimal 字串
+        if (trimmed.contains('.')) {
+            val d = trimmed.toDoubleOrNull() ?: return raw
+            return formatUsd(d)
+        }
+        val n = trimmed.toLongOrNull() ?: return raw
+        val abs = if (n < 0) -n else n
+        val dollars = if (abs < 100_000_000L) n / 100.0 else n / 1_000_000.0
+        return formatUsd(dollars)
     }
+
+    private fun formatUsd(n: Double): String =
+        if (n < 0) "-$" + "%.2f".format(-n) else "$" + "%.2f".format(n)
 
     fun clear() {
         balance.value = null
