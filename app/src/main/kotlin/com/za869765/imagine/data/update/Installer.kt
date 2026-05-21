@@ -17,9 +17,8 @@ import java.util.concurrent.TimeUnit
  * Download an APK from a GitHub Releases asset URL and hand it off to
  * Android's system PackageInstaller via FileProvider + ACTION_VIEW.
  *
- * Caller must keep the same SecurePrefs PAT used by [UpdateChecker] — the
- * `browser_download_url` of a private repo asset only resolves with a valid
- * `Authorization: Bearer <PAT>` header (GitHub returns 302 to a signed S3 URL).
+ * Repo 已 public (v1.0.29+) — 匿名 GET asset API endpoint + `Accept: application/octet-stream`
+ * 仍會 302 redirect 到 S3 signed URL，OkHttp 自動 follow。
  */
 object Installer {
     enum class Stage { Idle, Downloading, Verifying, Launching, Error }
@@ -84,14 +83,23 @@ object Installer {
                 }
             }
         } catch (e: Throwable) {
+            // 下載中斷的 partial APK 要清掉，否則下次「校驗」可能誤過
+            runCatching { outFile.delete() }
             _state.value = Progress(Stage.Error, message = e.message ?: e::class.simpleName)
             return@withContext Result.failure(e)
         }
 
         _state.value = Progress(Stage.Verifying)
-        if (outFile.length() == 0L) {
-            _state.value = Progress(Stage.Error, message = "下載檔案為空")
-            return@withContext Result.failure(RuntimeException("empty APK"))
+        // info.apkSize 是 GitHub release asset 自報的位元組數；下載小於這個就是 partial。
+        // 若 apkSize == 0 (release 缺欄位) 退回最低限度檢查
+        val actualSize = outFile.length()
+        val expected = info.apkSize
+        if (actualSize == 0L || (expected > 0 && actualSize != expected)) {
+            runCatching { outFile.delete() }
+            val msg = if (actualSize == 0L) "下載檔案為空"
+                      else "APK 不完整（$actualSize / $expected 位元組）"
+            _state.value = Progress(Stage.Error, message = msg)
+            return@withContext Result.failure(RuntimeException(msg))
         }
 
         _state.value = Progress(Stage.Launching)

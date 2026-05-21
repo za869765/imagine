@@ -168,29 +168,50 @@ fun EditScreen(
                     val requestId = (gen as ApiResult.Success).value
                     var done = false
                     var attempts = 0
+                    var pollErrors = 0
+                    // pending 白名單對齊 GenerateVideoScreen — 任何不在 pending 也不在
+                    // success 的狀態（含 rejected / moderation_failed 等）都立即視為失敗，
+                    // 避免被審核擋下後仍空轉 5 分鐘到 timeout
+                    val pendingStatuses = setOf(
+                        "pending", "queued", "processing", "running",
+                        "in_progress", "starting", "generating",
+                    )
+                    val successStatuses = setOf("done", "succeeded", "completed")
                     while (loading && !done && attempts < 60) {
                         delay(5000)
                         attempts++
-                        val poll = repository.pollVideoStatus(requestId)
-                        if (poll is ApiResult.Success) {
-                            when (poll.value.status) {
-                                "done" -> {
-                                    val url = poll.value.video?.url
-                                    if (url != null) {
-                                        resultVideoUrl = url
-                                        lastPrompt = capturedPrompt
-                                        scope.launch {
-                                            MediaSaver.saveVideoFromUrl(ctx, url, capturedPrompt)
-                                            Toast.makeText(ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT).show()
+                        when (val poll = repository.pollVideoStatus(requestId)) {
+                            is ApiResult.Success -> {
+                                pollErrors = 0
+                                val status = poll.value.status.lowercase()
+                                when {
+                                    status in successStatuses -> {
+                                        val url = poll.value.video?.url
+                                        if (url != null) {
+                                            resultVideoUrl = url
+                                            lastPrompt = capturedPrompt
+                                            scope.launch {
+                                                MediaSaver.saveVideoFromUrl(ctx, url, capturedPrompt)
+                                                Toast.makeText(ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            Toast.makeText(ctx, "影片回報 ${poll.value.status} 但沒拿到 URL", Toast.LENGTH_LONG).show()
                                         }
+                                        done = true
                                     }
+                                    status in pendingStatuses -> { /* 還在跑 */ }
+                                    else -> {
+                                        Toast.makeText(ctx, "影片失敗（${poll.value.status}，費用以 xAI 後台為準）", Toast.LENGTH_LONG).show()
+                                        done = true
+                                    }
+                                }
+                            }
+                            is ApiResult.Error -> {
+                                pollErrors++
+                                if (pollErrors >= 3) {
+                                    Toast.makeText(ctx, "輪詢失敗：${poll.message.take(200)}", Toast.LENGTH_LONG).show()
                                     done = true
                                 }
-                                "failed", "expired" -> {
-                                    Toast.makeText(ctx, "影片失敗（${poll.value.status}，費用以 xAI 後台為準）", Toast.LENGTH_LONG).show()
-                                    done = true
-                                }
-                                else -> {}
                             }
                         }
                     }

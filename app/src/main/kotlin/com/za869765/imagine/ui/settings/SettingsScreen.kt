@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import com.za869765.imagine.BuildConfig
 import com.za869765.imagine.applyScreenshotFlag
 import android.content.Intent
 import android.widget.Toast
@@ -376,7 +377,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "Imagine v1.0.10",
+                    "Imagine v${BuildConfig.VERSION_NAME}",
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.W500,

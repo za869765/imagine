@@ -109,6 +109,10 @@ class ImagineRepository(private val api: XaiApi) {
         ApiResult.Error(ErrorKind.Network, e.message ?: "Network error")
     } catch (e: kotlinx.serialization.SerializationException) {
         ApiResult.Error(ErrorKind.Unknown, "解析失敗：${e.message ?: "Serialization error"}")
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        // 不可吞 — 否則切頁/鎖屏時 in-flight 任務會變僵屍 coroutine，
+        // 上層 while-loop 還會繼續輪詢
+        throw e
     } catch (e: Throwable) {
         ApiResult.Error(ErrorKind.Unknown, "${e::class.simpleName}: ${e.message ?: "Unknown error"}")
     }

@@ -203,7 +203,19 @@ fun ImagineRoot() {
                 HistoryDetailScreen(
                     entry = entry,
                     onBack = { navController.popBackStack() },
-                    onDelete = { navController.popBackStack() },
+                    onDelete = {
+                        // 真的刪 MediaStore + PromptIndex，原本只 popBackStack 是假象
+                        val e = entry
+                        if (e != null) {
+                            scope.launch {
+                                runCatching {
+                                    ctx.contentResolver.delete(e.uri, null, null)
+                                    com.za869765.imagine.data.storage.PromptIndex.remove(ctx, e.displayName)
+                                }
+                            }
+                        }
+                        navController.popBackStack()
+                    },
                     onAction = { label ->
                         val e = entry ?: return@HistoryDetailScreen
                         val url = e.uri.toString()

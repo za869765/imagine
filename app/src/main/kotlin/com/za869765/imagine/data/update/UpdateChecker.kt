@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit
  * Check GitHub Releases for a newer version of this APK and return an UpdateInfo
  * if remote tag's versionCode > BuildConfig.VERSION_CODE.
  *
- * Repo (`za869765/imagine`) is private → uses fine-grained PAT from SecurePrefs,
- * scope = Contents:read. Empty PAT = skip the check (user must side-load manually).
+ * Repo (`za869765/imagine`) 已 public (v1.0.29+) — 匿名 access 就能讀 release info
+ * 與下載 asset，不再需要 PAT。
  *
  * Release tag convention (workflow auto-publish): `v<versionName>+<versionCode>`,
  *   e.g. `v1.0.16+17`. versionCode is parsed from the suffix after `+`.
@@ -84,9 +84,8 @@ object UpdateChecker {
         val assets: List<Asset> = emptyList(),
     )
 
-    // 對 private repo，下載要走 GitHub asset API endpoint (這裡的 `url` field)
-    // 配 `Accept: application/octet-stream` 才會收到 302 → signed URL；
-    // `browser_download_url` 是 web 用，直接 GET 對 private repo 會回 404 even with PAT.
+    // 即使 repo public，下載仍走 GitHub asset API endpoint (這裡的 `url` field)
+    // 配 `Accept: application/octet-stream`，會 302 redirect 到 S3 signed URL。
     @Serializable
     private data class Asset(
         val name: String,

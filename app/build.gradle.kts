@@ -13,8 +13,8 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 30
-        versionName = "1.0.29"
+        versionCode = 31
+        versionName = "1.0.30"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -24,7 +24,10 @@ android {
         // 純自用 — 用 repo 內 commit 的固定 keystore，所有 CI build 簽名一致。
         // 之前用 Android SDK 預設 debug.keystore，但 CI runner 每次跑新建 random
         // debug key → v1.0.24 跟 v1.0.26 簽名不符 → Android 拒裝「應用程式套件
-        // 與現有套件衝突」。Private repo 安全把 keystore commit 進來。
+        // 與現有套件衝突」。
+        // ⚠️ v1.0.29 起 repo 已 public — keystore 跟密碼也跟著公開。理論上有人能拿這把
+        // key 偽造同簽名 APK，但純自用 sideload + APK 只從 GitHub release 拿 → 風險可接受。
+        // 若要 rotate keystore：所有現有裝置需「先卸載再裝新版」，否則「套件衝突」拒裝。
         create("imagine") {
             storeFile = file("imagine.keystore")
             storePassword = "imagine123"

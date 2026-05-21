@@ -1,6 +1,7 @@
 package com.za869765.imagine.data.api
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.za869765.imagine.BuildConfig
 import com.za869765.imagine.data.prefs.SecurePrefs
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -19,8 +20,11 @@ object XaiClient {
     }
 
     fun build(prefs: SecurePrefs): XaiApi {
+        // BASIC level 印 method/URL/protocol，不含 headers（Authorization 不會洩漏），
+        // 但 release 仍無須 log → 包 DEBUG 一律 NONE
         val log = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
+                    else HttpLoggingInterceptor.Level.NONE
         }
         val http = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(prefs))

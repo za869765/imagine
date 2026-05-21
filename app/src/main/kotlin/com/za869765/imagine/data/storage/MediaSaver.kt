@@ -38,7 +38,7 @@ object MediaSaver {
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             ?: return@withContext null
 
-        runCatching {
+        try {
             resolver.openOutputStream(uri)?.use { it.write(bytes) }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 values.clear()
@@ -48,7 +48,11 @@ object MediaSaver {
             // 寫 PromptIndex (主要持久化來源 — MediaStore.DESCRIPTION 在 Samsung 系統實際讀回 null)
             PromptIndex.put(ctx, filename, prompt)
             uri.toString()
-        }.getOrNull()
+        } catch (t: Throwable) {
+            // 寫一半失敗清掉孤兒 record（不清會留 IS_PENDING=1 的隱藏條目）
+            runCatching { resolver.delete(uri, null, null) }
+            null
+        }
     }
 
     suspend fun saveImageFromUrl(ctx: Context, url: String, prompt: String): String? =
@@ -100,7 +104,7 @@ object MediaSaver {
         val resolver = ctx.contentResolver
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             ?: return@withContext null
-        runCatching {
+        try {
             resolver.openOutputStream(uri)?.use { out -> stream.copyTo(out) }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 values.clear()
@@ -109,7 +113,10 @@ object MediaSaver {
             }
             PromptIndex.put(ctx, filename, prompt)
             uri.toString()
-        }.getOrNull()
+        } catch (t: Throwable) {
+            runCatching { resolver.delete(uri, null, null) }
+            null
+        }
     }
 
     suspend fun saveVideo(
@@ -132,7 +139,7 @@ object MediaSaver {
         val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
             ?: return@withContext null
 
-        runCatching {
+        try {
             resolver.openOutputStream(uri)?.use { out -> stream.copyTo(out) }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 values.clear()
@@ -141,7 +148,10 @@ object MediaSaver {
             }
             PromptIndex.put(ctx, filename, prompt)
             uri.toString()
-        }.getOrNull()
+        } catch (t: Throwable) {
+            runCatching { resolver.delete(uri, null, null) }
+            null
+        }
     }
 
     private fun timestamp(): String =
