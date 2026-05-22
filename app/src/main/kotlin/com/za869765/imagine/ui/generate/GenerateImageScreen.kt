@@ -131,9 +131,10 @@ fun GenerateImageScreen(
                 }
                 is ApiResult.Error -> {
                     val tag = result.kind.userFriendlyTag()
-                    lastError = "$tag\n${result.message}"
+                    // 只存 tag,body 太長使用者不需要 — 真要 debug 從 logcat 看
+                    lastError = tag
                     lastErrorIsPolicy = (result.kind == ErrorKind.ContentPolicy)
-                    Toast.makeText(ctx, "$tag — ${result.message.take(200)}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -178,7 +179,11 @@ fun GenerateImageScreen(
                 onSelected = { quality = it },
             )
 
-            PromptInput(value = prompt, onValueChange = { prompt = it })
+            PromptInput(
+                value = prompt,
+                onValueChange = { prompt = it },
+                flagged = lastErrorIsPolicy,
+            )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ParamPicker(
@@ -223,37 +228,25 @@ fun GenerateImageScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(cardBg, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                        .padding(14.dp),
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // tag 已 prefix 在 lastError 第一行,UI title 用通用標籤即可
-                            Text(
-                                if (lastErrorIsPolicy) "內容審核" else "錯誤訊息(可長按選取)",
-                                fontSize = if (lastErrorIsPolicy) 14.sp else 11.sp,
-                                fontWeight = FontWeight.W700,
-                                letterSpacing = 0.08.sp,
-                                color = if (lastErrorIsPolicy) cardFg else MaterialTheme.colorScheme.error,
-                            )
-                            ImagineChip(
-                                label = "清除",
-                                variant = ChipVariant.Tonal,
-                                onClick = { lastError = ""; lastErrorIsPolicy = false },
-                            )
-                        }
-                        SelectionContainer {
-                            Text(
-                                lastError,
-                                fontSize = if (lastErrorIsPolicy) 13.sp else 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = cardFg,
-                                lineHeight = 20.sp,
-                            )
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = lastError,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = cardFg,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ImagineChip(
+                            label = "清除",
+                            variant = ChipVariant.Tonal,
+                            onClick = { lastError = ""; lastErrorIsPolicy = false },
+                        )
                     }
                 }
             }

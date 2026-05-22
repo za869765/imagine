@@ -205,7 +205,7 @@ fun EditScreen(
                     if (gen is ApiResult.Error) {
                         loading = false
                         val tag = gen.kind.userFriendlyTag()
-                        Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
                         return@launch
                     }
                     val requestId = (gen as ApiResult.Success).value
@@ -253,7 +253,7 @@ fun EditScreen(
                                 pollErrors++
                                 if (pollErrors >= 3) {
                                     val tag = poll.kind.userFriendlyTag()
-                                    Toast.makeText(ctx, "$tag (輪詢) — ${poll.message.take(200)}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(ctx, "$tag (輪詢)", Toast.LENGTH_SHORT).show()
                                     done = true
                                 }
                             }
@@ -512,7 +512,7 @@ private suspend fun handleImageResult(
         }
         is ApiResult.Error -> {
             val tag = r.kind.userFriendlyTag()
-            Toast.makeText(ctx, "$tag — ${r.message.take(200)}", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
         }
     }
 }

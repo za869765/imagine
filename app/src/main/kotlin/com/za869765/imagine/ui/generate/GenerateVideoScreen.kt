@@ -246,9 +246,9 @@ fun GenerateVideoScreen(
                 is ApiResult.Error -> {
                     generating = false
                     val tag = gen.kind.userFriendlyTag()
-                    lastError = "$tag\n${gen.message}"
+                    lastError = tag
                     lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
-                    Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 is ApiResult.Success -> {
@@ -304,12 +304,8 @@ fun GenerateVideoScreen(
                                 pollErrors++
                                 if (pollErrors >= 3 || poll.kind == ErrorKind.Unauthorized) {
                                     val tag = poll.kind.userFriendlyTag()
-                                    lastError = "$tag (輪詢)\n${poll.message}"
-                                    Toast.makeText(
-                                        ctx,
-                                        "$tag — ${poll.message.take(200)}",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
+                                    lastError = "$tag (輪詢)"
+                                    Toast.makeText(ctx, "$tag (輪詢)", Toast.LENGTH_SHORT).show()
                                     done = true
                                 }
                             }
@@ -423,6 +419,7 @@ fun GenerateVideoScreen(
                 onValueChange = { prompt = it },
                 placeholder = "描述要怎麼動...",
                 minHeight = 88,
+                flagged = lastErrorIsPolicy,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -506,44 +503,22 @@ fun GenerateVideoScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(cardBg, RoundedCornerShape(12.dp))
-                        .padding(14.dp),
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // tag 已 prefix 在 lastError 第一行,UI title 用通用標籤即可
-                            Text(
-                                if (lastErrorIsPolicy) "內容審核" else "錯誤訊息(可長按選取)",
-                                fontSize = if (lastErrorIsPolicy) 14.sp else 11.sp,
-                                fontWeight = FontWeight.W700,
-                                letterSpacing = 0.08.sp,
-                                color = if (lastErrorIsPolicy) cardFg else MaterialTheme.colorScheme.error,
-                            )
-                            OutlinedActionButton(
-                                label = "清除",
-                                onClick = { lastError = ""; lastErrorIsPolicy = false },
-                            )
-                        }
-                        SelectionContainer {
-                            Text(
-                                lastError,
-                                fontSize = if (lastErrorIsPolicy) 13.sp else 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = cardFg,
-                                lineHeight = 20.sp,
-                            )
-                        }
-                        // Grok 風格：失敗時就在錯誤卡內提供「重試」捷徑，省得使用者再捲回去找生成鈕
-                        if (!generating && prompt.isNotBlank()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.End,
-                            ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = lastError,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = cardFg,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (!generating && prompt.isNotBlank()) {
                                 ImagineChip(
                                     label = "重試",
                                     icon = "refresh",
@@ -551,6 +526,11 @@ fun GenerateVideoScreen(
                                     onClick = { runGenerate() },
                                 )
                             }
+                            ImagineChip(
+                                label = "清除",
+                                variant = ChipVariant.Tonal,
+                                onClick = { lastError = ""; lastErrorIsPolicy = false },
+                            )
                         }
                     }
                 }

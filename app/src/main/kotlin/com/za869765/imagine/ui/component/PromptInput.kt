@@ -55,14 +55,22 @@ fun PromptInput(
     modifier: Modifier = Modifier,
     // S22U (6.8") 觸控區建議 ≥48dp，default 改 156dp 給三行可見高度 + 足夠拇指區
     minHeight: Int = 156,
+    // 被審核擋下時設 true → 邊框/label/hint 都變紅,引導使用者改寫
+    flagged: Boolean = false,
 ) {
     val ctx = LocalContext.current
     var focused by remember { mutableStateOf(false) }
-    val borderColor = if (focused) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.outline
-    val borderWidth = if (focused) 2.dp else 1.dp
-    val labelColor = if (focused) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    val borderColor = when {
+        flagged -> MaterialTheme.colorScheme.error
+        focused -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.outline
+    }
+    val borderWidth = if (focused || flagged) 2.dp else 1.dp
+    val labelColor = when {
+        flagged -> MaterialTheme.colorScheme.error
+        focused -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     // 焦點時用 BringIntoViewRequester 推 input 到 IME 上方避免被擋
     val bringIntoView = remember { BringIntoViewRequester() }
@@ -186,7 +194,14 @@ fun PromptInput(
             )
 
             // 審核風險 hint (僅參考,不阻擋使用) — 只在有 hint 時顯示
-            val hint = remember(value, maxChars) { evaluatePrompt(value, maxChars) }
+            // flagged=true (已被 400 擋下) 優先壓過所有 keyword hint,顯示「建議改寫」
+            val hint = remember(value, maxChars, flagged) {
+                if (flagged) {
+                    PromptHint("🚨", "已被審核擋下 — 建議改寫", HintColor.Red)
+                } else {
+                    evaluatePrompt(value, maxChars)
+                }
+            }
             hint?.let {
                 Text(
                     text = "${it.emoji} ${it.msg}",

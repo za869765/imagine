@@ -26,17 +26,17 @@ enum class ErrorKind {
     Unknown,
 }
 
-/** UI 用的白話 tag — 三個 Screen 共用,確保訊息一致 */
+/** UI 用的簡短 tag — 三個 Screen 共用 */
 fun ErrorKind.userFriendlyTag(): String = when (this) {
-    ErrorKind.Unauthorized -> "❌ API Key 無效或已過期"
-    ErrorKind.PaymentRequired -> "💰 餘額不足 — 到 console.x.ai 加值"
-    ErrorKind.Forbidden -> "🔒 API Key 無此功能權限或帳號被停用"
-    ErrorKind.NotFound -> "❓ 找不到資源(URL 錯誤)"
-    ErrorKind.ContentPolicy -> "🚨 內容被審核擋下"
-    ErrorKind.RateLimited -> "⏳ 請求太頻繁,稍後再試"
-    ErrorKind.Server -> "☁️ xAI 伺服器錯誤"
-    ErrorKind.Network -> "📡 網路錯誤"
-    ErrorKind.Unknown -> "❌ 失敗"
+    ErrorKind.Unauthorized -> "401 Key 無效"
+    ErrorKind.PaymentRequired -> "402 餘額不足"
+    ErrorKind.Forbidden -> "403 權限不足"
+    ErrorKind.NotFound -> "404 找不到資源"
+    ErrorKind.ContentPolicy -> "400 被審核"
+    ErrorKind.RateLimited -> "429 太頻繁"
+    ErrorKind.Server -> "伺服器錯誤"
+    ErrorKind.Network -> "網路錯誤"
+    ErrorKind.Unknown -> "失敗"
 }
 
 class ImagineRepository(private val api: XaiApi) {
