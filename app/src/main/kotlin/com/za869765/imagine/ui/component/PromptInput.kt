@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,9 +31,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -63,6 +66,15 @@ fun PromptInput(
     // 焦點時用 BringIntoViewRequester 推 input 到 IME 上方避免被擋
     val bringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
+
+    // 用 TextFieldValue 才能在 focus 時控制 selection (全選現有內容)
+    var tfValue by remember { mutableStateOf(TextFieldValue(value)) }
+    // 外部 value 變動 (例如「貼上」按鈕觸發) → sync 內部 + cursor 移到尾
+    LaunchedEffect(value) {
+        if (tfValue.text != value) {
+            tfValue = TextFieldValue(value, selection = TextRange(value.length))
+        }
+    }
 
     fun doPaste() {
         val pasted = Clipboard.paste(ctx)
@@ -125,13 +137,27 @@ fun PromptInput(
                 .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 32.dp),
         ) {
             BasicTextField(
-                value = value,
-                onValueChange = { if (it.length <= maxChars) onValueChange(it) },
+                value = tfValue,
+                onValueChange = { newTf ->
+                    if (newTf.text.length <= maxChars) {
+                        tfValue = newTf
+                        if (newTf.text != value) onValueChange(newTf.text)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged {
+                        val wasFocused = focused
                         focused = it.isFocused
-                        if (it.isFocused) scope.launch { bringIntoView.bringIntoView() }
+                        if (it.isFocused) {
+                            scope.launch { bringIntoView.bringIntoView() }
+                            // 剛獲焦 + 有內容 → 全選,方便直接覆蓋(打字/貼上不混舊)
+                            if (!wasFocused && tfValue.text.isNotEmpty()) {
+                                tfValue = tfValue.copy(
+                                    selection = TextRange(0, tfValue.text.length)
+                                )
+                            }
+                        }
                     },
                 textStyle = TextStyle(
                     color = MaterialTheme.colorScheme.onSurface,
