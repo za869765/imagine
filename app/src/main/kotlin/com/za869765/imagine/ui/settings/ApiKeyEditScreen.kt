@@ -2,6 +2,7 @@ package com.za869765.imagine.ui.settings
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -164,8 +165,20 @@ fun ApiKeyEditScreen(
                 ) {
                     TextActionButton(
                         label = "從剪貼簿貼上",
-                        icon = "content_copy",
-                        onClick = { readClipboard(ctx)?.let { newKey = it } },
+                        icon = "content_paste",
+                        onClick = {
+                            val extracted = extractXaiKey(ctx)
+                            if (extracted != null) {
+                                newKey = extracted
+                                Toast.makeText(ctx, "✓ 已從剪貼簿載入 xai- key", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(
+                                    ctx,
+                                    "剪貼簿沒有 xai- 開頭的 key",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
                     )
                 }
             }
@@ -240,4 +253,19 @@ private fun copyToClipboard(ctx: Context, text: String) {
 private fun readClipboard(ctx: Context): String? {
     val cb = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
     return cb.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+}
+
+// 從剪貼簿全文 extract xAI key 子字串,避免使用者貼到「我的 key 是 xai-abc...」
+// 整段文字無法 startsWith 過 canSave 條件。
+private val XAI_KEY_REGEX = Regex("xai-[A-Za-z0-9_-]+")
+
+private fun extractXaiKey(ctx: Context): String? {
+    val raw = readClipboard(ctx) ?: return null
+    if (raw.isBlank()) return null
+    // 整段就是 key (純貼上 key) → 直接回
+    if (raw.startsWith("xai-") && !raw.contains(' ') && !raw.contains('\n')) {
+        return raw
+    }
+    // 從混雜文字內找 xai-... 連續字串
+    return XAI_KEY_REGEX.find(raw)?.value
 }
