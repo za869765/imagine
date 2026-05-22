@@ -35,6 +35,7 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
+import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ChipVariant
@@ -125,14 +126,7 @@ fun GenerateImageScreen(
                     }
                 }
                 is ApiResult.Error -> {
-                    val tag = when (result.kind) {
-                        ErrorKind.Unauthorized -> "API Key 無效"
-                        ErrorKind.RateLimited -> "請求太頻繁"
-                        ErrorKind.ContentPolicy -> "🚨 內容審核被拒（HTTP 400）"
-                        ErrorKind.Network -> "網路錯誤"
-                        ErrorKind.Server -> "xAI 伺服器錯誤"
-                        ErrorKind.Unknown -> "失敗"
-                    }
+                    val tag = result.kind.userFriendlyTag()
                     lastError = "$tag\n${result.message}"
                     lastErrorIsPolicy = (result.kind == ErrorKind.ContentPolicy)
                     Toast.makeText(ctx, "$tag — ${result.message.take(200)}", Toast.LENGTH_LONG).show()
@@ -233,8 +227,9 @@ fun GenerateImageScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            // tag 已 prefix 在 lastError 第一行,UI title 用通用標籤即可
                             Text(
-                                if (lastErrorIsPolicy) "🚨 審核被拒（HTTP 400）" else "錯誤訊息（可長按選取）",
+                                if (lastErrorIsPolicy) "內容審核" else "錯誤訊息(可長按選取)",
                                 fontSize = if (lastErrorIsPolicy) 14.sp else 11.sp,
                                 fontWeight = FontWeight.W700,
                                 letterSpacing = 0.08.sp,

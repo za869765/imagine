@@ -51,6 +51,7 @@ import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ImagineRepository
+import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
@@ -199,8 +200,9 @@ fun EditScreen(
                         repository.extendVideo(capturedPrompt, encoded)
                     if (gen is ApiResult.Error) {
                         loading = false
-                        Toast.makeText(ctx, "失敗：${gen.message.take(200)}", Toast.LENGTH_LONG).show()
-                            return@launch
+                        val tag = gen.kind.userFriendlyTag()
+                        Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
+                        return@launch
                     }
                     val requestId = (gen as ApiResult.Success).value
                     var done = false
@@ -246,7 +248,8 @@ fun EditScreen(
                             is ApiResult.Error -> {
                                 pollErrors++
                                 if (pollErrors >= 3) {
-                                    Toast.makeText(ctx, "輪詢失敗：${poll.message.take(200)}", Toast.LENGTH_LONG).show()
+                                    val tag = poll.kind.userFriendlyTag()
+                                    Toast.makeText(ctx, "$tag (輪詢) — ${poll.message.take(200)}", Toast.LENGTH_LONG).show()
                                     done = true
                                 }
                             }
@@ -504,7 +507,8 @@ private suspend fun handleImageResult(
             }
         }
         is ApiResult.Error -> {
-            Toast.makeText(ctx, "失敗：${r.message.take(200)}", Toast.LENGTH_LONG).show()
+            val tag = r.kind.userFriendlyTag()
+            Toast.makeText(ctx, "$tag — ${r.message.take(200)}", Toast.LENGTH_LONG).show()
         }
     }
 }

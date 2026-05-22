@@ -53,6 +53,7 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
+import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
@@ -240,14 +241,7 @@ fun GenerateVideoScreen(
             when (gen) {
                 is ApiResult.Error -> {
                     generating = false
-                    val tag = when (gen.kind) {
-                        ErrorKind.Unauthorized -> "API Key 無效"
-                        ErrorKind.RateLimited -> "請求太頻繁"
-                        ErrorKind.ContentPolicy -> "🚨 內容審核被拒（HTTP 400）"
-                        ErrorKind.Network -> "網路錯誤"
-                        ErrorKind.Server -> "xAI 伺服器錯誤"
-                        ErrorKind.Unknown -> "送出失敗"
-                    }
+                    val tag = gen.kind.userFriendlyTag()
                     lastError = "$tag\n${gen.message}"
                     lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
                     Toast.makeText(ctx, "$tag — ${gen.message.take(200)}", Toast.LENGTH_LONG).show()
@@ -305,10 +299,11 @@ fun GenerateVideoScreen(
                             is ApiResult.Error -> {
                                 pollErrors++
                                 if (pollErrors >= 3 || poll.kind == ErrorKind.Unauthorized) {
-                                    lastError = "輪詢失敗（${poll.kind}）\n${poll.message}"
+                                    val tag = poll.kind.userFriendlyTag()
+                                    lastError = "$tag (輪詢)\n${poll.message}"
                                     Toast.makeText(
                                         ctx,
-                                        "輪詢失敗（${poll.kind}）：${poll.message.take(200)}",
+                                        "$tag — ${poll.message.take(200)}",
                                         Toast.LENGTH_LONG,
                                     ).show()
                                     done = true
@@ -515,8 +510,9 @@ fun GenerateVideoScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            // tag 已 prefix 在 lastError 第一行,UI title 用通用標籤即可
                             Text(
-                                if (lastErrorIsPolicy) "🚨 審核被拒（HTTP 400）" else "錯誤訊息（可長按選取）",
+                                if (lastErrorIsPolicy) "內容審核" else "錯誤訊息(可長按選取)",
                                 fontSize = if (lastErrorIsPolicy) 14.sp else 11.sp,
                                 fontWeight = FontWeight.W700,
                                 letterSpacing = 0.08.sp,

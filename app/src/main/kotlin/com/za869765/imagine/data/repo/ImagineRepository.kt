@@ -15,12 +15,28 @@ sealed class ApiResult<out T> {
 }
 
 enum class ErrorKind {
-    Unauthorized,        // 401
-    RateLimited,         // 429
-    ContentPolicy,       // policy violation
+    Unauthorized,        // 401 — API Key 無效或過期
+    PaymentRequired,     // 402 — 餘額不足
+    Forbidden,           // 403 — API Key 無此功能權限 / 帳號被停用
+    NotFound,            // 404 — 找不到資源
+    ContentPolicy,       // 400 — 內容審核被拒
+    RateLimited,         // 429 — 短時間請求太多
     Network,             // no connection / timeout
     Server,              // 5xx
     Unknown,
+}
+
+/** UI 用的白話 tag — 三個 Screen 共用,確保訊息一致 */
+fun ErrorKind.userFriendlyTag(): String = when (this) {
+    ErrorKind.Unauthorized -> "❌ API Key 無效或已過期"
+    ErrorKind.PaymentRequired -> "💰 餘額不足 — 到 console.x.ai 加值"
+    ErrorKind.Forbidden -> "🔒 API Key 無此功能權限或帳號被停用"
+    ErrorKind.NotFound -> "❓ 找不到資源(URL 錯誤)"
+    ErrorKind.ContentPolicy -> "🚨 內容被審核擋下"
+    ErrorKind.RateLimited -> "⏳ 請求太頻繁,稍後再試"
+    ErrorKind.Server -> "☁️ xAI 伺服器錯誤"
+    ErrorKind.Network -> "📡 網路錯誤"
+    ErrorKind.Unknown -> "❌ 失敗"
 }
 
 class ImagineRepository(private val api: XaiApi) {
@@ -90,10 +106,15 @@ class ImagineRepository(private val api: XaiApi) {
     private inline fun <T> safeCall(block: () -> T): ApiResult<T> = try {
         ApiResult.Success(block())
     } catch (e: retrofit2.HttpException) {
+        // 細分 4xx 狀態碼,避免「全 4xx 都算審核」誤導使用者
         val kind = when (e.code()) {
+            400 -> ErrorKind.ContentPolicy
             401 -> ErrorKind.Unauthorized
+            402 -> ErrorKind.PaymentRequired
+            403 -> ErrorKind.Forbidden
+            404 -> ErrorKind.NotFound
             429 -> ErrorKind.RateLimited
-            in 400..499 -> ErrorKind.ContentPolicy
+            in 400..499 -> ErrorKind.Unknown    // 其他罕見 4xx
             in 500..599 -> ErrorKind.Server
             else -> ErrorKind.Unknown
         }
