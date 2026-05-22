@@ -2,6 +2,7 @@ package com.za869765.imagine.ui.history
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -250,9 +251,12 @@ private fun DetailRow(label: String, value: String, mono: Boolean = false) {
 
 @Composable
 private fun ActionRow(icon: String, label: String, onClick: () -> Unit) {
+    // 之前漏 .clickable(onClick) 導致五個按鈕(編輯這張/動起來/當參考圖/編輯這段/
+    // 延長影片)全是死的,點下去 callback 從未 trigger
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
