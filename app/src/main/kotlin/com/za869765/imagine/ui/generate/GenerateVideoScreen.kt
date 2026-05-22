@@ -209,6 +209,10 @@ fun GenerateVideoScreen(
                 ).show()
             }
         }
+        // 點生成 = 開新一輪,先清掉上一輪的錯誤訊息(包含 400 審核紅卡),
+        // 不用使用者再去點「清除」
+        lastError = ""
+        lastErrorIsPolicy = false
         scope.launch {
             generating = true
 
