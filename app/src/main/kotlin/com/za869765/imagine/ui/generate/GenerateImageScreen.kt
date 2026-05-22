@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +65,7 @@ fun GenerateImageScreen(
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
+    val focusManager = LocalFocusManager.current
 
     var prompt by rememberSaveable { mutableStateOf("") }
     var resolution by rememberSaveable { mutableStateOf("1k") }
@@ -79,6 +81,8 @@ fun GenerateImageScreen(
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
 
     fun runGenerate() {
+        // 點生成 = 自動收鍵盤(避免 IME 佔走畫面看不到生成中/結果)
+        focusManager.clearFocus()
         // 點生成 = 開新一輪,先清掉上一輪的錯誤訊息(包含 400 審核紅卡),
         // 不用使用者再去點「清除」
         lastError = ""

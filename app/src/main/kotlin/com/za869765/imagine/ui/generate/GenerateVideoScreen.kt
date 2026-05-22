@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -93,6 +94,7 @@ fun GenerateVideoScreen(
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
+    val focusManager = LocalFocusManager.current
 
     var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
     // initialPrompt 變動 (例如使用者從 History 不同筆動起來) 時覆蓋已存 prompt
@@ -210,6 +212,8 @@ fun GenerateVideoScreen(
                 ).show()
             }
         }
+        // 點生成 = 自動收鍵盤(避免 IME 佔走畫面看不到生成中/結果)
+        focusManager.clearFocus()
         // 點生成 = 開新一輪,先清掉上一輪的錯誤訊息(包含 400 審核紅卡),
         // 不用使用者再去點「清除」
         lastError = ""

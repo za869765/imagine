@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,7 @@ fun EditScreen(
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
+    val focusManager = LocalFocusManager.current
 
     // rememberSaveable 讓切走再回來 state 保留 — EditMode 用字串存
     var modeStr by rememberSaveable {
@@ -160,6 +162,8 @@ fun EditScreen(
     }.getOrNull()
 
     fun runExecute() {
+        // 點執行 = 自動收鍵盤(避免 IME 佔走畫面看不到處理中/結果)
+        focusManager.clearFocus()
         val src = sourceUri
         if (src == null) {
             Toast.makeText(ctx, "請先選擇來源", Toast.LENGTH_SHORT).show()
