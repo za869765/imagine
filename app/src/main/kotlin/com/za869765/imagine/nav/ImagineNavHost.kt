@@ -115,8 +115,11 @@ fun ImagineRoot() {
             composable(Routes.GENERATE_IMAGE) {
                 GenerateImageScreen(
                     onSwitchToVideo = {
+                        // popUpTo 用 GENERATE_IMAGE (BottomNav 主舞台,永遠在 stack 底),
+                        // 不用 startDestinationId — SPLASH 是 startDestination 但啟動後
+                        // inclusive pop 掉了,popUpTo 不可達 destination 時 saveState 不可靠
                         navController.navigate(Routes.GENERATE_VIDEO) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            popUpTo(Routes.GENERATE_IMAGE) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -157,7 +160,7 @@ fun ImagineRoot() {
                 GenerateVideoScreen(
                     onSwitchToImage = {
                         navController.navigate(Routes.GENERATE_IMAGE) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            popUpTo(Routes.GENERATE_IMAGE) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -338,8 +341,12 @@ private fun handleTabNav(
         NavTab.HISTORY -> Routes.HISTORY
         NavTab.SETTINGS -> Routes.SETTINGS
     }
+    // popUpTo 用 GENERATE_IMAGE (BottomNav 主舞台,永遠在 stack 底) 而非
+    // navController.graph.startDestinationId(=SPLASH,啟動後被 inclusive pop 掉
+    // 不在 stack 內)。popUpTo 不可達 destination 時 Compose Navigation 的
+    // saveState 行為不可靠,導致切走再回來 state reset 為 default。
     navController.navigate(target) {
-        popUpTo(navController.graph.startDestinationId) { saveState = true }
+        popUpTo(Routes.GENERATE_IMAGE) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
