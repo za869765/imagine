@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
@@ -184,16 +185,73 @@ fun PromptInput(
                 },
             )
 
-            // Character counter
-            Text(
-                text = "${value.length} / $maxChars",
-                fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(top = 4.dp),
-            )
+            // 審核風險 hint (僅參考,不阻擋使用) — 只在有 hint 時顯示
+            val hint = remember(value, maxChars) { evaluatePrompt(value, maxChars) }
+            hint?.let {
+                Text(
+                    text = "${it.emoji} ${it.msg}",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W500,
+                    color = when (it.color) {
+                        HintColor.Red -> MaterialTheme.colorScheme.error
+                        HintColor.Yellow -> Color(0xFFE0A500)   // amber
+                        HintColor.Gray -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(top = 4.dp),
+                )
+            }
         }
     }
+}
+
+// ── 審核風險評估 (本地 heuristic) ────────────────────────────────
+// xAI 實際審核是黑盒,這裡只是粗略 keyword + 長度 hint,**僅供參考**。
+// 紅燈不代表一定擋,綠燈(無 hint)不代表一定過。
+
+private enum class HintColor { Red, Yellow, Gray }
+private data class PromptHint(val emoji: String, val msg: String, val color: HintColor)
+
+private fun evaluatePrompt(p: String, maxChars: Int): PromptHint? {
+    val s = p.trim()
+    if (s.isEmpty()) return null
+    val low = s.lowercase()
+
+    // 高風險: 幾乎一定被審核擋下
+    val high = listOf(
+        // 英文 NSFW / 露骨 / 未成年
+        "nude", "naked", "nudity", "nsfw", "porn", "pornographic",
+        "explicit", "sexual", "erotic", "hentai",
+        "underage", "minor child", "child porn", "loli", "lolicon",
+        // 中文
+        "裸體", "裸露", "性愛", "色情", "露胸", "露點", "露下體",
+        "蘿莉", "未成年",
+    )
+    if (high.any { low.contains(it) }) {
+        return PromptHint("🚨", "高機率被擋 (僅參考)", HintColor.Red)
+    }
+
+    // 中風險: 可能被擋
+    val medium = listOf(
+        "bikini", "topless", "lingerie", "sensual", "suggestive",
+        "blood", "gore", "violence", "violent", "kill", "killing", "murder",
+        "weapon", "gun", "knife", "scary", "horror", "fetish",
+        "比基尼", "內衣", "血腥", "暴力", "武器", "殺戮", "恐怖", "戀物",
+    )
+    if (medium.any { low.contains(it) }) {
+        return PromptHint("⚠️", "可能審核較嚴 (僅參考)", HintColor.Yellow)
+    }
+
+    // 太短: 描述不足模型發揮空間小
+    if (s.length < 5) {
+        return PromptHint("📝", "描述可以再詳細", HintColor.Gray)
+    }
+
+    // 接近字數上限
+    if (s.length > maxChars - 50) {
+        return PromptHint("⚠️", "接近字數上限", HintColor.Yellow)
+    }
+
+    return null
 }
