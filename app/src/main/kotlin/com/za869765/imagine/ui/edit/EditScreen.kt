@@ -47,6 +47,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.prefs.SecurePrefs
@@ -54,6 +58,7 @@ import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaSaver
+import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -125,11 +130,46 @@ fun EditScreen(
             sourceUriStr = initialMediaUri.toString()
         }
     }
+    // trackedRequestId 是 SSOT — 切走再回來時 LaunchedEffect 會恢復 loading 並重 observe。
+    // loading 維持 remember,ImageEdit (scope-cancel 路徑) 切走時不會卡住。
     var loading by remember { mutableStateOf(false) }
+    var trackedRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     var elapsed by remember { mutableStateOf(0) }
     var resultImageUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
+    val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }
+
+    // Worker 完成事件接收 — 同 GenerateVideoScreen 模式
+    LaunchedEffect(trackedRequestId) {
+        val rid = trackedRequestId ?: return@LaunchedEffect
+        loading = true   // process / Composable 重建後從 saveable 恢復狀態
+        workManager.getWorkInfosForUniqueWorkFlow(VideoPollWorker.uniqueName(rid))
+            .collect { infos ->
+                val info = infos.firstOrNull() ?: return@collect
+                when (info.state) {
+                    WorkInfo.State.SUCCEEDED -> {
+                        val url = info.outputData.getString(VideoPollWorker.KEY_VIDEO_URL)
+                        if (url != null) resultVideoUrl = url
+                        loading = false
+                        trackedRequestId = null
+                    }
+                    WorkInfo.State.FAILED -> {
+                        val err = info.outputData.getString(VideoPollWorker.KEY_ERROR)
+                        if (!err.isNullOrBlank()) {
+                            Toast.makeText(ctx, err, Toast.LENGTH_LONG).show()
+                        }
+                        loading = false
+                        trackedRequestId = null
+                    }
+                    WorkInfo.State.CANCELLED -> {
+                        loading = false
+                        trackedRequestId = null
+                    }
+                    else -> Unit
+                }
+            }
+    }
 
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -209,60 +249,18 @@ fun EditScreen(
                         return@launch
                     }
                     val requestId = (gen as ApiResult.Success).value
-                    var done = false
-                    var attempts = 0
-                    var pollErrors = 0
-                    // pending 白名單對齊 GenerateVideoScreen — 任何不在 pending 也不在
-                    // success 的狀態（含 rejected / moderation_failed 等）都立即視為失敗，
-                    // 避免被審核擋下後仍空轉 5 分鐘到 timeout
-                    val pendingStatuses = setOf(
-                        "pending", "queued", "processing", "running",
-                        "in_progress", "starting", "generating",
+                    lastPrompt = capturedPrompt
+                    // 把 polling + 下載 + 存檔 + 通知 全部交給 VideoPollWorker
+                    val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
+                        .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
+                        .build()
+                    workManager.enqueueUniqueWork(
+                        VideoPollWorker.uniqueName(requestId),
+                        ExistingWorkPolicy.KEEP,
+                        request,
                     )
-                    val successStatuses = setOf("done", "succeeded", "completed")
-                    while (loading && !done && attempts < 60) {
-                        delay(5000)
-                        attempts++
-                        when (val poll = repository.pollVideoStatus(requestId)) {
-                            is ApiResult.Success -> {
-                                pollErrors = 0
-                                val status = poll.value.status.lowercase()
-                                when {
-                                    status in successStatuses -> {
-                                        val url = poll.value.video?.url
-                                        if (url != null) {
-                                            resultVideoUrl = url
-                                            lastPrompt = capturedPrompt
-                                            scope.launch {
-                                                MediaSaver.saveVideoFromUrl(ctx, url, capturedPrompt)
-                                                Toast.makeText(ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT).show()
-                                            }
-                                        } else {
-                                            Toast.makeText(ctx, "影片回報 ${poll.value.status} 但沒拿到 URL", Toast.LENGTH_LONG).show()
-                                        }
-                                        done = true
-                                    }
-                                    status in pendingStatuses -> { /* 還在跑 */ }
-                                    else -> {
-                                        Toast.makeText(ctx, "影片失敗（${poll.value.status}，費用以 xAI 後台為準）", Toast.LENGTH_LONG).show()
-                                        done = true
-                                    }
-                                }
-                            }
-                            is ApiResult.Error -> {
-                                pollErrors++
-                                if (pollErrors >= 3) {
-                                    val tag = poll.kind.userFriendlyTag()
-                                    Toast.makeText(ctx, "$tag (輪詢)", Toast.LENGTH_SHORT).show()
-                                    done = true
-                                }
-                            }
-                        }
-                    }
-                    if (!done && loading) {
-                        Toast.makeText(ctx, "等待超時(5 分鐘) — 費用以 xAI 後台為準", Toast.LENGTH_LONG).show()
-                    }
-                    loading = false
+                    trackedRequestId = requestId
+                    Toast.makeText(ctx, "影片背景處理中,完成會通知", Toast.LENGTH_SHORT).show()
                 }
             }
         }

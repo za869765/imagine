@@ -48,6 +48,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.prefs.SecurePrefs
@@ -56,6 +60,7 @@ import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaSaver
+import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -115,12 +120,47 @@ fun GenerateVideoScreen(
     }
     val sourceImages = sourceImageStrings.map { Uri.parse(it) }
 
+    // trackedRequestId 是 SSOT — process / Composable 重建後從 saveable 恢復,LaunchedEffect
+    // 自動重新 observe Worker 並把 generating 設回 true。generating 維持 remember,避免
+    // observer 還沒跑就先擋住「生成」按鈕造成 deadlock。
     var generating by remember { mutableStateOf(false) }
+    var trackedRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     var elapsed by remember { mutableStateOf(0) }
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
+    val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }
+
+    // Worker 完成事件接收 — Worker 在後台 polling + 下載 + 存檔 + 發系統通知,
+    // UI 只 observe state 更新預覽 / 錯誤訊息。trackedRequestId 改變時重 collect。
+    LaunchedEffect(trackedRequestId) {
+        val rid = trackedRequestId ?: return@LaunchedEffect
+        generating = true   // process / Composable 重建後從 saveable 恢復狀態
+        workManager.getWorkInfosForUniqueWorkFlow(VideoPollWorker.uniqueName(rid))
+            .collect { infos ->
+                val info = infos.firstOrNull() ?: return@collect
+                when (info.state) {
+                    WorkInfo.State.SUCCEEDED -> {
+                        val url = info.outputData.getString(VideoPollWorker.KEY_VIDEO_URL)
+                        if (url != null) resultVideoUrl = url
+                        generating = false
+                        trackedRequestId = null
+                    }
+                    WorkInfo.State.FAILED -> {
+                        val err = info.outputData.getString(VideoPollWorker.KEY_ERROR)
+                        if (!err.isNullOrBlank()) lastError = err
+                        generating = false
+                        trackedRequestId = null
+                    }
+                    WorkInfo.State.CANCELLED -> {
+                        generating = false
+                        trackedRequestId = null
+                    }
+                    else -> Unit
+                }
+            }
+    }
 
     val maxImages = if (mode == VideoMode.Img2Vid) 1 else 3
     val pickImage = rememberLauncherForActivityResult(
@@ -253,72 +293,19 @@ fun GenerateVideoScreen(
                 }
                 is ApiResult.Success -> {
                     val requestId = gen.value
-                    var done = false
-                    var attempts = 0
-                    var pollErrors = 0
-                    // pending 系列只有這幾個算「還在跑」；其他狀態（含 xAI 沒文件化的）都當失敗終止，
-                    // 避免被審核擋下後 status 不是 "failed" 而是 "rejected" / "moderation_failed" 等
-                    // 不在白名單就無限 pending。
-                    val pendingStatuses = setOf(
-                        "pending", "queued", "processing", "running",
-                        "in_progress", "starting", "generating",
+                    lastPrompt = capturedPrompt
+                    // 把 polling + 下載 + 存檔 + 通知 全部交給 VideoPollWorker。
+                    // Worker 跑前景服務,Composable 被 dispose / process 死也能完成。
+                    val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
+                        .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
+                        .build()
+                    workManager.enqueueUniqueWork(
+                        VideoPollWorker.uniqueName(requestId),
+                        ExistingWorkPolicy.KEEP,
+                        request,
                     )
-                    while (generating && !done && attempts < 60) {
-                        delay(5000)
-                        attempts++
-                        when (val poll = repository.pollVideoStatus(requestId)) {
-                            is ApiResult.Success -> {
-                                pollErrors = 0
-                                val s = poll.value
-                                val status = s.status.lowercase()
-                                when {
-                                    status in setOf("done", "succeeded", "completed") -> {
-                                        val url = s.video?.url
-                                        if (url != null) {
-                                            resultVideoUrl = url
-                                            lastPrompt = capturedPrompt
-                                            scope.launch {
-                                                MediaSaver.saveVideoFromUrl(ctx, url, capturedPrompt)
-                                                Toast.makeText(
-                                                    ctx, "影片完成，已存到相簿", Toast.LENGTH_SHORT,
-                                                ).show()
-                                            }
-                                        } else {
-                                            lastError = "影片回報 ${s.status} 但沒拿到 URL（費用以 xAI 後台為準）"
-                                        }
-                                        done = true
-                                    }
-                                    status in pendingStatuses -> { /* 還在跑 */ }
-                                    else -> {
-                                        val msg = s.error?.let { "\n$it" } ?: ""
-                                        lastError = "影片任務 ${s.status}（費用以 xAI 後台為準）$msg"
-                                        Toast.makeText(
-                                            ctx, "影片失敗（${s.status}）${msg.take(180)}",
-                                            Toast.LENGTH_LONG,
-                                        ).show()
-                                        done = true
-                                    }
-                                }
-                            }
-                            is ApiResult.Error -> {
-                                pollErrors++
-                                if (pollErrors >= 3 || poll.kind == ErrorKind.Unauthorized) {
-                                    val tag = poll.kind.userFriendlyTag()
-                                    lastError = "$tag (輪詢)"
-                                    Toast.makeText(ctx, "$tag (輪詢)", Toast.LENGTH_SHORT).show()
-                                    done = true
-                                }
-                            }
-                        }
-                    }
-                    if (!done && generating) {
-                        lastError = "等待超時（5 分鐘）— 任務可能仍在 xAI 後台執行，費用以 xAI 後台為準"
-                        Toast.makeText(
-                            ctx, "等待超時（5 分鐘）— 費用以 xAI 後台為準",
-                            Toast.LENGTH_LONG,
-                        ).show()
-                    }
-                    generating = false
+                    trackedRequestId = requestId
+                    Toast.makeText(ctx, "影片背景生成中,完成會通知", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -478,7 +465,13 @@ fun GenerateVideoScreen(
                         )
                         OutlinedActionButton(
                             label = "取消生成",
-                            onClick = { generating = false },
+                            onClick = {
+                                trackedRequestId?.let {
+                                    workManager.cancelUniqueWork(VideoPollWorker.uniqueName(it))
+                                }
+                                generating = false
+                                trackedRequestId = null
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
