@@ -12,4 +12,12 @@ object Clipboard {
         cm.setPrimaryClip(ClipData.newPlainText(label, text))
         Toast.makeText(ctx, toastMsg, Toast.LENGTH_SHORT).show()
     }
+
+    /** 從剪貼簿取出純文字,空或無內容回 null。 */
+    fun paste(ctx: Context): String? {
+        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = cm.primaryClip ?: return null
+        if (clip.itemCount == 0) return null
+        return clip.getItemAt(0).coerceToText(ctx).toString().takeIf { it.isNotBlank() }
+    }
 }
