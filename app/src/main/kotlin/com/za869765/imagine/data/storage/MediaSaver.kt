@@ -1,12 +1,10 @@
 package com.za869765.imagine.data.storage
 
-import android.content.ContentValues
 import android.content.Context
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
+import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -14,9 +12,24 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * v1.0.31 起：媒體一律寫到 app-private internal storage (`ctx.filesDir/media/`)，
+ * 系統相簿/檔案總管/媒體掃描皆讀不到，解除安裝自動清除。
+ *
+ * 舊版本(v1.0.30 以前)寫進 MediaStore 的 Pictures/Imagine、Movies/Imagine 仍在
+ * 系統相簿，但 App 內 History 不再顯示 — 使用者需自己到相簿清理舊資料。
+ *
+ * 回傳值是 file:// URI 字串，Coil / ExoPlayer / AsyncImage 直接吃。
+ */
 object MediaSaver {
 
-    private const val ALBUM = "Imagine"
+    private const val DIR = "media"
+
+    private fun mediaDir(ctx: Context): File =
+        File(ctx.filesDir, DIR).apply { if (!exists()) mkdirs() }
+
+    private fun timestamp(): String =
+        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
     suspend fun saveImage(
         ctx: Context,
@@ -24,35 +37,7 @@ object MediaSaver {
         prompt: String,
     ): String? = withContext(Dispatchers.IO) {
         val filename = "imagine_${timestamp()}.png"
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, filename)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/$ALBUM")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-            put(MediaStore.Images.Media.DESCRIPTION, prompt.take(200))
-        }
-
-        val resolver = ctx.contentResolver
-        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-            ?: return@withContext null
-
-        try {
-            resolver.openOutputStream(uri)?.use { it.write(bytes) }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-            // 寫 PromptIndex (主要持久化來源 — MediaStore.DESCRIPTION 在 Samsung 系統實際讀回 null)
-            PromptIndex.put(ctx, filename, prompt)
-            uri.toString()
-        } catch (t: Throwable) {
-            // 寫一半失敗清掉孤兒 record（不清會留 IS_PENDING=1 的隱藏條目）
-            runCatching { resolver.delete(uri, null, null) }
-            null
-        }
+        writeFile(ctx, filename, prompt) { it.write(bytes) }
     }
 
     suspend fun saveImageFromUrl(ctx: Context, url: String, prompt: String): String? =
@@ -64,9 +49,11 @@ object MediaSaver {
                     instanceFollowRedirects = true
                 }
                 if (conn.responseCode !in 200..299) return@runCatching null
+                val mime = conn.contentType?.takeIf { it.startsWith("image/") } ?: "image/png"
+                val ext = if (mime.contains("jpeg")) "jpg" else "png"
+                val filename = "imagine_${timestamp()}.$ext"
                 conn.inputStream.use { stream ->
-                    val mime = conn.contentType?.takeIf { it.startsWith("image/") } ?: "image/png"
-                    saveImageStream(ctx, stream, prompt, mime)
+                    writeFile(ctx, filename, prompt) { stream.copyTo(it) }
                 }
             }.getOrNull()
         }
@@ -84,76 +71,30 @@ object MediaSaver {
             }.getOrNull()
         }
 
-    private suspend fun saveImageStream(
-        ctx: Context,
-        stream: InputStream,
-        prompt: String,
-        mime: String,
-    ): String? = withContext(Dispatchers.IO) {
-        val ext = if (mime.contains("jpeg")) "jpg" else "png"
-        val filename = "imagine_${timestamp()}.$ext"
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, filename)
-            put(MediaStore.Images.Media.MIME_TYPE, mime)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/$ALBUM")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-            put(MediaStore.Images.Media.DESCRIPTION, prompt.take(200))
-        }
-        val resolver = ctx.contentResolver
-        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-            ?: return@withContext null
-        try {
-            resolver.openOutputStream(uri)?.use { out -> stream.copyTo(out) }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-            PromptIndex.put(ctx, filename, prompt)
-            uri.toString()
-        } catch (t: Throwable) {
-            runCatching { resolver.delete(uri, null, null) }
-            null
-        }
-    }
-
     suspend fun saveVideo(
         ctx: Context,
         stream: InputStream,
         prompt: String,
     ): String? = withContext(Dispatchers.IO) {
         val filename = "imagine_${timestamp()}.mp4"
-        val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, filename)
-            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/$ALBUM")
-                put(MediaStore.Video.Media.IS_PENDING, 1)
-            }
-            put(MediaStore.Video.Media.DESCRIPTION, prompt.take(200))
-        }
+        writeFile(ctx, filename, prompt) { stream.copyTo(it) }
+    }
 
-        val resolver = ctx.contentResolver
-        val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-            ?: return@withContext null
-
-        try {
-            resolver.openOutputStream(uri)?.use { out -> stream.copyTo(out) }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
+    private inline fun writeFile(
+        ctx: Context,
+        filename: String,
+        prompt: String,
+        block: (java.io.OutputStream) -> Unit,
+    ): String? {
+        val file = File(mediaDir(ctx), filename)
+        return try {
+            file.outputStream().use(block)
             PromptIndex.put(ctx, filename, prompt)
-            uri.toString()
+            file.toUri().toString()
         } catch (t: Throwable) {
-            runCatching { resolver.delete(uri, null, null) }
+            // 寫一半失敗的孤兒 file 清掉，避免 History 列出 0 byte 殘檔
+            runCatching { if (file.exists()) file.delete() }
             null
         }
     }
-
-    private fun timestamp(): String =
-        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 }

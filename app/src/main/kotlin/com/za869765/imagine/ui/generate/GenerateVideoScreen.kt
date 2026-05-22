@@ -103,7 +103,7 @@ fun GenerateVideoScreen(
     var mode by rememberSaveable {
         mutableStateOf(if (initialImageUri != null) VideoMode.Img2Vid else VideoMode.T2V)
     }
-    var duration by rememberSaveable { mutableStateOf(8) }
+    var duration by rememberSaveable { mutableStateOf(5) }
     var aspect by rememberSaveable { mutableStateOf("1:1") }
     var resolution by rememberSaveable { mutableStateOf("480p") }
     // sourceImages 是 List<Uri> — Uri 本身可序列化,但 List<Uri> 沒 Saver,改存字串 list
@@ -212,7 +212,9 @@ fun GenerateVideoScreen(
         scope.launch {
             generating = true
 
-            val capturedPrompt = prompt
+            // 空白 prompt 時用 initialPrompt 兜底(從歷史/圖片頁「動起來」「延長」帶進來)，
+            // 避免使用者按了沒反應、又得手動把預填的字再貼回去
+            val capturedPrompt = prompt.ifBlank { initialPrompt.orEmpty() }
             val capturedMode = mode
             val capturedDuration = duration
 
@@ -425,7 +427,7 @@ fun GenerateVideoScreen(
                     label = "秒數",
                     value = duration.toString(),
                     options = (1..15).map { it.toString() },
-                    onSelect = { duration = it.toIntOrNull() ?: 8 },
+                    onSelect = { duration = it.toIntOrNull() ?: 5 },
                     displayName = { "$it 秒" },
                     modifier = Modifier.weight(1f),
                 )
@@ -482,10 +484,12 @@ fun GenerateVideoScreen(
                     }
                 }
             } else {
+                // 空白 prompt 仍可送 — 若 initialPrompt 帶進來就用它生成
+                val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
                 PrimaryButton(
                     label = "生 成",
                     icon = "movie",
-                    enabled = prompt.isNotBlank() && prefs.isApiKeySet,
+                    enabled = hasPrompt && prefs.isApiKeySet,
                     onClick = ::runGenerate,
                 )
             }

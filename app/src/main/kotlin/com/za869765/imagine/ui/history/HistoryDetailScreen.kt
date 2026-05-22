@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -83,7 +84,11 @@ fun HistoryDetailScreen(
         }
 
         Column(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+            modifier = Modifier
+                // navigationBarsPadding 把整個內容上推，避開三鍵列/手勢列遮住最底的「延長影片」鈕。
+                // 手勢列高約 24-48dp，三鍵列約 48dp — 兩種都吃得到
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             // 真實媒體預覽

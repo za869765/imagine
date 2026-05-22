@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,29 +75,62 @@ fun EditScreen(
     onNavSelected: (NavTab) -> Unit,
     initialMediaUri: Uri? = null,
     initialPrompt: String? = null,
+    initialEditMode: String? = null,    // 從 HistoryDetail 帶 "image" / "video" / "extend"
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
 
-    var mode by remember { mutableStateOf(EditMode.ImageEdit) }
-    var prompt by remember { mutableStateOf(initialPrompt.orEmpty()) }
+    // rememberSaveable 讓切走再回來 state 保留 — EditMode 用字串存
+    var modeStr by rememberSaveable {
+        mutableStateOf(
+            when (initialEditMode) {
+                "video" -> "vid"
+                "extend" -> "ext"
+                "image" -> "img"
+                else -> "img"
+            }
+        )
+    }
+    val mode = when (modeStr) {
+        "vid" -> EditMode.VideoEdit
+        "ext" -> EditMode.VideoExtend
+        else -> EditMode.ImageEdit
+    }
+    // 接收新的 mode hint (HistoryDetail 再次帶不同檔案進來時要切換)
+    LaunchedEffect(initialEditMode) {
+        when (initialEditMode) {
+            "video" -> modeStr = "vid"
+            "extend" -> modeStr = "ext"
+            "image" -> modeStr = "img"
+        }
+    }
+    var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
     LaunchedEffect(initialPrompt) {
         if (!initialPrompt.isNullOrBlank() && initialPrompt != prompt) {
             prompt = initialPrompt
         }
     }
-    var sourceUri by remember { mutableStateOf<Uri?>(initialMediaUri) }
+    // Uri 非 Saveable，存字串 list
+    var sourceUriStr by rememberSaveable {
+        mutableStateOf<String?>(initialMediaUri?.toString())
+    }
+    val sourceUri: Uri? = sourceUriStr?.let { Uri.parse(it) }
+    LaunchedEffect(initialMediaUri) {
+        if (initialMediaUri != null && initialMediaUri.toString() != sourceUriStr) {
+            sourceUriStr = initialMediaUri.toString()
+        }
+    }
     var loading by remember { mutableStateOf(false) }
     var elapsed by remember { mutableStateOf(0) }
-    var resultImageUrl by remember { mutableStateOf<String?>(null) }
-    var resultVideoUrl by remember { mutableStateOf<String?>(null) }
-    var lastPrompt by remember { mutableStateOf("") }
+    var resultImageUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var lastPrompt by rememberSaveable { mutableStateOf("") }
 
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri: Uri? -> if (uri != null) sourceUri = uri }
+    ) { uri: Uri? -> if (uri != null) sourceUriStr = uri.toString() }
     val launchPick: () -> Unit = {
         val type = if (mode == EditMode.ImageEdit)
             ActivityResultContracts.PickVisualMedia.ImageOnly
@@ -130,13 +164,16 @@ fun EditScreen(
             Toast.makeText(ctx, "請先選擇來源", Toast.LENGTH_SHORT).show()
             return
         }
-        if (prompt.isBlank()) {
+        // 空白 prompt 用 initialPrompt 兜底 — HistoryDetail 「編輯這段/延長影片」帶進來的
+        // 原 prompt 可以直接拿來重跑
+        val effectivePrompt = prompt.ifBlank { initialPrompt.orEmpty() }
+        if (effectivePrompt.isBlank()) {
             Toast.makeText(ctx, "請輸入編輯說明", Toast.LENGTH_SHORT).show()
             return
         }
         scope.launch {
             loading = true
-            val capturedPrompt = prompt
+            val capturedPrompt = effectivePrompt
             val capturedMode = mode
 
             val encoded = encodeMedia(src)
@@ -252,11 +289,15 @@ fun EditScreen(
                         else -> EditMode.VideoExtend
                     }
                     if ((newMode == EditMode.ImageEdit) != (mode == EditMode.ImageEdit)) {
-                        sourceUri = null
+                        sourceUriStr = null
                         resultImageUrl = null
                         resultVideoUrl = null
                     }
-                    mode = newMode
+                    modeStr = when (newMode) {
+                        EditMode.ImageEdit -> "img"
+                        EditMode.VideoEdit -> "vid"
+                        EditMode.VideoExtend -> "ext"
+                    }
                 },
             )
 
@@ -299,7 +340,7 @@ fun EditScreen(
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surface)
                                 .clickable {
-                                    sourceUri = null
+                                    sourceUriStr = null
                                     resultImageUrl = null
                                     resultVideoUrl = null
                                 },
@@ -391,10 +432,12 @@ fun EditScreen(
                     }
                 }
             } else {
+                // 空白 prompt 也可送 — 用 initialPrompt 兜底
+                val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
                 PrimaryButton(
                     label = "執 行",
                     icon = "edit",
-                    enabled = prompt.isNotBlank() && sourceUri != null && prefs.isApiKeySet,
+                    enabled = hasPrompt && sourceUri != null && prefs.isApiKeySet,
                     onClick = ::runExecute,
                 )
             }

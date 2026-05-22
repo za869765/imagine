@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 
 private const val KEY_INIT_MEDIA = "init_media_uri"
 private const val KEY_INIT_PROMPT = "init_media_prompt"
+private const val KEY_INIT_EDIT_MODE = "init_edit_mode"   // "image" / "video" / "extend"
 private const val KEY_HISTORY_URI = "history_entry_uri"
 
 @Composable
@@ -113,7 +114,13 @@ fun ImagineRoot() {
 
             composable(Routes.GENERATE_IMAGE) {
                 GenerateImageScreen(
-                    onSwitchToVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
+                    onSwitchToVideo = {
+                        navController.navigate(Routes.GENERATE_VIDEO) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     onAnimateImage = { url, prompt ->
@@ -127,6 +134,7 @@ fun ImagineRoot() {
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
                             set(KEY_INIT_MEDIA, url)
                             set(KEY_INIT_PROMPT, prompt)
+                            set(KEY_INIT_EDIT_MODE, "image")
                         }
                         navController.navigate(Routes.EDIT)
                     },
@@ -149,7 +157,9 @@ fun ImagineRoot() {
                 GenerateVideoScreen(
                     onSwitchToImage = {
                         navController.navigate(Routes.GENERATE_IMAGE) {
-                            popUpTo(Routes.GENERATE_VIDEO) { inclusive = true }
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
@@ -164,11 +174,14 @@ fun ImagineRoot() {
                     ?.savedStateHandle?.get<String>(KEY_INIT_MEDIA)
                 val initPrompt = navController.previousBackStackEntry
                     ?.savedStateHandle?.get<String>(KEY_INIT_PROMPT)
+                val initEditMode = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_EDIT_MODE)
                 LaunchedEffect(initUrl) {
                     if (initUrl != null) {
                         navController.previousBackStackEntry?.savedStateHandle?.apply {
                             remove<String>(KEY_INIT_MEDIA)
                             remove<String>(KEY_INIT_PROMPT)
+                            remove<String>(KEY_INIT_EDIT_MODE)
                         }
                     }
                 }
@@ -177,6 +190,7 @@ fun ImagineRoot() {
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     initialMediaUri = initUrl?.let { Uri.parse(it) },
                     initialPrompt = initPrompt,
+                    initialEditMode = initEditMode,
                 )
             }
 
@@ -204,12 +218,14 @@ fun ImagineRoot() {
                     entry = entry,
                     onBack = { navController.popBackStack() },
                     onDelete = {
-                        // 真的刪 MediaStore + PromptIndex，原本只 popBackStack 是假象
+                        // 真的刪 internal file + PromptIndex，原本只 popBackStack 是假象
                         val e = entry
                         if (e != null) {
                             scope.launch {
                                 runCatching {
-                                    ctx.contentResolver.delete(e.uri, null, null)
+                                    // v1.0.31 起檔案在 ctx.filesDir/media/，path 直接是 file path
+                                    val path = e.uri.path
+                                    if (path != null) java.io.File(path).delete()
                                     com.za869765.imagine.data.storage.PromptIndex.remove(ctx, e.displayName)
                                 }
                             }
@@ -221,17 +237,36 @@ fun ImagineRoot() {
                         val url = e.uri.toString()
                         val p = e.prompt.orEmpty()
                         when (label) {
-                            "動起來（生影片）", "當參考圖", "延長影片" -> {
+                            // 圖片才往生影片頁送 (Img2Vid 起始圖 / Ref 參考圖)
+                            "動起來（生影片）", "當參考圖" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_MEDIA, url)
                                     set(KEY_INIT_PROMPT, p)
                                 }
                                 navController.navigate(Routes.GENERATE_VIDEO)
                             }
-                            "編輯這張", "編輯這段" -> {
+                            // 影片相關都走 EditScreen，差在 mode hint
+                            "延長影片" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_MEDIA, url)
                                     set(KEY_INIT_PROMPT, p)
+                                    set(KEY_INIT_EDIT_MODE, "extend")
+                                }
+                                navController.navigate(Routes.EDIT)
+                            }
+                            "編輯這段" -> {
+                                navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                    set(KEY_INIT_MEDIA, url)
+                                    set(KEY_INIT_PROMPT, p)
+                                    set(KEY_INIT_EDIT_MODE, "video")
+                                }
+                                navController.navigate(Routes.EDIT)
+                            }
+                            "編輯這張" -> {
+                                navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                    set(KEY_INIT_MEDIA, url)
+                                    set(KEY_INIT_PROMPT, p)
+                                    set(KEY_INIT_EDIT_MODE, "image")
                                 }
                                 navController.navigate(Routes.EDIT)
                             }

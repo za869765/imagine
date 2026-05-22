@@ -1,8 +1,5 @@
 package com.za869765.imagine.ui.onboarding
 
-import android.app.Activity
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,8 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import com.za869765.imagine.data.prefs.PinCrypto
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -43,7 +38,6 @@ fun LockScreen(
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    val biometricEnabled = prefs.biometricEnabled && canAuthenticateWithBiometric(ctx)
 
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
@@ -122,10 +116,7 @@ fun LockScreen(
             onBackspace = {
                 if (pin.isNotEmpty()) pin = pin.dropLast(1)
             },
-            onBiometric = {
-                runBiometric(ctx, prefs, onUnlock)
-            },
-            leadingKey = if (biometricEnabled) PinAuxKey.Biometric else PinAuxKey.None,
+            leadingKey = PinAuxKey.None,
             trailingKey = PinAuxKey.Backspace,
             filled = pin.length,
             modifier = Modifier.fillMaxWidth(),
@@ -133,39 +124,4 @@ fun LockScreen(
         Spacer(modifier = Modifier.height(28.dp))
         TextActionButton(label = "忘記 PIN？", onClick = onForgotPin)
     }
-}
-
-// S22 Ultra 的指紋是 BIOMETRIC_STRONG，Android 13+ 對 WEAK-only 的 BiometricPrompt 有限制，
-// 改用 STRONG or WEAK，三星指紋/臉部/低階感應器都吃得到。
-private const val BIOMETRIC_LEVELS =
-    BiometricManager.Authenticators.BIOMETRIC_STRONG or
-        BiometricManager.Authenticators.BIOMETRIC_WEAK
-
-private fun canAuthenticateWithBiometric(ctx: android.content.Context): Boolean {
-    val bm = BiometricManager.from(ctx)
-    return bm.canAuthenticate(BIOMETRIC_LEVELS) == BiometricManager.BIOMETRIC_SUCCESS
-}
-
-private fun runBiometric(
-    ctx: android.content.Context,
-    prefs: SecurePrefs,
-    onUnlock: () -> Unit,
-) {
-    val activity = (ctx as? FragmentActivity) ?: return
-    if (!prefs.biometricEnabled) return
-
-    val executor = ContextCompat.getMainExecutor(ctx)
-    val callback = object : BiometricPrompt.AuthenticationCallback() {
-        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-            onUnlock()
-        }
-    }
-    val prompt = BiometricPrompt(activity, executor, callback)
-    val info = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("解鎖 Imagine")
-        .setSubtitle("使用生物辨識解鎖")
-        .setNegativeButtonText("使用 PIN")
-        .setAllowedAuthenticators(BIOMETRIC_LEVELS)
-        .build()
-    prompt.authenticate(info)
 }

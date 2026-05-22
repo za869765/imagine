@@ -74,7 +74,6 @@ fun SettingsScreen(
     val budgetColors = LocalBudgetColors.current
     val scope = rememberCoroutineScope()
 
-    var biometric by remember { mutableStateOf(prefs.biometricEnabled) }
     var lockOnBg by remember { mutableStateOf(prefs.lockOnBackground) }
     var screenshots by remember { mutableStateOf(prefs.preventScreenshots) }
 
@@ -242,12 +241,6 @@ fun SettingsScreen(
                             ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         SettingRow(divider = true) {
-                            Text("啟用生物辨識", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                            Switch(checked = biometric, onCheckedChange = {
-                                biometric = it; prefs.biometricEnabled = it
-                            })
-                        }
-                        SettingRow(divider = true) {
                             Text("APP 切背景立即鎖", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                             Switch(checked = lockOnBg, onCheckedChange = {
                                 lockOnBg = it; prefs.lockOnBackground = it
@@ -387,13 +380,6 @@ fun SettingsScreen(
                     "xAI Imagine API 客戶端",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "官方定價 ↗",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
