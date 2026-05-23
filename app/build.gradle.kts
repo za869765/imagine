@@ -13,8 +13,8 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 44
-        versionName = "1.0.43"
+        versionCode = 45
+        versionName = "1.0.44"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -41,6 +41,11 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // v1.0.44: debug 也綁同一把 imagine.keystore — 不然 CI 每次跑用隨機
+            // debug.keystore 簽，升 debug APK 必踩「套件衝突」→ 被迫 uninstall →
+            // 歷史資料全清。debug 跟 release 因為 applicationIdSuffix 不同
+            // 仍是兩個 app 並存，不互覆蓋，沒副作用。
+            signingConfig = signingConfigs.getByName("imagine")
         }
         release {
             isMinifyEnabled = true

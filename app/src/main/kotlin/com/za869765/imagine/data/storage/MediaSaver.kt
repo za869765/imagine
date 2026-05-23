@@ -23,6 +23,9 @@ import java.util.Locale
  */
 object MediaSaver {
 
+    // ⚠️ STABLE CONTRACT — 改這個值 = 清空所有使用者既有歷史。
+    // 同名 const 也存在於 MediaHistory.DIR 跟 MediaMigrator 的目標路徑，要改一起改 +
+    // 寫遷移把舊目錄拷到新目錄，否則 in-place upgrade 後 History 會空掉。
     private const val DIR = "media"
 
     private fun mediaDir(ctx: Context): File =

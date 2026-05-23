@@ -22,6 +22,7 @@ data class MediaEntry(
  * 舊版本寫進系統相簿的檔案不再列出 — 使用者得手動到 Photos/Gallery 清理。
  */
 object MediaHistory {
+    // ⚠️ STABLE CONTRACT — 跟 MediaSaver.DIR 必須一致；改了 History 會讀不到既有檔。
     private const val DIR = "media"
 
     suspend fun loadAll(ctx: Context): List<MediaEntry> = withContext(Dispatchers.IO) {

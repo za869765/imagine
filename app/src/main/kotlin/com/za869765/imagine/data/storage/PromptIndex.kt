@@ -14,6 +14,8 @@ import android.content.Context
  * value = prompt 原文，無長度限制 (DESCRIPTION 之前限 200 字)
  */
 object PromptIndex {
+    // ⚠️ STABLE CONTRACT — 改這個 SharedPrefs name = 全使用者的 prompt 對應消失。
+    // 要改必須寫 migration 把舊 prefs 內容搬到新 prefs，否則 History 點進去全是空 prompt。
     private const val PREFS = "imagine_prompt_index"
 
     fun put(ctx: Context, displayName: String, prompt: String) {
