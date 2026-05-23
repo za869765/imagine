@@ -44,12 +44,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import com.za869765.imagine.BuildConfig
 import com.za869765.imagine.applyScreenshotFlag
 import android.content.Intent
 import android.widget.Toast
 import com.za869765.imagine.data.backup.KeyBackupCodec
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.storage.MediaImporter
+import kotlinx.coroutines.launch
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -81,6 +86,18 @@ fun SettingsScreen(
 
     // ── Settings 狀態 ─────────────────────
     var showImportEditor by remember { mutableStateOf(false) }
+
+    // v1.0.46: 從相簿批次匯入歷史 (PhotoPicker，不需 READ_MEDIA_* permission)
+    val pickMultipleMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 100),
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            scope.launch {
+                val count = MediaImporter.importAll(ctx, uris)
+                Toast.makeText(ctx, "已匯入 $count 個檔到 History", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     fun doExport() {
         val payload = KeyBackupCodec.export(prefs)
@@ -197,9 +214,10 @@ fun SettingsScreen(
                 }
             }
 
-            // ── xAI 後台（用量 / 帳單）──
+            // ── xAI 後台（用量 / 帳單 / Grok）──
             // v1.0.21: 砍 Management API 拉真實餘額 (xAI 回傳單位不準怎樣都對不上),
             // 改成直接開 console.x.ai 用量頁。Token / 計算都用 xAI 後台原生。
+            // v1.0.46: 加 grok.com 入口 — 看歷史/分享回 Imagine 走系統瀏覽器
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("xAI 後台")
                 ImagineCard(pad = 0) {
@@ -220,6 +238,28 @@ fun SettingsScreen(
                                 )
                                 Text(
                                     "瀏覽器開啟 — token / 圖片 / 影片數據以官方為準",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(name = "open_in_new", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        SettingRow(divider = false, onClick = {
+                            ctx.startActivity(
+                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://grok.com"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "開啟 grok.com",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.W500,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "瀏覽器開啟 — 看 Grok 歷史，按分享回傳 Imagine",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 2.dp),
@@ -256,6 +296,31 @@ fun SettingsScreen(
                                 }
                             })
                         }
+                    }
+                }
+            }
+
+            // ── 歷史匯入 ──
+            // v1.0.46: 從相簿 (PhotoPicker，不需 permission) 或 Grok/瀏覽器 ACTION_SEND 分享進來
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("歷史匯入")
+                ImagineCard(pad = 16) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "從相簿多選圖/影匯入 History (無 prompt)。Grok / 瀏覽器內按「分享」也能直接送進 Imagine。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                        OutlinedActionButton(
+                            label = "從相簿匯入",
+                            onClick = {
+                                pickMultipleMedia.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
             }
