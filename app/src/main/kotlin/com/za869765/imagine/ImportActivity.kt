@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * v1.0.46: 接 ACTION_SEND / ACTION_SEND_MULTIPLE 從外部 app (Grok / 相簿 / 瀏覽器)
- * 分享進來的 image/* 或 video/*，拷貝到 filesDir/media/ 進 Imagine History。
+ * 分享進來的 image 或 video MIME，拷貝到 filesDir/media/ 進 Imagine History。
  *
  * Activity 自己無 UI (透明 theme)，背景拷貝完跳 Toast 即 finish，
  * 不觸發主 app 的 PIN lock 流程 (只是純檔案寫入)。
