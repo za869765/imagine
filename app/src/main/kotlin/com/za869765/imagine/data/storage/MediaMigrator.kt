@@ -21,7 +21,10 @@ import java.io.File
  */
 object MediaMigrator {
     private const val PREFS = "imagine_migration"
-    private const val KEY_DONE = "migrated_v1_31_done"
+    // v1.0.45: flag rename — 升 v1.0.45 後強制再跑一次 (這次有 READ_MEDIA_* 權限
+    // 能掃到 owner 已失效的舊檔，例如踩過 v1.0.27→v1.0.28 keystore 換被迫 uninstall
+    // 的那批 imagine_*)。舊 flag migrated_v1_31_done 留著無害，不主動清。
+    private const val KEY_DONE = "migrated_v1_45_done"
 
     suspend fun runIfNeeded(ctx: Context) = withContext(Dispatchers.IO) {
         val sp = ctx.applicationContext

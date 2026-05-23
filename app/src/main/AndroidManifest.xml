@@ -9,6 +9,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- in-app updater: 下載 release APK 後觸發系統 PackageInstaller -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- v1.0.45: 撈 v1.0.30 以前寫進系統相簿的舊 imagine_* 檔。MediaMigrator 用，
+         之後生成的檔都在 app-private filesDir/media/，不再需要這些權限讀寫。 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 
     <application
         android:name=".ImagineApp"
