@@ -499,17 +499,9 @@ fun GenerateVideoScreen(
                             color = MaterialTheme.colorScheme.error,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
-                        OutlinedActionButton(
-                            label = "取消生成",
-                            onClick = {
-                                trackedRequestId?.let {
-                                    workManager.cancelUniqueWork(VideoPollWorker.uniqueName(it))
-                                }
-                                generating = false
-                                trackedRequestId = null
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        // v1.0.55: 砍「取消生成」按鈕 — xAI 沒提供 cancel API，credits 已扣
+                        // 仍會跑完，imagine 端取消只是「停止本地等待」對 user 沒實質意義。
+                        // 不顯示按鈕讓 user 自然等完 (完成會發系統通知)。
                     }
                 }
             } else {
