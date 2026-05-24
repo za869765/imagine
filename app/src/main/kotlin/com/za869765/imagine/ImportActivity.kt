@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import com.za869765.imagine.data.storage.MediaImporter
+import com.za869765.imagine.data.storage.PromptIndex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,19 +35,56 @@ class ImportActivity : Activity() {
             return
         }
 
+        // v1.0.48: 抓分享進來的 prompt 文字 (Grok app 分享圖時可能會帶在 EXTRA_TEXT)
+        val prompt = extractPrompt(intent)
+
         // 限定 S22U 機型，跟 MainActivity 一致；非白名單也照存 (純檔案，不洩 secret)
         // 之後使用者開主 app 仍會被 device guard 擋下
         scope.launch {
-            val count = MediaImporter.importAll(this@ImportActivity, uris)
+            val saved = MediaImporter.importAll(this@ImportActivity, uris)
+            // v1.0.48: 有 prompt 就寫進 PromptIndex，History 點進去看得到原 prompt
+            if (!prompt.isNullOrBlank()) {
+                for (name in saved) {
+                    PromptIndex.put(this@ImportActivity, name, prompt)
+                }
+            }
             withContext(Dispatchers.Main) {
+                val count = saved.size
                 Toast.makeText(
                     this@ImportActivity,
-                    if (count > 0) "已匯入 $count 個檔到 Imagine" else "匯入失敗 (格式不支援或讀取被拒)",
+                    if (count > 0) {
+                        if (!prompt.isNullOrBlank()) "已匯入 $count 個檔到 Imagine (含 prompt)"
+                        else "已匯入 $count 個檔到 Imagine"
+                    } else "匯入失敗 (格式不支援或讀取被拒)",
                     Toast.LENGTH_LONG,
                 ).show()
                 finish()
             }
         }
+    }
+
+    /**
+     * v1.0.48: 從 share intent 取 prompt 文字。
+     * 過濾掉純 URL (避免把 grok 分享連結當 prompt 存起來)。
+     * 若 EXTRA_TEXT 是「prompt 文字 \n https://...」混排，取第一個非 URL 段。
+     */
+    private fun extractPrompt(intent: Intent?): String? {
+        val text = intent?.getStringExtra(Intent.EXTRA_TEXT)?.trim() ?: return null
+        if (text.isBlank()) return null
+        if (text.startsWith("http://", ignoreCase = true) ||
+            text.startsWith("https://", ignoreCase = true)
+        ) {
+            // 純 URL — 看有沒有非 URL 行
+            val nonUrlLine = text.lineSequence()
+                .map { it.trim() }
+                .firstOrNull {
+                    it.isNotBlank() &&
+                        !it.startsWith("http://", ignoreCase = true) &&
+                        !it.startsWith("https://", ignoreCase = true)
+                }
+            return nonUrlLine?.takeIf { it.isNotBlank() }
+        }
+        return text
     }
 
     @Suppress("DEPRECATION")

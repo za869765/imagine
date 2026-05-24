@@ -88,12 +88,13 @@ fun SettingsScreen(
     var showImportEditor by remember { mutableStateOf(false) }
 
     // v1.0.46: 從相簿批次匯入歷史 (PhotoPicker，不需 READ_MEDIA_* permission)
+    // v1.0.48: importAll 回傳 List<String>，用 .size 拿 count
     val pickMultipleMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 100),
     ) { uris ->
         if (uris.isNotEmpty()) {
             scope.launch {
-                val count = MediaImporter.importAll(ctx, uris)
+                val count = MediaImporter.importAll(ctx, uris).size
                 Toast.makeText(ctx, "已匯入 $count 個檔到 History", Toast.LENGTH_LONG).show()
             }
         }

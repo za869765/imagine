@@ -13,15 +13,15 @@ import java.util.Locale
  * v1.0.46: 共用「拷貝外部 URI 進 filesDir/media/」邏輯。
  * 給 ImportActivity (ACTION_SEND / SEND_MULTIPLE) + SettingsScreen 的 PhotoPicker 用。
  *
- * 拷貝的檔案沒有 prompt 來源（share intent 跟 PhotoPicker 都不帶），
- * 所以不寫 [PromptIndex]，History 點進去 prompt 欄會空。
+ * v1.0.48: 回傳值從 Int 改成 List of saved filename，呼叫端拿到後可以寫 PromptIndex
+ * (ImportActivity 從 EXTRA_TEXT 收 prompt 帶入)。SettingsScreen 仍可用 .size 拿 count。
  */
 object MediaImporter {
 
-    suspend fun importAll(ctx: Context, uris: List<Uri>): Int = withContext(Dispatchers.IO) {
-        if (uris.isEmpty()) return@withContext 0
+    suspend fun importAll(ctx: Context, uris: List<Uri>): List<String> = withContext(Dispatchers.IO) {
+        if (uris.isEmpty()) return@withContext emptyList()
         val destDir = File(ctx.filesDir, "media").apply { if (!exists()) mkdirs() }
-        var ok = 0
+        val saved = mutableListOf<String>()
         var seq = 0
         for (uri in uris) {
             val mime = ctx.contentResolver.getType(uri).orEmpty()
@@ -37,9 +37,9 @@ object MediaImporter {
                 runCatching { if (dst.exists() && dst.length() == 0L) dst.delete() }
                 false
             }
-            if (success) ok++
+            if (success) saved += name
         }
-        ok
+        saved
     }
 
     private fun pickExt(mime: String): String? = when {
