@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.ui.util.Clipboard
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
@@ -167,15 +168,21 @@ fun ApiKeyEditScreen(
                         label = "從剪貼簿貼上",
                         icon = "content_paste",
                         onClick = {
-                            val extracted = extractXaiKey(ctx)
+                            // v1.0.53: 用統一的 Clipboard.paste (coerceToText 強制轉文字，
+                            // 防某些密碼管理器/Bitwarden 用 styled span 導致 .text 回 null)
+                            val raw = Clipboard.paste(ctx)?.trim().orEmpty()
+                            val extracted = extractXaiKeyFrom(raw)
                             if (extracted != null) {
                                 newKey = extracted
                                 Toast.makeText(ctx, "✓ 已從剪貼簿載入 xai- key", Toast.LENGTH_SHORT).show()
                             } else {
+                                // v1.0.53: 失敗 toast 顯示前 40 字 preview，使用者能立刻判斷
+                                // 是剪貼簿真的沒 xai- 還是 imagine 讀錯內容
+                                val preview = if (raw.isBlank()) "<空>" else raw.take(40)
                                 Toast.makeText(
                                     ctx,
-                                    "剪貼簿沒有 xai- 開頭的 key",
-                                    Toast.LENGTH_SHORT,
+                                    "剪貼簿沒有 xai- key (讀到: $preview)",
+                                    Toast.LENGTH_LONG,
                                 ).show()
                             }
                         },
@@ -250,22 +257,18 @@ private fun copyToClipboard(ctx: Context, text: String) {
     cb.setPrimaryClip(android.content.ClipData.newPlainText("API Key", text))
 }
 
-private fun readClipboard(ctx: Context): String? {
-    val cb = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
-    return cb.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
-}
-
 // 從剪貼簿全文 extract xAI key 子字串,避免使用者貼到「我的 key 是 xai-abc...」
 // 整段文字無法 startsWith 過 canSave 條件。
-private val XAI_KEY_REGEX = Regex("xai-[A-Za-z0-9_-]+")
+// v1.0.53: 加 IGNORE_CASE — 防 user 複製到大小寫變體 (xAI-、XAI- 等)
+private val XAI_KEY_REGEX = Regex("xai-[A-Za-z0-9_-]+", RegexOption.IGNORE_CASE)
 
-private fun extractXaiKey(ctx: Context): String? {
-    val raw = readClipboard(ctx) ?: return null
+private fun extractXaiKeyFrom(raw: String): String? {
     if (raw.isBlank()) return null
-    // 整段就是 key (純貼上 key) → 直接回
-    if (raw.startsWith("xai-") && !raw.contains(' ') && !raw.contains('\n')) {
+    // 整段就是 key (純貼上 key，無任何空白) → 直接回。case-insensitive startsWith
+    // 防 user IME 自動把開頭字母大寫成「Xai-」
+    if (raw.startsWith("xai-", ignoreCase = true) && raw.none { it.isWhitespace() }) {
         return raw
     }
-    // 從混雜文字內找 xai-... 連續字串
+    // 從混雜文字內找 xai-... 連續字串 (如「Your key: xai-abc...」、log 內混 key 等)
     return XAI_KEY_REGEX.find(raw)?.value
 }
