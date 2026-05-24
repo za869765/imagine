@@ -310,6 +310,7 @@ fun GenerateVideoScreen(
                         // 把 polling + 下載 + 存檔 + 通知 全部交給 VideoPollWorker。
                         // Worker 跑前景服務,Composable 被 dispose / process 死也能完成。
                         val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
+                            .addTag(VideoPollWorker.TAG_VIDEO_POLL)  // v1.0.51: 給 crash-loop recovery 用
                             .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
                             .build()
                         workManager.enqueueUniqueWork(

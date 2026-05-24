@@ -14,6 +14,7 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
+import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.data.storage.MediaSaver
 import kotlinx.coroutines.delay
 
@@ -35,7 +36,26 @@ class VideoPollWorker(
 
     override suspend fun getForegroundInfo(): ForegroundInfo = buildForegroundInfo(0)
 
-    override suspend fun doWork(): Result {
+    override suspend fun doWork(): Result = try {
+        doWorkImpl()
+    } catch (t: Throwable) {
+        // v1.0.51: 任何未捕的 throw (包含 setForeground 在 Android 15+ 被拒、
+        // Notifications 失敗、Bitmap OOM 等) 都寫 CrashLogger + 回 Result.failure，
+        // 不讓 WorkManager retry → app crash loop → 開不起來
+        CrashLogger.record(applicationContext, "VideoPollWorker", t)
+        runCatching {
+            Notifications.cancelProgress(applicationContext, inputData.getString(KEY_REQUEST_ID).orEmpty())
+            Notifications.postComplete(
+                applicationContext,
+                inputData.getString(KEY_REQUEST_ID).orEmpty(),
+                success = false,
+                message = "影片任務內部錯誤: ${t.message?.take(80) ?: t::class.simpleName}",
+            )
+        }
+        Result.failure(workDataOf(KEY_ERROR to "internal: ${t::class.simpleName}"))
+    }
+
+    private suspend fun doWorkImpl(): Result {
         val requestId = inputData.getString(KEY_REQUEST_ID).orEmpty()
         val prompt = inputData.getString(KEY_PROMPT).orEmpty()
         if (requestId.isBlank()) {
@@ -43,7 +63,9 @@ class VideoPollWorker(
         }
 
         // 升前景 — 避免 Doze / 系統殺。Channel 已在 Application.onCreate 建好
-        setForeground(buildForegroundInfo(0))
+        // v1.0.51: setForeground 在 Android 14+ 某些情境會 throw — 用 runCatching 包，
+        // 失敗就以普通 background worker 跑 (Doze 可能會殺但不會 crash app)
+        runCatching { setForeground(buildForegroundInfo(0)) }
 
         val prefs = SecurePrefs.get(applicationContext)
         val repository = ImagineRepository(XaiClient.build(prefs))
@@ -159,6 +181,9 @@ class VideoPollWorker(
 
         const val POLL_INTERVAL_SEC = 5
         const val MAX_ATTEMPTS = 60   // 60 × 5s = 5 分鐘
+
+        // v1.0.51: 加 tag 讓 ImagineApp.onCreate 在 crash-loop 救援時 cancelAllWorkByTag
+        const val TAG_VIDEO_POLL = "video-poll"
 
         const val UNIQUE_WORK_PREFIX = "video-poll-"
         fun uniqueName(requestId: String) = UNIQUE_WORK_PREFIX + requestId
