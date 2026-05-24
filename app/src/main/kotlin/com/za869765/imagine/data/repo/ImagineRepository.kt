@@ -156,10 +156,10 @@ class ImagineRepository(private val api: XaiApi) {
             val obj = element as? kotlinx.serialization.json.JsonObject ?: return@runCatching null
             val errEl = obj["error"] ?: return@runCatching null
             when (errEl) {
-                is kotlinx.serialization.json.JsonPrimitive -> errEl.contentOrNull
+                is kotlinx.serialization.json.JsonPrimitive -> errEl.content.takeIf { it.isNotBlank() }
                 is kotlinx.serialization.json.JsonObject -> {
                     val m = errEl["message"]
-                    (m as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+                    (m as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
                 }
                 else -> null
             }
