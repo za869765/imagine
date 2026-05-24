@@ -1,7 +1,7 @@
 package com.za869765.imagine.ui.edit
 
 import android.net.Uri
-import android.util.Base64
+import com.za869765.imagine.data.storage.MediaEncoder
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -192,14 +192,12 @@ fun EditScreen(
         }
     }
 
-    fun encodeMedia(uri: Uri): String? = runCatching {
-        if (uri.scheme == "https" || uri.scheme == "http") return@runCatching uri.toString()
-        val mime = ctx.contentResolver.getType(uri)
-            ?: if (mode == EditMode.ImageEdit) "image/png" else "video/mp4"
-        val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: return@runCatching null
-        "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
-    }.getOrNull()
+    // v1.0.49: 改 call MediaEncoder.encodeForApi — 圖會 downscale + JPEG recompress 避免 OOM;
+    // 影片限 10MB 否則回 null (caller 已有「讀取來源失敗」toast)。
+    suspend fun encodeMedia(uri: Uri): String? {
+        val kind = if (mode == EditMode.ImageEdit) MediaEncoder.Kind.Image else MediaEncoder.Kind.Video
+        return MediaEncoder.encodeForApi(ctx, uri, kind)
+    }
 
     fun runExecute() {
         // 點執行 = 自動收鍵盤(避免 IME 佔走畫面看不到處理中/結果)

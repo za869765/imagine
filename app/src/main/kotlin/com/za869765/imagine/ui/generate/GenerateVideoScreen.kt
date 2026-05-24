@@ -1,7 +1,7 @@
 package com.za869765.imagine.ui.generate
 
 import android.net.Uri
-import android.util.Base64
+import com.za869765.imagine.data.storage.MediaEncoder
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -184,18 +184,11 @@ fun GenerateVideoScreen(
         }
     }
 
-    fun encodeImage(uri: Uri): String? = runCatching {
-        // xAI REST 對 image.url 規格: 只接受 public https URL。
-        // 從「動起來」/「當參考圖」入口帶進來的 uri 本來就是 xAI 圖片生成回傳的
-        // https URL — 直接傳字串，不要 contentResolver re-encode (對 https uri
-        // ContentResolver 會回 null，結果整個 image 欄位變 null 等於沒帶圖)。
-        val scheme = uri.scheme?.lowercase()
-        if (scheme == "http" || scheme == "https") return@runCatching uri.toString()
-        val mime = ctx.contentResolver.getType(uri) ?: "image/png"
-        val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: return@runCatching null
-        "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
-    }.getOrNull()
+    // v1.0.49: 改 call MediaEncoder.encodeForApi — 對 local file URI 會先 Bitmap
+    // downscale 到 max 1024px + JPEG 85 recompress + base64，避免大檔 OOM 閃退。
+    // https URL 直通不 re-encode (xAI 自家生的圖直接傳 URL)。
+    suspend fun encodeImage(uri: Uri): String? =
+        MediaEncoder.encodeForApi(ctx, uri, MediaEncoder.Kind.Image)
 
     // 把起始圖/參考圖第一張存到相簿 (相同 imagine 目錄)。Grok 風格：
     // 即使這次 video gen 失敗或還沒按生成，使用者仍能把原圖拿走收藏 / 之後再改 prompt 試。
@@ -267,11 +260,18 @@ fun GenerateVideoScreen(
             val capturedMode = mode
             val capturedDuration = duration
 
-            val starting = if (capturedMode == VideoMode.Img2Vid) {
-                sourceImages.firstOrNull()?.let { encodeImage(it) }
+            // v1.0.49: encodeImage 改成 suspend (內含 IO + Bitmap decode)，
+            // 不能再用 .let / .mapNotNull (lambda type 非 suspend) — 改 for loop
+            val firstSource = sourceImages.firstOrNull()
+            val starting = if (capturedMode == VideoMode.Img2Vid && firstSource != null) {
+                encodeImage(firstSource)
             } else null
             val refs = if (capturedMode == VideoMode.Ref) {
-                sourceImages.mapNotNull { encodeImage(it) }.takeIf { it.isNotEmpty() }
+                val list = mutableListOf<String>()
+                for (uri in sourceImages) {
+                    encodeImage(uri)?.let { list += it }
+                }
+                list.takeIf { it.isNotEmpty() }
             } else null
 
             val gen = repository.generateVideo(
