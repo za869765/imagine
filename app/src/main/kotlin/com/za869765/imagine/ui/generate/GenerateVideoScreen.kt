@@ -253,60 +253,83 @@ fun GenerateVideoScreen(
         lastErrorIsPolicy = false
         scope.launch {
             generating = true
+            // v1.0.50: 整段包 try/catch，不讓任何未預期 throw 把 app 直接 crash
+            try {
+                // 空白 prompt 時用 initialPrompt 兜底(從歷史/圖片頁「動起來」「延長」帶進來)，
+                // 避免使用者按了沒反應、又得手動把預填的字再貼回去
+                val capturedPrompt = prompt.ifBlank { initialPrompt.orEmpty() }
+                val capturedMode = mode
+                val capturedDuration = duration
 
-            // 空白 prompt 時用 initialPrompt 兜底(從歷史/圖片頁「動起來」「延長」帶進來)，
-            // 避免使用者按了沒反應、又得手動把預填的字再貼回去
-            val capturedPrompt = prompt.ifBlank { initialPrompt.orEmpty() }
-            val capturedMode = mode
-            val capturedDuration = duration
+                // v1.0.49: encodeImage 改成 suspend (內含 IO + Bitmap decode)，
+                // 不能再用 .let / .mapNotNull (lambda type 非 suspend) — 改 for loop
+                val firstSource = sourceImages.firstOrNull()
+                val starting = if (capturedMode == VideoMode.Img2Vid && firstSource != null) {
+                    encodeImage(firstSource)
+                } else null
+                val refs = if (capturedMode == VideoMode.Ref) {
+                    val list = mutableListOf<String>()
+                    for (uri in sourceImages) {
+                        encodeImage(uri)?.let { list += it }
+                    }
+                    list.takeIf { it.isNotEmpty() }
+                } else null
 
-            // v1.0.49: encodeImage 改成 suspend (內含 IO + Bitmap decode)，
-            // 不能再用 .let / .mapNotNull (lambda type 非 suspend) — 改 for loop
-            val firstSource = sourceImages.firstOrNull()
-            val starting = if (capturedMode == VideoMode.Img2Vid && firstSource != null) {
-                encodeImage(firstSource)
-            } else null
-            val refs = if (capturedMode == VideoMode.Ref) {
-                val list = mutableListOf<String>()
-                for (uri in sourceImages) {
-                    encodeImage(uri)?.let { list += it }
-                }
-                list.takeIf { it.isNotEmpty() }
-            } else null
-
-            val gen = repository.generateVideo(
-                prompt = capturedPrompt,
-                duration = capturedDuration,
-                resolution = resolution,
-                aspectRatio = aspect,
-                startingImageUrl = starting,
-                referenceImageUrls = refs,
-            )
-            when (gen) {
-                is ApiResult.Error -> {
+                // v1.0.50: 圖生影/參考圖模式 encode 失敗 → 不送 API，直接 toast
+                if (capturedMode == VideoMode.Img2Vid && starting == null) {
                     generating = false
-                    val tag = gen.kind.userFriendlyTag()
-                    lastError = tag
-                    lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
-                    Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "讀取起始圖失敗 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
                     return@launch
                 }
-                is ApiResult.Success -> {
-                    val requestId = gen.value
-                    lastPrompt = capturedPrompt
-                    // 把 polling + 下載 + 存檔 + 通知 全部交給 VideoPollWorker。
-                    // Worker 跑前景服務,Composable 被 dispose / process 死也能完成。
-                    val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
-                        .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
-                        .build()
-                    workManager.enqueueUniqueWork(
-                        VideoPollWorker.uniqueName(requestId),
-                        ExistingWorkPolicy.KEEP,
-                        request,
-                    )
-                    trackedRequestId = requestId
-                    Toast.makeText(ctx, "影片背景生成中,完成會通知", Toast.LENGTH_SHORT).show()
+                if (capturedMode == VideoMode.Ref && refs.isNullOrEmpty()) {
+                    generating = false
+                    Toast.makeText(ctx, "讀取參考圖失敗 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
+                    return@launch
                 }
+
+                val gen = repository.generateVideo(
+                    prompt = capturedPrompt,
+                    duration = capturedDuration,
+                    resolution = resolution,
+                    aspectRatio = aspect,
+                    startingImageUrl = starting,
+                    referenceImageUrls = refs,
+                )
+                when (gen) {
+                    is ApiResult.Error -> {
+                        generating = false
+                        val tag = gen.kind.userFriendlyTag()
+                        lastError = tag
+                        lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
+                        Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    is ApiResult.Success -> {
+                        val requestId = gen.value
+                        lastPrompt = capturedPrompt
+                        // 把 polling + 下載 + 存檔 + 通知 全部交給 VideoPollWorker。
+                        // Worker 跑前景服務,Composable 被 dispose / process 死也能完成。
+                        val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
+                            .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
+                            .build()
+                        workManager.enqueueUniqueWork(
+                            VideoPollWorker.uniqueName(requestId),
+                            ExistingWorkPolicy.KEEP,
+                            request,
+                        )
+                        trackedRequestId = requestId
+                        Toast.makeText(ctx, "影片背景生成中,完成會通知", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (oom: OutOfMemoryError) {
+                generating = false
+                com.za869765.imagine.data.storage.CrashLogger.record(ctx, "runGenerate.OOM", oom)
+                System.gc()
+                Toast.makeText(ctx, "記憶體不足 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
+            } catch (t: Throwable) {
+                generating = false
+                com.za869765.imagine.data.storage.CrashLogger.record(ctx, "runGenerate.fail", t)
+                Toast.makeText(ctx, "生成失敗: ${t.message?.take(120) ?: t::class.simpleName}", Toast.LENGTH_LONG).show()
             }
         }
     }

@@ -216,50 +216,62 @@ fun EditScreen(
         }
         scope.launch {
             loading = true
-            val capturedPrompt = effectivePrompt
-            val capturedMode = mode
+            // v1.0.50: 整段包 try/catch，不讓任何未預期 throw 把 app 直接 crash
+            try {
+                val capturedPrompt = effectivePrompt
+                val capturedMode = mode
 
-            val encoded = encodeMedia(src)
-            if (encoded == null) {
-                loading = false
-                Toast.makeText(ctx, "讀取來源失敗", Toast.LENGTH_LONG).show()
-                return@launch
-            }
-
-            when (capturedMode) {
-                EditMode.ImageEdit -> {
-                    val r = repository.editImage(capturedPrompt, listOf(encoded))
+                val encoded = encodeMedia(src)
+                if (encoded == null) {
                     loading = false
-                    handleImageResult(r, capturedPrompt, ctx, scope) {
-                        resultImageUrl = it
-                        lastPrompt = capturedPrompt
-                    }
+                    Toast.makeText(ctx, "讀取來源失敗 — 試試小張一點的圖 / 短片", Toast.LENGTH_LONG).show()
+                    return@launch
                 }
-                EditMode.VideoEdit, EditMode.VideoExtend -> {
-                    val gen = if (capturedMode == EditMode.VideoEdit)
-                        repository.editVideo(capturedPrompt, encoded)
-                    else
-                        repository.extendVideo(capturedPrompt, encoded)
-                    if (gen is ApiResult.Error) {
+
+                when (capturedMode) {
+                    EditMode.ImageEdit -> {
+                        val r = repository.editImage(capturedPrompt, listOf(encoded))
                         loading = false
-                        val tag = gen.kind.userFriendlyTag()
-                        Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
-                        return@launch
+                        handleImageResult(r, capturedPrompt, ctx, scope) {
+                            resultImageUrl = it
+                            lastPrompt = capturedPrompt
+                        }
                     }
-                    val requestId = (gen as ApiResult.Success).value
-                    lastPrompt = capturedPrompt
-                    // 把 polling + 下載 + 存檔 + 通知 全部交給 VideoPollWorker
-                    val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
-                        .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
-                        .build()
-                    workManager.enqueueUniqueWork(
-                        VideoPollWorker.uniqueName(requestId),
-                        ExistingWorkPolicy.KEEP,
-                        request,
-                    )
-                    trackedRequestId = requestId
-                    Toast.makeText(ctx, "影片背景處理中,完成會通知", Toast.LENGTH_SHORT).show()
+                    EditMode.VideoEdit, EditMode.VideoExtend -> {
+                        val gen = if (capturedMode == EditMode.VideoEdit)
+                            repository.editVideo(capturedPrompt, encoded)
+                        else
+                            repository.extendVideo(capturedPrompt, encoded)
+                        if (gen is ApiResult.Error) {
+                            loading = false
+                            val tag = gen.kind.userFriendlyTag()
+                            Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        val requestId = (gen as ApiResult.Success).value
+                        lastPrompt = capturedPrompt
+                        // 把 polling + 下載 + 存檔 + 通知 全部交給 VideoPollWorker
+                        val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
+                            .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
+                            .build()
+                        workManager.enqueueUniqueWork(
+                            VideoPollWorker.uniqueName(requestId),
+                            ExistingWorkPolicy.KEEP,
+                            request,
+                        )
+                        trackedRequestId = requestId
+                        Toast.makeText(ctx, "影片背景處理中,完成會通知", Toast.LENGTH_SHORT).show()
+                    }
                 }
+            } catch (oom: OutOfMemoryError) {
+                loading = false
+                com.za869765.imagine.data.storage.CrashLogger.record(ctx, "runExecute.OOM", oom)
+                System.gc()
+                Toast.makeText(ctx, "記憶體不足 — 試試小張一點的圖 / 短片", Toast.LENGTH_LONG).show()
+            } catch (t: Throwable) {
+                loading = false
+                com.za869765.imagine.data.storage.CrashLogger.record(ctx, "runExecute.fail", t)
+                Toast.makeText(ctx, "執行失敗: ${t.message?.take(120) ?: t::class.simpleName}", Toast.LENGTH_LONG).show()
             }
         }
     }

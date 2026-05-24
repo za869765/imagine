@@ -3,11 +3,14 @@ package com.za869765.imagine
 import android.app.Application
 import com.za869765.imagine.data.notify.Notifications
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.lock.AppLockManager
 
 class ImagineApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        // v1.0.50: 最早安裝 — 之後任何 uncaught exception 都會被寫到 filesDir/crash.log
+        CrashLogger.install(this)
         // Eagerly register the lock manager with ProcessLifecycleOwner so it
         // starts observing background/foreground transitions immediately.
         val prefs = SecurePrefs.get(this)

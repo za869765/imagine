@@ -53,6 +53,7 @@ import android.content.Intent
 import android.widget.Toast
 import com.za869765.imagine.data.backup.KeyBackupCodec
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.data.storage.MediaImporter
 import kotlinx.coroutines.launch
 import com.za869765.imagine.ui.component.ImagineBottomNav
@@ -322,6 +323,56 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
+                    }
+                }
+            }
+
+            // ── 除錯 ──
+            // v1.0.50: 把 CrashLogger 記到 filesDir/crash.log 的 stack trace 分享給開發者
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("除錯")
+                ImagineCard(pad = 16) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "閃退或操作異常時，按「分享錯誤記錄」把內部 log 傳給開發者 diagnose (純文字 stack trace，不含 API key)。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            OutlinedActionButton(
+                                label = "分享錯誤記錄",
+                                onClick = {
+                                    val text = CrashLogger.readAll(ctx)
+                                    if (text.isBlank()) {
+                                        Toast.makeText(ctx, "目前無錯誤記錄", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        ctx.startActivity(
+                                            Intent.createChooser(
+                                                Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(Intent.EXTRA_SUBJECT, "imagine crash log")
+                                                    putExtra(Intent.EXTRA_TEXT, text)
+                                                },
+                                                "分享錯誤記錄",
+                                            )
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedActionButton(
+                                label = "清空",
+                                onClick = {
+                                    CrashLogger.clear(ctx)
+                                    Toast.makeText(ctx, "已清空錯誤記錄", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }
