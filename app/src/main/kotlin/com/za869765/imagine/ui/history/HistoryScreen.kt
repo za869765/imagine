@@ -96,6 +96,11 @@ fun HistoryScreen(
             )
         },
         showBalanceBar = false,
+        // v1.0.57: ImagineScreen 預設 scroll = true (Column.verticalScroll) 會跟內層
+        // LazyVerticalGrid 的 vertical scroll 嵌套，導致 IllegalStateException
+        // 「Vertically scrollable component was measured with an infinity maximum height」。
+        // LazyVerticalGrid 自己有 scroll，外層關掉即可。
+        scroll = false,
         bottomNav = { ImagineBottomNav(active = NavTab.HISTORY, onTabSelected = onNavSelected) },
     ) {
         // v1.0.54 O3: Column + forEach → SegmentedTab 在外 + LazyVerticalGrid 為主體。
