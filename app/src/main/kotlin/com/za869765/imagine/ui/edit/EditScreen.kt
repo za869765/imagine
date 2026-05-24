@@ -163,6 +163,8 @@ fun EditScreen(
                         trackedRequestId = null
                     }
                     WorkInfo.State.CANCELLED -> {
+                        // v1.0.54: 補 feedback，否則 user 看到 loading 突然消失沒任何訊息
+                        Toast.makeText(ctx, "影片任務被取消 (可能 app 被系統殺，請重試)", Toast.LENGTH_LONG).show()
                         loading = false
                         trackedRequestId = null
                     }
@@ -232,7 +234,8 @@ fun EditScreen(
                     EditMode.ImageEdit -> {
                         val r = repository.editImage(capturedPrompt, listOf(encoded))
                         loading = false
-                        handleImageResult(r, capturedPrompt, ctx, scope) {
+                        // v1.0.54: 不再傳 scope (改用 appScope 內部 launch)
+                        handleImageResult(r, capturedPrompt, ctx) {
                             resultImageUrl = it
                             lastPrompt = capturedPrompt
                         }
@@ -499,11 +502,10 @@ fun EditScreen(
     }
 }
 
-private suspend fun handleImageResult(
+private fun handleImageResult(
     r: ApiResult<List<String>>,
     capturedPrompt: String,
     ctx: android.content.Context,
-    scope: kotlinx.coroutines.CoroutineScope,
     onSuccess: (String) -> Unit,
 ) {
     when (r) {
@@ -511,9 +513,14 @@ private suspend fun handleImageResult(
             val url = r.value.firstOrNull()
             if (url != null) {
                 onSuccess(url)
-                scope.launch {
+                // v1.0.54 B3: 改用 ImagineApp.appScope (process-lifecycle) 而非 Composable scope。
+                // user 切走/鎖屏/back 時 Composable scope 會 cancel → MediaSaver 寫一半被砍
+                // → 圖永遠不會出現在 History。appScope 不受 UI 影響，確保下載+存檔完成。
+                com.za869765.imagine.ImagineApp.appScope.launch {
                     MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
-                    Toast.makeText(ctx, "已存到相簿", Toast.LENGTH_SHORT).show()
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        Toast.makeText(ctx, "已存到相簿", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } else {
                 Toast.makeText(ctx, "未收到結果", Toast.LENGTH_SHORT).show()

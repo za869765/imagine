@@ -6,6 +6,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -93,7 +98,10 @@ fun HistoryScreen(
         showBalanceBar = false,
         bottomNav = { ImagineBottomNav(active = NavTab.HISTORY, onTabSelected = onNavSelected) },
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        // v1.0.54 O3: Column + forEach → SegmentedTab 在外 + LazyVerticalGrid 為主體。
+        // 避免幾百張縮圖一次全部 inflate 導致記憶體用量爆 + 首次渲染卡 1-2 秒。
+        // date header 用 item span maxLineSpan 撐滿整行，thumbnails 用 items()。
+        Column(modifier = Modifier.fillMaxSize()) {
             SegmentedTab(
                 options = listOf(
                     SegmentedOption("all", "全部 ${entries.size}"),
@@ -102,132 +110,143 @@ fun HistoryScreen(
                 ),
                 activeId = filter,
                 onSelected = { filter = it },
+                modifier = Modifier.padding(16.dp),
             )
-            Spacer(modifier = Modifier.height(20.dp))
 
             if (loaded && items.isEmpty()) {
                 EmptyState()
                 return@Column
             }
 
-            grouped.forEach { (date, list) ->
-                Text(
-                    text = date,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 0.04.sp,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                val rows = list.chunked(3)
-                rows.forEach { row ->
-                    androidx.compose.foundation.layout.Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 6.dp),
-                    ) {
-                        row.forEach { entry ->
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                    .combinedClickable(
-                                        onClick = {
-                                            onItemClick(
-                                                HistoryItem(
-                                                    id = entry.uri.toString(),
-                                                    date = date,
-                                                    isVideo = entry.isVideo,
-                                                    duration = entry.durationMs?.let { formatDuration(it) },
-                                                ),
-                                            )
-                                        },
-                                        // 長按複製 prompt — 「成功案例」可直接拿走再修
-                                        onLongClick = {
-                                            val p = entry.prompt
-                                            if (!p.isNullOrBlank()) {
-                                                Clipboard.copy(ctx, p, toastMsg = "已複製 prompt")
-                                            } else {
-                                                android.widget.Toast.makeText(
-                                                    ctx, "此項沒有 prompt 紀錄", android.widget.Toast.LENGTH_SHORT,
-                                                ).show()
-                                            }
-                                        },
-                                    ),
-                            ) {
-                                AsyncImage(
-                                    model = entry.uri,
-                                    contentDescription = entry.displayName,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                                // 縮圖底部 overlay prompt 縮寫 — 點縮圖可進 detail 看完整 + 複製，
-                                // 長按縮圖直接複製整段 prompt
-                                if (!entry.prompt.isNullOrBlank()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.BottomStart)
-                                            .fillMaxWidth()
-                                            .background(Color.Black.copy(alpha = 0.55f))
-                                            .padding(horizontal = 6.dp, vertical = 3.dp),
-                                    ) {
-                                        Text(
-                                            entry.prompt,
-                                            color = Color.White,
-                                            fontSize = 10.sp,
-                                            lineHeight = 12.sp,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                }
-                                if (entry.isVideo) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.Center)
-                                            .size(36.dp)
-                                            .clip(RoundedCornerShape(18.dp))
-                                            .background(Color.Black.copy(alpha = 0.55f)),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        ImagineIcon(
-                                            name = "play_arrow",
-                                            size = 20.dp,
-                                            fill = 1,
-                                            tint = Color.White,
-                                        )
-                                    }
-                                    entry.durationMs?.let { ms ->
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.BottomEnd)
-                                                .padding(6.dp)
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(Color.Black.copy(alpha = 0.6f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                                        ) {
-                                            Text(
-                                                formatDuration(ms),
-                                                color = Color.White,
-                                                fontSize = 10.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                fontWeight = FontWeight.W500,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        repeat(3 - row.size) {
-                            Box(modifier = Modifier.weight(1f))
-                        }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                grouped.forEach { (date, list) ->
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = date,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 0.04.sp,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                        )
+                    }
+                    items(items = list, key = { it.uri.toString() }) { entry ->
+                        HistoryThumbnail(
+                            entry = entry,
+                            date = date,
+                            onItemClick = onItemClick,
+                            ctx = ctx,
+                        )
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HistoryThumbnail(
+    entry: MediaEntry,
+    date: String,
+    onItemClick: (HistoryItem) -> Unit,
+    ctx: android.content.Context,
+) {
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .combinedClickable(
+                onClick = {
+                    onItemClick(
+                        HistoryItem(
+                            id = entry.uri.toString(),
+                            date = date,
+                            isVideo = entry.isVideo,
+                            duration = entry.durationMs?.let { formatDuration(it) },
+                        ),
+                    )
+                },
+                // 長按複製 prompt — 「成功案例」可直接拿走再修
+                onLongClick = {
+                    val p = entry.prompt
+                    if (!p.isNullOrBlank()) {
+                        Clipboard.copy(ctx, p, toastMsg = "已複製 prompt")
+                    } else {
+                        android.widget.Toast.makeText(
+                            ctx, "此項沒有 prompt 紀錄", android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                },
+            ),
+    ) {
+        AsyncImage(
+            model = entry.uri,
+            contentDescription = entry.displayName,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (!entry.prompt.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    entry.prompt,
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (entry.isVideo) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color.Black.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                ImagineIcon(
+                    name = "play_arrow",
+                    size = 20.dp,
+                    fill = 1,
+                    tint = Color.White,
+                )
+            }
+            entry.durationMs?.let { ms ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        formatDuration(ms),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.W500,
+                    )
+                }
             }
         }
     }

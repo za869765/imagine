@@ -47,9 +47,10 @@ object Installer {
         info: UpdateInfo,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val cacheRoot = File(ctx.cacheDir, "updates").apply { mkdirs() }
-        // 清理舊 APK，避免 cache 堆爆
-        cacheRoot.listFiles()?.forEach { runCatching { it.delete() } }
         val outFile = File(cacheRoot, info.apkName.ifBlank { "imagine-update.apk" })
+        // v1.0.54 B8: 不在下載前刪整個 cacheRoot — 改成寫到唯一 outFile (existing 自動 truncate)，
+        // 下載成功後才清「除 outFile 外」的舊 APK。
+        // 修原本「上次點下載 + PackageInstaller 跳出來還沒按裝」流程被新下載提前刪掉的問題。
 
         _state.value = Progress(Stage.Downloading, total = info.apkSize)
         try {
@@ -100,6 +101,11 @@ object Installer {
                       else "APK 不完整（$actualSize / $expected 位元組）"
             _state.value = Progress(Stage.Error, message = msg)
             return@withContext Result.failure(RuntimeException(msg))
+        }
+
+        // v1.0.54 B8: 下載成功 + verify 通過後才清「除 outFile 外」的舊 APK
+        runCatching {
+            cacheRoot.listFiles()?.filter { it != outFile }?.forEach { it.delete() }
         }
 
         _state.value = Progress(Stage.Launching)

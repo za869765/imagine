@@ -131,6 +131,7 @@ fun SettingsScreen(
             hint = "貼上 CSV：每行 key,value (支援 api_key / management_key / team_id / api_key_verified_at)。也接受舊版 JSON",
             current = "",
             mask = false,
+            multiLine = true,  // v1.0.54 B4: CSV 多行必開
             onDismiss = { showImportEditor = false },
             onSave = { input ->
                 if (input.isBlank()) { showImportEditor = false; return@SimpleStringEditDialog }
@@ -320,6 +321,38 @@ fun SettingsScreen(
                                 pickMultipleMedia.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
                                 )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
+            // ── 背景任務 ──
+            // v1.0.54 (b): 跳系統 app 詳細頁，讓 user 把 Imagine 排除 Samsung/Android Doze
+            // 最佳化，避免影片背景生成 worker 被殺
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("背景任務")
+                ImagineCard(pad = 16) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "影片生成走背景 worker，會被系統電池優化殺掉。建議到 Android 設定 → 應用程式 → Imagine → 電池 → 改「不限制」(Samsung 機在「最佳化」選項)。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                        OutlinedActionButton(
+                            label = "開啟系統設定",
+                            onClick = {
+                                runCatching {
+                                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = android.net.Uri.fromParts("package", ctx.packageName, null)
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    ctx.startActivity(intent)
+                                }.onFailure {
+                                    Toast.makeText(ctx, "開啟設定失敗", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -543,6 +576,7 @@ private fun SimpleStringEditDialog(
     current: String,
     hint: String,
     mask: Boolean,
+    multiLine: Boolean = false,  // v1.0.54 B4: CSV 等多行內容需 multi-line
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
 ) {
@@ -590,7 +624,7 @@ private fun SimpleStringEditDialog(
                             color = MaterialTheme.colorScheme.onSurface,
                         ),
                         visualTransformation = if (mask) PasswordVisualTransformation() else VisualTransformation.None,
-                        singleLine = true,
+                        singleLine = !multiLine,  // v1.0.54 B4
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         modifier = Modifier.fillMaxWidth(),
                     )

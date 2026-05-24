@@ -28,11 +28,18 @@ object MediaSaver {
     // 寫遷移把舊目錄拷到新目錄，否則 in-place upgrade 後 History 會空掉。
     private const val DIR = "media"
 
+    // v1.0.54 B2: AtomicInteger 防同秒多檔撞名 (兩張 imagine_YYYYMMDD_HHMMSS.png 後寫蓋前寫)
+    private val seq = java.util.concurrent.atomic.AtomicInteger(0)
+
     private fun mediaDir(ctx: Context): File =
         File(ctx.filesDir, DIR).apply { if (!exists()) mkdirs() }
 
-    private fun timestamp(): String =
-        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    // v1.0.54 B2: 加毫秒 + AtomicInteger counter，徹底防同秒撞名
+    private fun timestamp(): String {
+        val ms = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+        val n = seq.incrementAndGet() and 0xFFF  // 12-bit counter，足夠避免 burst 撞名
+        return "${ms}_${n.toString(16)}"
+    }
 
     suspend fun saveImage(
         ctx: Context,
@@ -43,36 +50,47 @@ object MediaSaver {
         writeFile(ctx, filename, prompt) { it.write(bytes) }
     }
 
+    // v1.0.54 O1: 加 1 次 retry，網路 hiccup 不會直接丟掉影片
     suspend fun saveImageFromUrl(ctx: Context, url: String, prompt: String): String? =
         withContext(Dispatchers.IO) {
-            runCatching {
+            downloadWithRetry(maxAttempts = 2) {
                 val conn = (URL(url).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 15_000
                     readTimeout = 60_000
                     instanceFollowRedirects = true
                 }
-                if (conn.responseCode !in 200..299) return@runCatching null
+                if (conn.responseCode !in 200..299) return@downloadWithRetry null
                 val mime = conn.contentType?.takeIf { it.startsWith("image/") } ?: "image/png"
                 val ext = if (mime.contains("jpeg")) "jpg" else "png"
                 val filename = "imagine_${timestamp()}.$ext"
                 conn.inputStream.use { stream ->
                     writeFile(ctx, filename, prompt) { stream.copyTo(it) }
                 }
-            }.getOrNull()
+            }
         }
 
     suspend fun saveVideoFromUrl(ctx: Context, url: String, prompt: String): String? =
         withContext(Dispatchers.IO) {
-            runCatching {
+            downloadWithRetry(maxAttempts = 2) {
                 val conn = (URL(url).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 15_000
                     readTimeout = 300_000
                     instanceFollowRedirects = true
                 }
-                if (conn.responseCode !in 200..299) return@runCatching null
+                if (conn.responseCode !in 200..299) return@downloadWithRetry null
                 conn.inputStream.use { stream -> saveVideo(ctx, stream, prompt) }
-            }.getOrNull()
+            }
         }
+
+    // v1.0.54 O1: 共用 retry helper — 一次重試應付網路 hiccup 但不過度 retry 浪費
+    private inline fun downloadWithRetry(maxAttempts: Int, block: () -> String?): String? {
+        var lastResult: String? = null
+        for (attempt in 1..maxAttempts) {
+            lastResult = runCatching { block() }.getOrNull()
+            if (lastResult != null) return lastResult
+        }
+        return lastResult
+    }
 
     suspend fun saveVideo(
         ctx: Context,

@@ -67,8 +67,9 @@ fun ImagineRoot() {
     val installerState by Installer.state.collectAsState()
 
     // 開機拉一次最新 release (repo 已 public, 不需 PAT)
+    // v1.0.54 O5: 傳 ctx 啟用 30min cache，避免每次 cold-start 都打 GitHub API
     LaunchedEffect(Unit) {
-        updateInfo = UpdateChecker.check()
+        updateInfo = UpdateChecker.check(ctx)
     }
 
     val showUpdateBanner = !bannerDismissed &&

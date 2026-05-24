@@ -180,7 +180,9 @@ class VideoPollWorker(
         const val KEY_ERROR = "error"
 
         const val POLL_INTERVAL_SEC = 5
-        const val MAX_ATTEMPTS = 60   // 60 × 5s = 5 分鐘
+        // v1.0.54 O7: 60 → 120，總 timeout 從 5 分鐘拉到 10 分鐘
+        // (xAI 影片有時排隊 + 跑長片 > 5 分鐘，原 5 分鐘上限會誤判失敗)
+        const val MAX_ATTEMPTS = 120  // 120 × 5s = 10 分鐘
 
         // v1.0.51: 加 tag 讓 ImagineApp.onCreate 在 crash-loop 救援時 cancelAllWorkByTag
         const val TAG_VIDEO_POLL = "video-poll"

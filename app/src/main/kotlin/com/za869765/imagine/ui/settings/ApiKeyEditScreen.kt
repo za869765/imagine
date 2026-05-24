@@ -164,29 +164,38 @@ fun ApiKeyEditScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    TextActionButton(
-                        label = "從剪貼簿貼上",
-                        icon = "content_paste",
-                        onClick = {
-                            // v1.0.53: 用統一的 Clipboard.paste (coerceToText 強制轉文字，
-                            // 防某些密碼管理器/Bitwarden 用 styled span 導致 .text 回 null)
-                            val raw = Clipboard.paste(ctx)?.trim().orEmpty()
-                            val extracted = extractXaiKeyFrom(raw)
-                            if (extracted != null) {
-                                newKey = extracted
-                                Toast.makeText(ctx, "✓ 已從剪貼簿載入 xai- key", Toast.LENGTH_SHORT).show()
-                            } else {
-                                // v1.0.53: 失敗 toast 顯示前 40 字 preview，使用者能立刻判斷
-                                // 是剪貼簿真的沒 xai- 還是 imagine 讀錯內容
-                                val preview = if (raw.isBlank()) "<空>" else raw.take(40)
-                                Toast.makeText(
-                                    ctx,
-                                    "剪貼簿沒有 xai- key (讀到: $preview)",
-                                    Toast.LENGTH_LONG,
-                                ).show()
-                            }
-                        },
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        TextActionButton(
+                            label = "從剪貼簿貼上",
+                            icon = "content_paste",
+                            onClick = {
+                                // v1.0.53: 用統一的 Clipboard.paste (coerceToText 強制轉文字，
+                                // 防某些密碼管理器/Bitwarden 用 styled span 導致 .text 回 null)
+                                val raw = Clipboard.paste(ctx)?.trim().orEmpty()
+                                val extracted = extractXaiKeyFrom(raw)
+                                if (extracted != null) {
+                                    newKey = extracted
+                                    Toast.makeText(ctx, "✓ 已從剪貼簿載入 xai- key", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    // v1.0.53: 失敗 toast 顯示前 40 字 preview，使用者能立刻判斷
+                                    // 是剪貼簿真的沒 xai- 還是 imagine 讀錯內容
+                                    val preview = if (raw.isBlank()) "<空>" else raw.take(40)
+                                    Toast.makeText(
+                                        ctx,
+                                        "剪貼簿沒有 xai- key (讀到: $preview)",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            },
+                        )
+                        // v1.0.54 (a): 解釋 Android 剪貼簿 API 限制
+                        Text(
+                            "只讀「最近一次」複製內容；Samsung 剪貼簿歷史第三方 app 讀不到",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 8.dp, top = 2.dp),
+                        )
+                    }
                 }
             }
 

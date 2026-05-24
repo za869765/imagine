@@ -119,8 +119,12 @@ fun GenerateImageScreen(
                         lastMeta = "$capturedAr · $capturedRes · ${capturedN} 張"
                         lastError = ""
                         lastErrorIsPolicy = false
+                        // v1.0.54 B3: 改用 ImagineApp.appScope (process-lifecycle) — user
+                        // 切走/鎖屏時 Composable scope 會 cancel，下載到一半被砍 → History 看不到
                         result.value.forEach { url ->
-                            scope.launch { MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt) }
+                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
+                            }
                         }
                         Toast.makeText(
                             ctx,
@@ -311,11 +315,14 @@ fun GenerateImageScreen(
                                     icon = "download",
                                     variant = ChipVariant.Tonal,
                                     onClick = {
-                                        scope.launch {
+                                        // v1.0.54 B3: 同上改 appScope
+                                        com.za869765.imagine.ImagineApp.appScope.launch {
                                             resultUrls.forEach { url ->
                                                 MediaSaver.saveImageFromUrl(ctx, url, lastPrompt)
                                             }
-                                            Toast.makeText(ctx, "已重新存到相簿", Toast.LENGTH_SHORT).show()
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                Toast.makeText(ctx, "已重新存到相簿", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     },
                                 )

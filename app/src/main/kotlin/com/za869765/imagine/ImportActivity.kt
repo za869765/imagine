@@ -21,12 +21,26 @@ import kotlinx.coroutines.withContext
  * Activity 自己無 UI (透明 theme)，背景拷貝完跳 Toast 即 finish，
  * 不觸發主 app 的 PIN lock 流程 (只是純檔案寫入)。
  */
+// v1.0.54 B7: 跟 MainActivity 同樣 device guard，避免外洩裝置直接 import
+private val ALLOWED_MODEL_PREFIXES = listOf("SM-S908")
+private fun isAllowedImportDevice(): Boolean {
+    val m = Build.MODEL ?: ""
+    return ALLOWED_MODEL_PREFIXES.any { m.startsWith(it, ignoreCase = true) }
+}
+
 class ImportActivity : Activity() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // v1.0.54 B7: 非白名單裝置拒絕匯入 — 跟 MainActivity 一致防外洩裝置寫檔
+        if (!isAllowedImportDevice()) {
+            Toast.makeText(this, "Imagine 僅限指定裝置使用", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
         val uris = collectUris(intent)
         if (uris.isEmpty()) {
@@ -38,8 +52,6 @@ class ImportActivity : Activity() {
         // v1.0.48: 抓分享進來的 prompt 文字 (Grok app 分享圖時可能會帶在 EXTRA_TEXT)
         val prompt = extractPrompt(intent)
 
-        // 限定 S22U 機型，跟 MainActivity 一致；非白名單也照存 (純檔案，不洩 secret)
-        // 之後使用者開主 app 仍會被 device guard 擋下
         scope.launch {
             val saved = MediaImporter.importAll(this@ImportActivity, uris)
             // v1.0.48: 有 prompt 就寫進 PromptIndex，History 點進去看得到原 prompt

@@ -19,7 +19,30 @@ object XaiClient {
         explicitNulls = false
     }
 
+    // v1.0.54 O8: cache OkHttpClient + Retrofit by API key hash。每進 screen 都
+    // remember(prefs) { XaiClient.build(prefs) } 之前會 rebuild 整個 stack (含 connection
+    // pool + thread pool)。AuthInterceptor 內部讀 prefs.apiKey 動態取，所以同一個 client
+    // 可以一直用，除非 key 真的換了。
+    @Volatile
+    private var cachedApi: XaiApi? = null
+    @Volatile
+    private var cachedKeyHash: Int = 0
+
     fun build(prefs: SecurePrefs): XaiApi {
+        val keyHash = (prefs.apiKey ?: "").hashCode()
+        val current = cachedApi
+        if (current != null && cachedKeyHash == keyHash) return current
+        synchronized(this) {
+            val recheck = cachedApi
+            if (recheck != null && cachedKeyHash == keyHash) return recheck
+            val api = buildNew(prefs)
+            cachedApi = api
+            cachedKeyHash = keyHash
+            return api
+        }
+    }
+
+    private fun buildNew(prefs: SecurePrefs): XaiApi {
         // BASIC level 印 method/URL/protocol，不含 headers（Authorization 不會洩漏），
         // 但 release 仍無須 log → 包 DEBUG 一律 NONE
         val log = HttpLoggingInterceptor().apply {

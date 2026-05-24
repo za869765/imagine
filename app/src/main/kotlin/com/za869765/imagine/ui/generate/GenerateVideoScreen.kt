@@ -154,6 +154,11 @@ fun GenerateVideoScreen(
                         trackedRequestId = null
                     }
                     WorkInfo.State.CANCELLED -> {
+                        // v1.0.54: 補 lastError + toast，否則 user 看到 spinner 突然消失沒任何反饋
+                        // 以為「生成失敗」其實是 worker 被 cancel (常見原因：process death + 舊版
+                        // recovery 機制；現在 v1.0.54 砍 recovery 後罕見，但保留 feedback)
+                        lastError = "影片任務被取消 (可能 app 被系統殺，請重試)"
+                        Toast.makeText(ctx, lastError, Toast.LENGTH_LONG).show()
                         generating = false
                         trackedRequestId = null
                     }
@@ -483,9 +488,16 @@ fun GenerateVideoScreen(
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
-                            "預計 30–90 秒，請保持畫面開啟",
+                            "預計 30–90 秒；可切背景或鎖屏，完成會發系統通知",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        // v1.0.54 (c): 提醒 user 別從最近應用滑掉，否則 process 死 worker 中斷
+                        Text(
+                            "⚠️ 請勿從「最近應用程式」往上滑掉 Imagine，否則背景工作會中斷",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                         OutlinedActionButton(
                             label = "取消生成",

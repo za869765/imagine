@@ -1,5 +1,6 @@
 package com.za869765.imagine.data.update
 
+import android.content.Context
 import com.za869765.imagine.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,7 +35,18 @@ object UpdateChecker {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun check(): UpdateInfo? = withContext(Dispatchers.IO) {
+    // v1.0.54 O5: 30 分鐘 cache，避免每次 process 啟動就打 GitHub API (60/hr anonymous limit)
+    private const val CHECK_COOLDOWN_MS = 30L * 60 * 1000
+
+    suspend fun check(ctx: Context? = null): UpdateInfo? = withContext(Dispatchers.IO) {
+        // v1.0.54 O5: cache cooldown
+        val sp = ctx?.applicationContext?.getSharedPreferences("imagine_updater", Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        if (sp != null) {
+            val lastAt = sp.getLong("last_check_at", 0L)
+            if (now - lastAt < CHECK_COOLDOWN_MS) return@withContext null
+            sp.edit().putLong("last_check_at", now).apply()
+        }
         // repo 已改 public (v1.0.29 起)，匿名 access 就能讀 release info + 下載 asset，
         // 不再需要使用者輸入 PAT。
         val req = Request.Builder()

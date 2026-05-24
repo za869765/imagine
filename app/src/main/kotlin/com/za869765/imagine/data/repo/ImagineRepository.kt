@@ -120,10 +120,17 @@ class ImagineRepository(private val api: XaiApi) {
         }
         // Include the response body — Retrofit's e.message() only gives "HTTP 400 ..."
         // and hides xAI's actual error text. Without this, the user sees a useless toast.
+        // v1.0.54 O6: parse JSON 取 error.message，原本整段 dump 給 user 看 raw JSON 不友善
         val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+        val extracted = body?.let { extractErrorMessage(it) }
         val msg = buildString {
             append("HTTP ${e.code()}")
-            if (!body.isNullOrBlank()) append(" — ").append(body.trim())
+            if (!extracted.isNullOrBlank()) {
+                append(" — ").append(extracted)
+            } else if (!body.isNullOrBlank()) {
+                // parse 失敗 fallback 仍給原文，至少有資訊
+                append(" — ").append(body.trim().take(200))
+            }
         }
         ApiResult.Error(kind, msg)
     } catch (e: java.io.IOException) {
@@ -136,5 +143,26 @@ class ImagineRepository(private val api: XaiApi) {
         throw e
     } catch (e: Throwable) {
         ApiResult.Error(ErrorKind.Unknown, "${e::class.simpleName}: ${e.message ?: "Unknown error"}")
+    }
+
+    companion object {
+        private val errJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+        // v1.0.54 O6: 從 xAI 回的 error JSON 取出 error.message。
+        // 預期格式: {"error":{"code":"...","message":"..."}} 或 {"error":"..."}
+        // 不是 JSON / parse 失敗時回 null，caller fallback 給原文
+        internal fun extractErrorMessage(body: String): String? = runCatching {
+            val element = errJson.parseToJsonElement(body)
+            val obj = element as? kotlinx.serialization.json.JsonObject ?: return@runCatching null
+            val errEl = obj["error"] ?: return@runCatching null
+            when (errEl) {
+                is kotlinx.serialization.json.JsonPrimitive -> errEl.contentOrNull
+                is kotlinx.serialization.json.JsonObject -> {
+                    val m = errEl["message"]
+                    (m as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+                }
+                else -> null
+            }
+        }.getOrNull()
     }
 }

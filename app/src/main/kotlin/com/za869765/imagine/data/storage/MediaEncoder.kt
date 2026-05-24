@@ -29,7 +29,8 @@ object MediaEncoder {
 
     enum class Kind { Image, Video }
 
-    private const val MAX_IMAGE_LONG_SIDE = 1024
+    // v1.0.54: 1024 → 1536，圖生影/編輯保留更多細節 (1536x1536 ARGB_8888 約 9MB 可承受)
+    private const val MAX_IMAGE_LONG_SIDE = 1536
     private const val JPEG_QUALITY = 85
     private const val MAX_VIDEO_BYTES = 10L * 1024 * 1024  // 10 MB
     private const val MAX_TOTAL_PIXELS = 50_000_000        // ~50M 像素 (約 7000x7000) 上限
@@ -104,10 +105,22 @@ object MediaEncoder {
         // 影片不好 transcode，先以「限大小」處理；超過 toast 提示使用者
         // (呼叫端看到 null 會跳「讀取來源失敗」)
         val size = ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
-        if (size <= 0L || size > MAX_VIDEO_BYTES) return null
+        if (size <= 0L || size > MAX_VIDEO_BYTES) {
+            Log.w(TAG, "video too large or unreadable: size=$size, max=$MAX_VIDEO_BYTES")
+            return null
+        }
         val mime = ctx.contentResolver.getType(uri) ?: "video/mp4"
-        val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: return null
-        return "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+        // v1.0.54: explicit OOM catch — 10MB video → base64 ~14MB string → 加 prefix/JSON
+        // 序列化/upload buffer 仍可能在低記憶體手機 OOM。外層 encodeForApi 雖有 catch，
+        // 顯式 catch + 明確 log 方便 diagnose
+        return try {
+            val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return null
+            "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+        } catch (oom: OutOfMemoryError) {
+            Log.e(TAG, "encodeVideo OOM (size=$size)", oom)
+            System.gc()
+            null
+        }
     }
 }
