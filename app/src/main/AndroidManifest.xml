@@ -72,5 +72,18 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/updater_file_paths" />
         </provider>
+
+        <!-- v1.0.52: WorkManager 內建 SystemForegroundService 在 library manifest 沒帶
+             android:foregroundServiceType — Android 14+ 嚴格檢查會拒，VideoPollWorker
+             setForeground(ForegroundInfo(..., FOREGROUND_SERVICE_TYPE_DATA_SYNC))
+             直接 throw IllegalArgumentException。用 tools:node="merge" 把
+             foregroundServiceType="dataSync" 補上去 override library。
+             實機驗證根因：v1.0.50 CrashLogger 捕到「foregroundServiceType 0x00000001
+             is not a subset of foregroundServiceType attribute 0x00000000 in service
+             element of manifest file」on Galaxy S22 Ultra / Android 16。 -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>
 </manifest>
