@@ -14,6 +14,11 @@ import androidx.compose.ui.graphics.Color
 // AppBar + content + BottomNav. (v1.0.21 砍 BillingState/XaiBalanceBar
 // — Bill API 不準改成 SettingsScreen 連結到 console.x.ai 看用量)
 // 保留 showBalanceBar param 純為相容 callers，不再 render anything.
+//
+// ⚠️ v1.0.57 教訓：scroll 預設 true (Column.verticalScroll)，內層放任何 Lazy* component
+//   (LazyColumn / LazyRow / LazyVerticalGrid / LazyHorizontalGrid) 必須傳 scroll = false
+//   否則 vertical scroll 嵌套會 throw IllegalStateException「infinity maximum height」。
+//   v1.0.54 我把 HistoryScreen 改 LazyVerticalGrid 沒設 scroll = false → v1.0.56 一裝就閃退。
 @Composable
 fun ImagineScreen(
     appBar: @Composable (() -> Unit)? = { ImagineTopAppBar() },
