@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -84,6 +85,8 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "download" to true -> Icons.Outlined.Download
     "content_copy" to false -> Icons.Outlined.ContentCopy
     "content_copy" to true -> Icons.Outlined.ContentCopy
+    "content_paste" to false -> Icons.Outlined.ContentPaste
+    "content_paste" to true -> Icons.Outlined.ContentPaste
     "visibility" to false -> Icons.Outlined.Visibility
     "visibility" to true -> Icons.Outlined.Visibility
     "warning" to false -> Icons.Outlined.Warning

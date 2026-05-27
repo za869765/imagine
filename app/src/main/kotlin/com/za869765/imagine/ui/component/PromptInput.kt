@@ -60,6 +60,7 @@ fun PromptInput(
 ) {
     val ctx = LocalContext.current
     var focused by remember { mutableStateOf(false) }
+    var showTemplateSheet by remember { mutableStateOf(false) }
     val borderColor = when {
         flagged -> MaterialTheme.colorScheme.error
         focused -> MaterialTheme.colorScheme.primary
@@ -109,29 +110,59 @@ fun PromptInput(
                 .align(Alignment.TopStart),
         )
 
-        // 貼上按鈕(TopEnd,跟 floating label 對稱)— 蓋住 border line,視覺浮起
+        // 上排兩個 chip(TopEnd,跟 floating label 對稱)— 範本 + 貼上,蓋住 border line 視覺浮起
         Row(
             modifier = Modifier
                 .padding(end = 12.dp)
-                .align(Alignment.TopEnd)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .clickable { doPaste() }
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .align(Alignment.TopEnd),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            ImagineIcon(
-                name = "content_paste",
-                size = 14.dp,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = "貼上",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.W600,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            // 範本 chip — 點開 PromptTemplateSheet
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .clickable { showTemplateSheet = true }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ImagineIcon(
+                    name = "auto_awesome",
+                    size = 14.dp,
+                    fill = 1,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "範本",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            // 貼上 chip — 沿用既有功能
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .clickable { doPaste() }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ImagineIcon(
+                    name = "content_paste",
+                    size = 14.dp,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "貼上",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
 
         Box(
@@ -217,6 +248,18 @@ fun PromptInput(
                         .padding(top = 4.dp),
                 )
             }
+        }
+
+        if (showTemplateSheet) {
+            PromptTemplateSheet(
+                onDismiss = { showTemplateSheet = false },
+                onPick = { template ->
+                    onValueChange(
+                        if (template.length > maxChars) template.take(maxChars)
+                        else template
+                    )
+                },
+            )
         }
     }
 }
