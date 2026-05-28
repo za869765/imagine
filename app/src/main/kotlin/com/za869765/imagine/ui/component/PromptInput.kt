@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -139,101 +140,34 @@ fun PromptInput(
         }
     }
 
-    Box(modifier = modifier) {
-        // Floating label
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.W500,
-            color = labelColor,
-            modifier = Modifier
-                .padding(start = 12.dp)
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 4.dp)
-                .align(Alignment.TopStart),
-        )
-
-        // 上排兩個 chip(TopEnd,跟 floating label 對稱)— 範本 + 貼上,蓋住 border line 視覺浮起
+    Column(modifier = modifier) {
+        // 工具列：label 在左、三顆功能鈕在右,獨立一排清楚可見。
+        // (v1.0.59 以前是「浮」在輸入框邊框上,被輸入框背景蓋住完全看不到 → v1.0.60 改成這排)
         Row(
             modifier = Modifier
-                .padding(end = 12.dp)
-                .align(Alignment.TopEnd),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // 建議 chip — 點開 PromptAdvisorSheet (5要素檢查 + 片語庫)
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.W600,
+                color = labelColor,
+            )
             Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .clickable { showAdvisorSheet = true }
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                ImagineIcon(
-                    name = "lightbulb",
-                    size = 14.dp,
-                    fill = 1,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = "建議",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            // 範本 chip — 點開 PromptTemplateSheet
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .clickable { showTemplateSheet = true }
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                ImagineIcon(
-                    name = "auto_awesome",
-                    size = 14.dp,
-                    fill = 1,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = "範本",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            // 貼上 chip — 沿用既有功能
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .clickable { doPaste() }
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                ImagineIcon(
-                    name = "content_paste",
-                    size = 14.dp,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = "貼上",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                PromptToolChip(icon = "lightbulb", label = "建議") { showAdvisorSheet = true }
+                PromptToolChip(icon = "auto_awesome", label = "範本") { showTemplateSheet = true }
+                PromptToolChip(icon = "content_paste", label = "貼上") { doPaste() }
             }
         }
 
         Box(
             modifier = Modifier
-                .padding(top = 8.dp)
                 .fillMaxWidth()
                 .heightIn(min = minHeight.dp)
                 .clip(RoundedCornerShape(12.dp))
@@ -334,6 +268,37 @@ fun PromptInput(
                 onInsert = { snippet -> insertAtCursor(snippet) },
             )
         }
+    }
+}
+
+// 工具列上的小功能鈕(建議/範本/貼上)。tonal 底色 + primary 字,清楚可見可點。
+@Composable
+private fun PromptToolChip(
+    icon: String,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        ImagineIcon(
+            name = icon,
+            size = 15.dp,
+            fill = 1,
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.W600,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
