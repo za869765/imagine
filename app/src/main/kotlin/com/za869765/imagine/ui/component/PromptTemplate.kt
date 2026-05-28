@@ -1,9 +1,7 @@
 package com.za869765.imagine.ui.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,10 +19,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
 
 // Prompt 撰寫範本資料 + 底部彈出 sheet。
@@ -137,9 +137,10 @@ val DefaultPromptTemplates: List<PromptTemplate> = listOf(
 @Composable
 fun PromptTemplateSheet(
     onDismiss: () -> Unit,
-    onPick: (String) -> Unit,
+    onUse: (String) -> Unit,
     templates: List<PromptTemplate> = DefaultPromptTemplates,
 ) {
+    val ctx = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
@@ -162,66 +163,84 @@ fun PromptTemplateSheet(
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp),
             )
             Text(
-                text = "點選填入後，把【】內方括號裡的提示換成你的內容",
+                text = "「使用」填入輸入框可再改、「複製」直接進剪貼簿；填入後把【】方括號換成你的內容",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
             )
 
             templates.forEach { tpl ->
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .clickable {
-                            onPick(tpl.prompt)
-                            scope.launch {
-                                sheetState.hide()
-                                onDismiss()
-                            }
-                        }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            ImagineIcon(
-                                name = "auto_awesome",
-                                size = 16.dp,
-                                fill = 1,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                text = tpl.title,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.W600,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                        Text(
-                            text = tpl.subtitle,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ImagineIcon(
+                            name = "auto_awesome",
+                            size = 16.dp,
+                            fill = 1,
+                            tint = MaterialTheme.colorScheme.primary,
                         )
-                        // 預覽前 60 字,讓使用者看出大致內容再決定要不要填入
-                        val preview = tpl.prompt
-                            .lineSequence()
-                            .map { it.trim() }
-                            .filter { it.isNotEmpty() }
-                            .joinToString(" ")
-                            .take(60) + "…"
                         Text(
-                            text = preview,
-                            fontSize = 12.sp,
+                            text = tpl.title,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.W600,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Text(
+                        text = tpl.subtitle,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    // 預覽前 60 字,讓使用者看出大致內容再決定要不要使用
+                    val preview = tpl.prompt
+                        .lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .joinToString(" ")
+                        .take(60) + "…"
+                    Text(
+                        text = preview,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextActionButton(
+                            label = "複製",
+                            icon = "content_copy",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 6.dp),
+                            onClick = {
+                                Clipboard.copy(ctx, tpl.prompt, toastMsg = "已複製範本")
+                            },
+                        )
+                        TextActionButton(
+                            label = "使用",
+                            icon = "check",
+                            onClick = {
+                                onUse(tpl.prompt)
+                                scope.launch {
+                                    sheetState.hide()
+                                    onDismiss()
+                                }
+                            },
                         )
                     }
                 }

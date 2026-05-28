@@ -114,7 +114,17 @@ fun ImagineRoot() {
             }
 
             composable(Routes.GENERATE_IMAGE) {
+                // History「使用此提示詞」帶進來的純文字 prompt(無媒體),一次性消費
+                val initPrompt = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_PROMPT)
+                LaunchedEffect(initPrompt) {
+                    if (initPrompt != null) {
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle?.remove<String>(KEY_INIT_PROMPT)
+                    }
+                }
                 GenerateImageScreen(
+                    initialPrompt = initPrompt,
                     onSwitchToVideo = {
                         // popUpTo 用 GENERATE_IMAGE (BottomNav 主舞台,永遠在 stack 底),
                         // 不用 startDestinationId — SPLASH 是 startDestination 但啟動後
@@ -273,6 +283,13 @@ fun ImagineRoot() {
                                     set(KEY_INIT_EDIT_MODE, "image")
                                 }
                                 navController.navigate(Routes.EDIT)
+                            }
+                            // 只帶 prompt 文字(無媒體)去文生圖頁,當新的起點
+                            "use_prompt" -> {
+                                navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                    set(KEY_INIT_PROMPT, p)
+                                }
+                                navController.navigate(Routes.GENERATE_IMAGE)
                             }
                             else -> { /* "copy" 之類 HistoryDetailScreen 內處理 */ }
                         }

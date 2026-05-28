@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +61,7 @@ fun GenerateImageScreen(
     onNavSelected: (NavTab) -> Unit,
     onAnimateImage: (String, String) -> Unit = { _, _ -> },
     onEditImage: (String, String) -> Unit = { _, _ -> },
+    initialPrompt: String? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -67,7 +69,13 @@ fun GenerateImageScreen(
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
     val focusManager = LocalFocusManager.current
 
-    var prompt by rememberSaveable { mutableStateOf("") }
+    var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
+    // 從 History「使用此提示詞」帶進來 → 覆蓋目前 prompt
+    LaunchedEffect(initialPrompt) {
+        if (!initialPrompt.isNullOrBlank() && initialPrompt != prompt) {
+            prompt = initialPrompt
+        }
+    }
     var resolution by rememberSaveable { mutableStateOf("1k") }
     var aspectRatio by rememberSaveable { mutableStateOf("1:1") }
     var n by rememberSaveable { mutableStateOf(1) }

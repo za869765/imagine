@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Add
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -79,6 +81,8 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "key" to true -> Icons.Outlined.VpnKey
     "image" to false -> Icons.Outlined.Image
     "image" to true -> Icons.Outlined.Image
+    "lightbulb" to false -> Icons.Outlined.Lightbulb
+    "lightbulb" to true -> Icons.Filled.Lightbulb
     "movie" to false -> Icons.Outlined.Movie
     "movie" to true -> Icons.Outlined.Movie
     "download" to false -> Icons.Outlined.Download

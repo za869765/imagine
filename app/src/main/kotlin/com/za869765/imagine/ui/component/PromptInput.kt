@@ -28,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -61,6 +63,12 @@ fun PromptInput(
     val ctx = LocalContext.current
     var focused by remember { mutableStateOf(false) }
     var showTemplateSheet by remember { mutableStateOf(false) }
+    var showAdvisorSheet by remember { mutableStateOf(false) }
+    // 使用範本/插入片語後，下一次獲焦時略過「自動全選」，讓使用者能就地編輯方括號
+    var suppressSelectAllOnce by remember { mutableStateOf(false) }
+    // 範本「使用」後，待 sheet 關閉再聚焦輸入框
+    var pendingFocus by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
     val borderColor = when {
         flagged -> MaterialTheme.colorScheme.error
         focused -> MaterialTheme.colorScheme.primary
@@ -96,6 +104,41 @@ fun PromptInput(
         onValueChange(if (pasted.length > maxChars) pasted.take(maxChars) else pasted)
     }
 
+    // 範本「使用」— 整段填入,游標移到尾、不全選,並待 sheet 關閉後聚焦
+    fun applyTemplate(text: String) {
+        val clipped = if (text.length > maxChars) text.take(maxChars) else text
+        tfValue = TextFieldValue(clipped, selection = TextRange(clipped.length))
+        onValueChange(clipped)
+        suppressSelectAllOnce = true
+        pendingFocus = true
+    }
+
+    // 片語庫 — 在目前游標處插入,前面已有內容且非標點時補一個「，」分隔
+    fun insertAtCursor(snippet: String) {
+        val cur = tfValue
+        val start = cur.selection.start.coerceIn(0, cur.text.length)
+        val end = cur.selection.end.coerceIn(0, cur.text.length)
+        val before = cur.text.substring(0, start)
+        val sepChars = setOf(' ', '\n', '，', ',', '、', '。', '【', '：', ':')
+        val ins = if (before.isNotEmpty() && before.last() !in sepChars) "，$snippet" else snippet
+        val newText = before + ins + cur.text.substring(end)
+        if (newText.length > maxChars) {
+            Toast.makeText(ctx, "已達字數上限", Toast.LENGTH_SHORT).show()
+            return
+        }
+        tfValue = TextFieldValue(newText, selection = TextRange(start + ins.length))
+        onValueChange(newText)
+        suppressSelectAllOnce = true
+    }
+
+    // 範本「使用」後 sheet 關閉 → 聚焦輸入框 (游標待命)。requestFocus 包 runCatching 防未 attach
+    LaunchedEffect(pendingFocus, showTemplateSheet, showAdvisorSheet) {
+        if (pendingFocus && !showTemplateSheet && !showAdvisorSheet) {
+            runCatching { focusRequester.requestFocus() }
+            pendingFocus = false
+        }
+    }
+
     Box(modifier = modifier) {
         // Floating label
         Text(
@@ -118,6 +161,29 @@ fun PromptInput(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 建議 chip — 點開 PromptAdvisorSheet (5要素檢查 + 片語庫)
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .clickable { showAdvisorSheet = true }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ImagineIcon(
+                    name = "lightbulb",
+                    size = 14.dp,
+                    fill = 1,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "建議",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             // 範本 chip — 點開 PromptTemplateSheet
             Row(
                 modifier = Modifier
@@ -186,17 +252,21 @@ fun PromptInput(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .focusRequester(focusRequester)
                     .onFocusChanged {
                         val wasFocused = focused
                         focused = it.isFocused
                         if (it.isFocused) {
                             scope.launch { bringIntoView.bringIntoView() }
-                            // 剛獲焦 + 有內容 → 全選,方便直接覆蓋(打字/貼上不混舊)
-                            if (!wasFocused && tfValue.text.isNotEmpty()) {
+                            // 剛獲焦 + 有內容 → 全選,方便直接覆蓋(打字/貼上不混舊)。
+                            // 但若剛「使用範本/插入片語」,suppressSelectAllOnce 會略過這次全選,
+                            // 讓游標待命就地編輯而非整段被選起來
+                            if (!wasFocused && tfValue.text.isNotEmpty() && !suppressSelectAllOnce) {
                                 tfValue = tfValue.copy(
                                     selection = TextRange(0, tfValue.text.length)
                                 )
                             }
+                            suppressSelectAllOnce = false
                         }
                     },
                 textStyle = TextStyle(
@@ -253,12 +323,15 @@ fun PromptInput(
         if (showTemplateSheet) {
             PromptTemplateSheet(
                 onDismiss = { showTemplateSheet = false },
-                onPick = { template ->
-                    onValueChange(
-                        if (template.length > maxChars) template.take(maxChars)
-                        else template
-                    )
-                },
+                onUse = { template -> applyTemplate(template) },
+            )
+        }
+
+        if (showAdvisorSheet) {
+            PromptAdvisorSheet(
+                currentPrompt = value,
+                onDismiss = { showAdvisorSheet = false },
+                onInsert = { snippet -> insertAtCursor(snippet) },
             )
         }
     }

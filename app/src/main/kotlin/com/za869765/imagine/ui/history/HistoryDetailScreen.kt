@@ -134,15 +134,23 @@ fun HistoryDetailScreen(
                         if (entry.prompt != null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 TextActionButton(
                                     label = "複製",
                                     icon = "content_copy",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     onClick = {
                                         Clipboard.copy(ctx, entry.prompt, toastMsg = "已複製 prompt")
                                         onAction("copy")
                                     },
+                                )
+                                // 把這段 prompt 帶到文生圖頁當新起點(只帶文字,不帶媒體)
+                                TextActionButton(
+                                    label = "使用",
+                                    icon = "check",
+                                    onClick = { onAction("use_prompt") },
                                 )
                             }
                         }
