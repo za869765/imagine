@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.History
@@ -71,6 +72,8 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "check" to true -> Icons.Filled.Check
     "expand_more" to false -> Icons.Outlined.ExpandMore
     "expand_more" to true -> Icons.Outlined.ExpandMore
+    "expand_less" to false -> Icons.Outlined.ExpandLess
+    "expand_less" to true -> Icons.Outlined.ExpandLess
     "play_arrow" to false -> Icons.Outlined.PlayArrow
     "play_arrow" to true -> Icons.Filled.PlayArrow
     "fingerprint" to false -> Icons.Outlined.Fingerprint

@@ -1,5 +1,6 @@
 package com.za869765.imagine.ui.component
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +27,10 @@ fun ImagineScreen(
     bottomNav: @Composable (() -> Unit)? = { ImagineBottomNav() },
     contentBackground: Color? = null,
     scroll: Boolean = true,
+    // v1.0.63 bug#3: 露出 scrollState 讓 caller 能在「新結果到達」時 animateScrollTo 把
+    // 結果捲進視野 — 之前內部 rememberScrollState 沒露出,第二次生成時新圖/影在 fold
+    // 下方不會自動出現,使用者以為沒生成只能去歷史看。預設值不變,既有 caller 不受影響。
+    scrollState: ScrollState = rememberScrollState(),
     content: @Composable () -> Unit,
 ) {
     val bg = contentBackground ?: MaterialTheme.colorScheme.surface
@@ -41,7 +46,7 @@ fun ImagineScreen(
                 .fillMaxWidth()
                 .weight(1f)
                 .background(bg)
-                .let { if (scroll) it.verticalScroll(rememberScrollState()) else it },
+                .let { if (scroll) it.verticalScroll(scrollState) else it },
         ) {
             content()
         }

@@ -1,13 +1,10 @@
 package com.za869765.imagine.ui.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,9 +14,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.za869765.imagine.ui.util.Clipboard
@@ -37,7 +37,8 @@ import kotlinx.coroutines.launch
 
 // Prompt 範本 — 兩種用法,都讓使用者最後能在輸入框再打字改:
 //   ① 現成範例: 已寫好、無方括號、可直接生成的完整 prompt,點「使用」直接填。
-//   ② 自己組  : 9 個欄位各一排 chips,點選或「全部隨機」,即時組成乾淨完整 prompt。
+//   ② 自己組  : 每個條件一行「可搜尋下拉」(點開→搜尋框+清單),容納幾十個選項;
+//               每行附 🎲 單欄隨機、上方「全部隨機」、下方即時預覽,填入後可再打字改。
 // 公式骨架仍是 5 元素: 主體 + 場景 + 構圖 + (動作) + 風格。
 
 data class PromptExample(val tag: String, val text: String)
@@ -111,28 +112,245 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "構圖：七分身中景、低角度仰拍。" +
             "風格：賽博龐克電影感，藍紫霓虹高對比，淺景深，膠片顆粒。",
     ),
+    PromptExample(
+        "婚紗",
+        "主體：一位身穿白色長拖尾婚紗的新娘，手捧白玫瑰花束，回眸淺笑。" +
+            "場景：黃昏海邊草坡，遠處夕陽沉入海平面，暖金色逆光。" +
+            "構圖：全身遠景、低角度，新娘位於畫面左側三分之一，裙襬隨風揚起。" +
+            "風格：唯美婚紗攝影，柔焦逆光，暖金色調，淺景深。",
+    ),
+    PromptExample(
+        "校園青春",
+        "主體：一位高中女學生，穿水手服制服，抱著課本燦爛大笑。" +
+            "場景：午後灑滿陽光的教室走廊，窗外是綠樹與藍天。" +
+            "構圖：胸上中景、微側 45 度，逆光帶些許耀光。" +
+            "風格：日系青春寫實，柔和自然光，清新淡雅色調，淺景深。",
+    ),
+    PromptExample(
+        "職場專業",
+        "主體：一位三十多歲的女性主管，穿合身深藍西裝外套，自信淺笑、雙臂環抱。" +
+            "場景：現代玻璃帷幕辦公室，背景虛化的城市天際線。" +
+            "構圖：胸上中景、平視，人物居中。" +
+            "風格：商業形象攝影，柔和棚燈，冷靜俐落色調，淺景深。",
+    ),
+    PromptExample(
+        "旅遊風情",
+        "主體：一位背著相機的年輕女子，戴草帽回頭微笑。" +
+            "場景：希臘聖托里尼藍頂白牆小巷，正午陽光，遠處愛琴海湛藍。" +
+            "構圖：七分身、平視，人物位於畫面右側，巷弄向遠方延伸。" +
+            "風格：旅遊雜誌寫實，明亮飽和的地中海色調，高細節。",
+    ),
+    PromptExample(
+        "雪景",
+        "主體：一位穿米白色長大衣、圍紅圍巾的女子，呵氣望向遠方。" +
+            "場景：靜謐的雪夜街道，路燈下細雪紛飛，店家暖黃櫥窗。" +
+            "構圖：胸上中景、平視，雪花前景散景。" +
+            "風格：電影感冬夜寫實，暖燈與冷藍對比，淺景深，膠片質感。",
+    ),
+    PromptExample(
+        "夜市煙火",
+        "主體：一位穿浴衣的少女，手持蘋果糖抬頭仰望。" +
+            "場景：日本夏日祭典夜市，攤位燈籠林立，夜空綻放絢爛煙火。" +
+            "構圖：胸上中景、低角度仰拍，背景煙火散景。" +
+            "風格：日系夏夜寫實，霓虹與煙火高對比，暖色調，淺景深。",
+    ),
+    PromptExample(
+        "運動瞬間",
+        "主體：一名女子田徑選手，衝刺起跑的爆發瞬間，汗水飛濺。" +
+            "場景：黃昏的紅色跑道體育場，逆光長影。" +
+            "構圖：全身中景、低角度側面跟拍。" +
+            "動作：前傾衝刺、肌肉緊繃，動態模糊強調速度感。" +
+            "風格：運動攝影，高速快門凝結瞬間，暖金逆光，高對比。",
+    ),
+    PromptExample(
+        "情侶雙人",
+        "場景：秋日楓紅公園長椅，黃昏暖光，落葉紛飛。" +
+            "角色一（左）：一位短髮女子，依偎著笑。" +
+            "角色二（右）：一位高個男子，低頭溫柔看著她。" +
+            "互動：兩人手牽手、額頭相觸。" +
+            "構圖：胸上中景、平視，兩人居中。" +
+            "風格：溫暖情侶寫真，柔和逆光，暖橘色調，淺景深。",
+    ),
+    PromptExample(
+        "音樂現場",
+        "主體：一位女歌手，閉眼忘情高歌，手握麥克風。" +
+            "場景：昏暗 Live House 舞台，背後藍紫色聚光燈與煙霧。" +
+            "構圖：胸上中景、低角度仰拍，光束穿過煙霧。" +
+            "風格：演唱會現場攝影，高對比舞台光，藍紫冷調帶暖膚色，膠片顆粒。",
+    ),
+    PromptExample(
+        "海島度假",
+        "主體：一位穿草帽與淺色洋裝的女子，赤腳走在沙灘踢浪，開心回眸。" +
+            "場景：熱帶海島白沙灘，碧綠海水與藍天白雲，正午陽光。" +
+            "構圖：全身遠景、平視，人物位於畫面左側，海岸線延伸至遠方。" +
+            "風格：度假寫真，明亮通透，飽和的海島色調，高細節。",
+    ),
+    PromptExample(
+        "雨天街景",
+        "主體：一位撐透明傘的女子，停下腳步望向櫥窗。" +
+            "場景：入夜的都市街道，地面積水倒映霓虹招牌，細雨綿綿。" +
+            "構圖：全身中景、平視，霓虹倒影為前景。" +
+            "風格：都市夜雨電影感，霓虹高對比，青橙色調，淺景深，雨絲清晰。",
+    ),
+    PromptExample(
+        "優雅長者",
+        "主體：一位銀白短髮的優雅老婦人，戴珍珠耳環，溫柔淺笑看向鏡頭。" +
+            "場景：灑入柔光的老宅書房，背景是木質書櫃與一盆蘭花。" +
+            "構圖：臉部特寫、平視，窗邊側光。" +
+            "風格：人文肖像攝影，柔和自然光，溫暖低飽和色調，皺紋與膚質細節真實。",
+    ),
+    PromptExample(
+        "親子日常",
+        "場景：午後灑滿陽光的客廳地毯，溫馨自然。" +
+            "角色一：一位年輕媽媽，盤腿而坐溫柔微笑。" +
+            "角色二：一個學步的幼兒，咯咯笑撲向媽媽懷裡。" +
+            "互動：媽媽張開雙臂迎接孩子。" +
+            "構圖：全身中景、平視，兩人居中。" +
+            "風格：溫馨家庭生活攝影，柔和自然光，暖米色調，淺景深。",
+    ),
+    PromptExample(
+        "時尚雜誌",
+        "主體：一位高挑模特兒，穿前衛剪裁的黑色禮服，下巴微抬、神情冷豔。" +
+            "場景：純色調棚拍背景，戲劇性側逆光勾勒輪廓。" +
+            "構圖：七分身、低角度，留白構圖。" +
+            "風格：高端時尚雜誌封面，棚燈硬光高對比，低飽和高級灰色調，高細節。",
+    ),
+    PromptExample(
+        "黑白人像",
+        "主體：一位中年男子，神情堅毅若有所思，臉部紋理與鬍渣清晰。" +
+            "場景：深色背景，一束窗邊側光打在臉的一側，明暗對比強烈。" +
+            "構圖：臉部特寫、微側，林布蘭光。" +
+            "風格：經典黑白肖像攝影，高對比層次，膠片顆粒，質感細膩。",
+    ),
 )
 
-// ── ② 條件選擇器欄位 (單一通用人物/場景 builder) ──
+// ── ② 條件選擇器欄位 (單一通用人物/場景 builder,每欄可搜尋下拉) ──
+// 「(不指定)」放第一個的欄位 → 預設不帶入,使用者主動挑才加進 prompt;
+// 其餘欄位預設第一個真值 → 一進來預覽就有一段完整可用的 prompt。
 data class BuilderField(val label: String, val options: List<String>)
 
 val BUILDER_FIELDS: List<BuilderField> = listOf(
-    BuilderField("風格類型", listOf("電影感寫實", "古裝劇", "日系動漫", "韓系清新", "油畫質感", "黑白底片")),
-    BuilderField("主體", listOf("二十出頭的女子", "少年書生", "中年男子", "白髮老者", "一隻橘貓", "一名女戰士")),
-    BuilderField("服飾", listOf("月白色絲質長裙", "靛藍棉麻長衫", "黑色皮衣", "米色針織毛衣", "金屬感盔甲", "復古西裝")),
-    BuilderField("情緒狀態", listOf("含笑垂眸", "緊抿嘴唇眉心微蹙", "眼神決絕", "落寞出神", "驚訝張口", "溫柔凝視")),
-    BuilderField("場景地點", listOf("古典庭院", "堆滿書卷的書房", "雨後石板街道", "灑入陽光的落地窗客廳", "霧氣繚繞的森林", "海邊礁岩")),
-    BuilderField("光線時辰", listOf("黃昏暖橘光", "月夜冷藍光", "正午強光", "陰雨天散射光", "清晨薄霧光", "室內暖黃燈光")),
-    BuilderField("構圖鏡頭", listOf("臉部特寫", "胸上中景", "七分身", "全身遠景", "過肩鏡頭")),
-    BuilderField("視角", listOf("平視", "低角度仰拍", "高角度俯視", "微側 45 度")),
-    BuilderField("色調", listOf("暖橘色調", "冷藍色調", "高對比", "柔和粉彩", "復古褪色")),
+    BuilderField(
+        "風格類型",
+        listOf(
+            "電影感寫實", "自然光人像", "日系清新", "韓系雜誌", "古裝劇", "國風工筆",
+            "日系動漫", "厚塗插畫", "水彩", "油畫質感", "黑白底片", "復古膠片",
+            "賽博龐克", "蒸氣龐克", "奇幻史詩", "時尚雜誌", "紀實街拍", "夢幻柔焦",
+            "極簡棚拍", "電影海報",
+        ),
+    ),
+    BuilderField(
+        "主體對象",
+        listOf(
+            "一位女子", "一位青年男子", "一位女性", "一位男性", "一對情侶", "一群好友",
+            "一名孩童", "一位長者", "一隻橘貓", "一隻柴犬", "一名女戰士", "一名男劍客",
+            "一名機械少女",
+        ),
+    ),
+    BuilderField(
+        "年齡感",
+        listOf(
+            "(不指定)", "18-20 歲", "20 歲出頭", "25 歲上下", "接近 30 歲", "30 代初",
+            "35 歲輕熟", "40 代", "45 歲成熟", "50 代優雅", "60 歲以上",
+        ),
+    ),
+    BuilderField(
+        "氣質類型",
+        listOf(
+            "(不指定)", "清純", "知性", "甜美", "冷豔", "英氣", "御姐", "古典", "文青",
+            "活潑", "神秘", "高冷", "溫柔", "中性帥氣", "華麗", "鄰家", "個性",
+        ),
+    ),
+    BuilderField(
+        "職業",
+        listOf(
+            "(不指定)", "學生", "上班族", "醫師", "護理師", "教師", "咖啡師", "攝影師",
+            "設計師", "舞者", "音樂家", "畫家", "作家", "運動員", "廚師", "空服員",
+            "軍人", "警察", "律師", "科學家", "花藝師", "旅人",
+        ),
+    ),
+    BuilderField(
+        "身形",
+        listOf("(不指定)", "高挑修長", "嬌小", "標準勻稱", "健美結實", "纖細", "運動型"),
+    ),
+    BuilderField(
+        "髮型髮色",
+        listOf(
+            "(不指定)", "黑長直髮", "棕色波浪捲", "俐落短髮", "高馬尾", "雙麻花辮",
+            "公主切", "齊瀏海", "中分長髮", "銀白髮", "亞麻金髮", "酒紅挑染", "丸子頭",
+            "微卷鮑伯", "濕髮後梳", "蓬鬆捲髮",
+        ),
+    ),
+    BuilderField(
+        "服飾",
+        listOf(
+            "月白絲質長裙", "靛藍棉麻長衫", "改良式漢服", "白色襯衫", "米色針織毛衣",
+            "黑色皮衣", "卡其風衣", "牛仔外套", "紅色禮服", "學院制服", "運動套裝",
+            "金屬感盔甲", "復古西裝", "旗袍", "和服", "波希米亞長裙", "醫師白袍", "太空裝",
+        ),
+    ),
+    BuilderField(
+        "情緒狀態",
+        listOf(
+            "含笑垂眸", "溫柔凝視鏡頭", "緊抿嘴唇眉心微蹙", "眼神決絕", "燦爛大笑",
+            "落寞出神", "驚訝張口", "沉靜閉眼", "自信淺笑", "回眸一笑", "若有所思",
+            "專注凝神",
+        ),
+    ),
+    BuilderField(
+        "場景地點",
+        listOf(
+            "古典庭院", "堆滿書卷的書房", "雨後石板街道", "灑入陽光的落地窗客廳",
+            "午後咖啡廳", "霧氣繚繞的森林", "海邊礁岩", "櫻花樹下", "都市霓虹街頭",
+            "圖書館長廊", "雪地森林", "花田", "廢墟教堂", "屋頂天台", "地鐵月台",
+            "沙漠", "山頂雲海", "攝影棚純色背景",
+        ),
+    ),
+    BuilderField(
+        "光線時辰",
+        listOf(
+            "黃昏暖橘光", "清晨薄霧光", "正午強光", "月夜冷藍光", "陰雨天散射光",
+            "室內暖黃燈光", "霓虹夜光", "逆光剪影", "窗邊側光", "燭光", "棚燈柔光",
+            "金色魔幻時刻",
+        ),
+    ),
+    BuilderField(
+        "構圖鏡頭",
+        listOf(
+            "臉部特寫", "胸上中景", "七分身", "全身遠景", "過肩鏡頭", "大特寫眼神",
+            "廣角環境人像", "俯拍全身", "對稱構圖", "三分法構圖",
+        ),
+    ),
+    BuilderField(
+        "視角",
+        listOf("平視", "低角度仰拍", "高角度俯視", "微側 45 度", "背影回眸", "鳥瞰"),
+    ),
+    BuilderField(
+        "色調",
+        listOf(
+            "暖橘色調", "冷藍色調", "高對比", "柔和粉彩", "復古褪色", "黑白",
+            "莫蘭迪低飽和", "青橙電影調", "暖金色調", "冷峻銀藍",
+        ),
+    ),
 )
 
 // 把選好的欄位組成一段乾淨、無方括號、可直接生成的完整 prompt。
+// 值為空字串或「(不指定)」一律略過。
 fun assembleBuilderPrompt(sel: Map<String, String>): String {
-    fun v(k: String) = sel[k].orEmpty().trim()
-    val subject = buildString {
-        append(v("主體"))
+    fun v(k: String): String {
+        val s = sel[k].orEmpty().trim()
+        return if (s.isEmpty() || s == "(不指定)") "" else s
+    }
+    val person = buildString {
+        append(v("主體對象").ifEmpty { "一位人物" })
+        val mods = listOf(
+            v("年齡感"),
+            v("氣質類型").let { if (it.isNotEmpty()) "${it}氣質" else "" },
+            v("職業"),
+            v("身形"),
+            v("髮型髮色"),
+        ).filter { it.isNotEmpty() }
+        if (mods.isNotEmpty()) append("，").append(mods.joinToString("，"))
         if (v("服飾").isNotEmpty()) append("，穿").append(v("服飾"))
         if (v("情緒狀態").isNotEmpty()) append("，").append(v("情緒狀態"))
     }
@@ -140,7 +358,7 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
     val comp = listOf(v("構圖鏡頭"), v("視角")).filter { it.isNotEmpty() }.joinToString("，")
     val style = listOf(v("風格類型"), v("色調"), "淺景深").filter { it.isNotEmpty() }.joinToString("，")
     return buildString {
-        if (subject.isNotEmpty()) append("主體：").append(subject).append("。\n")
+        if (person.isNotEmpty()) append("主體：").append(person).append("。\n")
         if (scene.isNotEmpty()) append("場景：").append(scene).append("。\n")
         if (comp.isNotEmpty()) append("構圖：").append(comp).append("。\n")
         if (style.isNotEmpty()) append("風格：").append(style).append("。")
@@ -148,7 +366,7 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
 }
 
 // 底部彈出範本面板。tab 切換「現成範例 / 自己組」,點「使用/填入」→ onUse(prompt) 並關閉。
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PromptTemplateSheet(
     onDismiss: () -> Unit,
@@ -159,12 +377,14 @@ fun PromptTemplateSheet(
     val scope = rememberCoroutineScope()
     var tab by remember { mutableStateOf("ready") }
 
-    // 條件選擇器狀態: 每欄預設選第一個選項
+    // 條件選擇器狀態: 每欄預設選第一個選項 (modifier 欄第一個是「(不指定)」)
     val selected = remember {
         mutableStateMapOf<String, String>().apply {
             BUILDER_FIELDS.forEach { put(it.label, it.options.first()) }
         }
     }
+    // 目前展開搜尋的欄位 (一次只展開一個,保持面板清爽)
+    var expandedField by remember { mutableStateOf<String?>(null) }
 
     fun pick(prompt: String) {
         onUse(prompt)
@@ -267,31 +487,26 @@ fun PromptTemplateSheet(
                     }
                 }
             } else {
-                // ── ② 自己組 (條件選擇器) ──
+                // ── ② 自己組 (可搜尋下拉) ──
                 RandomBar(label = "🎲  全部隨機") {
                     BUILDER_FIELDS.forEach { selected[it.label] = it.options.random() }
                 }
 
                 BUILDER_FIELDS.forEach { field ->
-                    Text(
-                        text = field.label,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.W600,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                    SearchableField(
+                        label = field.label,
+                        value = selected[field.label].orEmpty(),
+                        options = field.options,
+                        expanded = expandedField == field.label,
+                        onToggle = {
+                            expandedField = if (expandedField == field.label) null else field.label
+                        },
+                        onPick = {
+                            selected[field.label] = it
+                            expandedField = null
+                        },
+                        onRandom = { selected[field.label] = field.options.random() },
                     )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        field.options.forEach { opt ->
-                            SelectChip(
-                                text = opt,
-                                active = selected[field.label] == opt,
-                                onClick = { selected[field.label] = opt },
-                            )
-                        }
-                    }
                 }
 
                 // 即時預覽
@@ -363,30 +578,129 @@ private fun RandomBar(label: String, onClick: () -> Unit) {
     }
 }
 
-// 條件選擇器的可選 chip,選中時 primary 高亮。
+// 單一條件的「可搜尋下拉」: 收合時一行(欄名+目前值+🎲+箭頭);展開時頂部搜尋框 +
+// 過濾後的選項清單。清單 inline 渲染(不嵌 verticalScroll,避免無限高 crash),
+// 只取前 12 筆並提示其餘,引導打字縮小範圍。
 @Composable
-private fun SelectChip(text: String, active: Boolean, onClick: () -> Unit) {
-    Box(
+private fun SearchableField(
+    label: String,
+    value: String,
+    options: List<String>,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onPick: (String) -> Unit,
+    onRandom: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    // 收合時清掉搜尋字,下次展開乾淨
+    LaunchedEffect(expanded) { if (!expanded) query = "" }
+
+    Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .border(
-                1.dp,
-                if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                RoundedCornerShape(20.dp),
-            )
-            .background(
-                if (active) MaterialTheme.colorScheme.secondaryContainer
-                else MaterialTheme.colorScheme.surface
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            fontWeight = if (active) FontWeight.W700 else FontWeight.W500,
-            color = if (active) MaterialTheme.colorScheme.onSecondaryContainer
-            else MaterialTheme.colorScheme.onSurface,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onToggle)
+                    .padding(vertical = 4.dp),
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = value,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onRandom)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            ) {
+                Text(text = "🎲", fontSize = 16.sp)
+            }
+            ImagineIcon(
+                name = if (expanded) "expand_less" else "expand_more",
+                size = 20.dp,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (expanded) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = {
+                    Text(
+                        "搜尋…",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            )
+            val q = query.trim()
+            val filtered = if (q.isEmpty()) options else options.filter { it.contains(q, ignoreCase = true) }
+            val shown = filtered.take(12)
+            shown.forEach { opt ->
+                val isSelected = opt == value
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPick(opt) }
+                        .padding(vertical = 11.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = opt,
+                        fontSize = 15.sp,
+                        fontWeight = if (isSelected) FontWeight.W700 else FontWeight.W500,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (isSelected) {
+                        ImagineIcon(
+                            name = "check",
+                            size = 18.dp,
+                            fill = 1,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+            if (filtered.isEmpty()) {
+                Text(
+                    text = "找不到符合的選項，換個關鍵字",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                )
+            } else if (filtered.size > shown.size) {
+                Text(
+                    text = "還有 ${filtered.size - shown.size} 項，打字縮小範圍",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                )
+            }
+        }
     }
 }

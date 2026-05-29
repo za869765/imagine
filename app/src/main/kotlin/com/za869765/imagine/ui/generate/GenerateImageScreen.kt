@@ -2,6 +2,7 @@ package com.za869765.imagine.ui.generate
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -91,6 +92,17 @@ fun GenerateImageScreen(
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
     // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
     var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
+    // v1.0.63 bug#3: 新一輪生成成功時設 true → LaunchedEffect 把畫面捲到底部結果區,
+    // 避免「上次結果」已存在時新圖落在 fold 下方使用者看不到。只在「這次生成成功」時觸發,
+    // 不用 rememberSaveable 以免進畫面從存檔還原 resultUrls 也跟著亂捲。
+    val scrollState = rememberScrollState()
+    var pendingScrollToResult by remember { mutableStateOf(false) }
+    LaunchedEffect(pendingScrollToResult) {
+        if (pendingScrollToResult) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+            pendingScrollToResult = false
+        }
+    }
 
     fun runGenerate() {
         // 點生成 = 自動收鍵盤(避免 IME 佔走畫面看不到生成中/結果)
@@ -131,6 +143,7 @@ fun GenerateImageScreen(
                         lastMeta = "$capturedAr · $capturedRes · ${capturedN} 張"
                         lastError = ""
                         lastErrorIsPolicy = false
+                        pendingScrollToResult = true  // bug#3: 捲到結果區讓新圖主動出現
                         // v1.0.54 B3: 改用 ImagineApp.appScope (process-lifecycle) — user
                         // 切走/鎖屏時 Composable scope 會 cancel，下載到一半被砍 → History 看不到
                         result.value.forEach { url ->
@@ -159,6 +172,7 @@ fun GenerateImageScreen(
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.GENERATE, onTabSelected = onNavSelected) },
+        scrollState = scrollState,
     ) {
         Column(
             modifier = Modifier

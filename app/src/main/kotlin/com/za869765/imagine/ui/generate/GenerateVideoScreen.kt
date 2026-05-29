@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,6 +135,16 @@ fun GenerateVideoScreen(
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
     // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
     var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
+    // v1.0.63 bug#3: 影片生成成功(Worker SUCCEEDED)時設 true → 捲到底部把新影片帶進視野,
+    // 避免「上次結果」已存在時新影片落在 fold 下方使用者看不到。
+    val scrollState = rememberScrollState()
+    var pendingScrollToResult by remember { mutableStateOf(false) }
+    LaunchedEffect(pendingScrollToResult) {
+        if (pendingScrollToResult) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+            pendingScrollToResult = false
+        }
+    }
     val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }
 
     // Worker 完成事件接收 — Worker 在後台 polling + 下載 + 存檔 + 發系統通知,
@@ -147,7 +158,10 @@ fun GenerateVideoScreen(
                 when (info.state) {
                     WorkInfo.State.SUCCEEDED -> {
                         val url = info.outputData.getString(VideoPollWorker.KEY_VIDEO_URL)
-                        if (url != null) resultVideoUrl = url
+                        if (url != null) {
+                            resultVideoUrl = url
+                            pendingScrollToResult = true  // bug#3: 捲到結果區讓新影片主動出現
+                        }
                         generating = false
                         trackedRequestId = null
                     }
@@ -347,6 +361,7 @@ fun GenerateVideoScreen(
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.GENERATE, onTabSelected = onNavSelected) },
+        scrollState = scrollState,
     ) {
         Column(
             modifier = Modifier
