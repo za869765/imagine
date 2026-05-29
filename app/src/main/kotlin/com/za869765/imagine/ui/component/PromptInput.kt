@@ -17,8 +17,10 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
 
@@ -62,6 +65,9 @@ fun PromptInput(
     flagged: Boolean = false,
 ) {
     val ctx = LocalContext.current
+    val prefs = remember { SecurePrefs.get(ctx) }
+    // B2: 5 要素涵蓋數,顯示在「建議」chip 上 (例如 建議 3/5)
+    val coverage = remember(value) { promptElementCoverage(value) }
     var focused by remember { mutableStateOf(false) }
     var showTemplateSheet by remember { mutableStateOf(false) }
     var showAdvisorSheet by remember { mutableStateOf(false) }
@@ -130,6 +136,26 @@ fun PromptInput(
         tfValue = TextFieldValue(newText, selection = TextRange(start + ins.length))
         onValueChange(newText)
         suppressSelectAllOnce = true
+        // B3: 記錄最近用過 (去重置頂, 上限 6)
+        val recent = prefs.recentSnippets.toMutableList()
+        recent.remove(snippet)
+        recent.add(0, snippet)
+        prefs.recentSnippets = recent.take(6)
+    }
+
+    // B1: 跳到下一個【…】佔位符並選取,直接打字覆蓋;到底繞回第一個。
+    fun jumpToNextPlaceholder() {
+        val text = tfValue.text
+        val cursor = tfValue.selection.end.coerceIn(0, text.length)
+        val matches = Regex("【[^】]*】").findAll(text).toList()
+        if (matches.isEmpty()) {
+            Toast.makeText(ctx, "沒有【】可填", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val next = matches.firstOrNull { it.range.first >= cursor } ?: matches.first()
+        suppressSelectAllOnce = true
+        tfValue = tfValue.copy(selection = TextRange(next.range.first, next.range.last + 1))
+        pendingFocus = true
     }
 
     // 範本「使用」後 sheet 關閉 → 聚焦輸入框 (游標待命)。requestFocus 包 runCatching 防未 attach
@@ -160,9 +186,14 @@ fun PromptInput(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PromptToolChip(icon = "lightbulb", label = "建議") { showAdvisorSheet = true }
+                val advisorLabel = if (value.isBlank()) "建議" else "建議 $coverage/5"
+                PromptToolChip(icon = "lightbulb", label = advisorLabel) { showAdvisorSheet = true }
                 PromptToolChip(icon = "auto_awesome", label = "範本") { showTemplateSheet = true }
                 PromptToolChip(icon = "content_paste", label = "貼上") { doPaste() }
+                // B1: 只有當內容含【】(套了範本/擴寫) 才顯示「跳格」
+                if (value.contains("【")) {
+                    PromptToolChip(icon = "edit", label = "跳格") { jumpToNextPlaceholder() }
+                }
             }
         }
 
@@ -264,8 +295,10 @@ fun PromptInput(
         if (showAdvisorSheet) {
             PromptAdvisorSheet(
                 currentPrompt = value,
+                recentSnippets = prefs.recentSnippets,
                 onDismiss = { showAdvisorSheet = false },
                 onInsert = { snippet -> insertAtCursor(snippet) },
+                onExpand = { scaffold -> applyTemplate(scaffold) },
             )
         }
     }
@@ -309,22 +342,63 @@ private fun PromptToolChip(
 private enum class HintColor { Red, Yellow, Gray }
 private data class PromptHint(val emoji: String, val msg: String, val color: HintColor)
 
+// 高風險詞: 幾乎一定被審核擋下。輸入框 hint 與 A2「送出前確認」共用同一份 (單一真相源)。
+private val HIGH_RISK_TERMS = listOf(
+    // 英文 NSFW / 露骨 / 未成年
+    "nude", "naked", "nudity", "nsfw", "porn", "pornographic",
+    "explicit", "sexual", "erotic", "hentai",
+    "underage", "minor child", "child porn", "loli", "lolicon",
+    // 中文
+    "裸體", "裸露", "性愛", "色情", "露胸", "露點", "露下體",
+    "蘿莉", "未成年",
+)
+
+// 純 a-z 的英文詞用詞界比對,避免 sexual⊂homosexual / loli⊂Lolita 之類誤判;
+// 含空格或中文的詞用單純 contains。
+private fun matchesTerm(low: String, term: String): Boolean =
+    if (term.all { it.code in 97..122 }) {
+        Regex("(?<![a-z])${Regex.escape(term)}(?![a-z])").containsMatchIn(low)
+    } else {
+        low.contains(term)
+    }
+
+// A2: 回傳第一個命中的高風險詞 (給「送出前確認」對話框顯示),沒有則 null。
+fun firstHighRiskTerm(prompt: String): String? {
+    val low = prompt.lowercase()
+    return HIGH_RISK_TERMS.firstOrNull { matchesTerm(low, it) }
+}
+
+// A2: 送出前的軟確認對話框。只是提醒+省錢,不是硬擋 (誤判頂多多按一下)。
+@Composable
+fun ConfirmHighRiskDialog(
+    term: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            ImagineIcon(name = "warning", fill = 1, tint = MaterialTheme.colorScheme.error)
+        },
+        title = { Text("可能被審核擋下", fontWeight = FontWeight.W700) },
+        text = {
+            Text(
+                "偵測到「$term」這類詞。xAI 後端審核是強制的、負向 prompt 解不開,這次很可能被擋 — 且不論成敗都可能計費 (\$0.05/張)。仍要送出嗎?",
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+            )
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("仍要送出") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("返回修改") } },
+    )
+}
+
 private fun evaluatePrompt(p: String, maxChars: Int): PromptHint? {
     val s = p.trim()
     if (s.isEmpty()) return null
     val low = s.lowercase()
 
-    // 高風險: 幾乎一定被審核擋下
-    val high = listOf(
-        // 英文 NSFW / 露骨 / 未成年
-        "nude", "naked", "nudity", "nsfw", "porn", "pornographic",
-        "explicit", "sexual", "erotic", "hentai",
-        "underage", "minor child", "child porn", "loli", "lolicon",
-        // 中文
-        "裸體", "裸露", "性愛", "色情", "露胸", "露點", "露下體",
-        "蘿莉", "未成年",
-    )
-    if (high.any { low.contains(it) }) {
+    if (HIGH_RISK_TERMS.any { matchesTerm(low, it) }) {
         return PromptHint("🚨", "高機率被擋 (僅參考)", HintColor.Red)
     }
 

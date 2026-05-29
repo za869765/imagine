@@ -68,6 +68,13 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getString(K_THEME, "system")!!
         set(v) = prefs.edit().putString(K_THEME, v).apply()
 
+    // ── Prompt 片語「最近用過」(B3) ───────────────────────────────
+    // 以 \n 串接存一條字串;讀回時濾掉空行。上限由寫入端控制(取前 6)。
+    var recentSnippets: List<String>
+        get() = prefs.getString(K_RECENT_SNIPPETS, null)
+            ?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
+        set(v) = prefs.edit().putString(K_RECENT_SNIPPETS, v.joinToString("\n")).apply()
+
     // ── Bulk reset (clears everything) ──────────────────────────
     fun clearAll() = prefs.edit().clear().apply()
 
@@ -81,6 +88,7 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_LOCK_BG = "lock_on_bg"
         private const val K_FLAG_SECURE = "prevent_screenshots"
         private const val K_THEME = "theme_mode"
+        private const val K_RECENT_SNIPPETS = "recent_snippets"
 
         @Volatile private var instance: SecurePrefs? = null
         fun get(ctx: Context): SecurePrefs = instance ?: synchronized(this) {

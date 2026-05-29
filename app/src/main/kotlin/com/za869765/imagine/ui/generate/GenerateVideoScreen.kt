@@ -71,8 +71,10 @@ import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.ChipVariant
+import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
 import com.za869765.imagine.ui.component.ImagineChip
 import com.za869765.imagine.ui.component.PromptInput
+import com.za869765.imagine.ui.component.firstHighRiskTerm
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
@@ -130,6 +132,8 @@ fun GenerateVideoScreen(
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
+    // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
+    var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
     val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }
 
     // Worker 完成事件接收 — Worker 在後台 polling + 下載 + 存檔 + 發系統通知,
@@ -511,7 +515,18 @@ fun GenerateVideoScreen(
                     label = "生 成",
                     icon = "movie",
                     enabled = hasPrompt && prefs.isApiKeySet,
-                    onClick = ::runGenerate,
+                    onClick = {
+                        val term = firstHighRiskTerm(prompt)
+                        if (term != null) pendingRiskTerm = term else runGenerate()
+                    },
+                )
+            }
+
+            pendingRiskTerm?.let { term ->
+                ConfirmHighRiskDialog(
+                    term = term,
+                    onConfirm = { pendingRiskTerm = null; runGenerate() },
+                    onDismiss = { pendingRiskTerm = null },
                 )
             }
 

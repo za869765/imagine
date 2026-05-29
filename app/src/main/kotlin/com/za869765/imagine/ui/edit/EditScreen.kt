@@ -59,6 +59,7 @@ import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.data.work.VideoPollWorker
+import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -68,6 +69,7 @@ import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.SectionHeader
+import com.za869765.imagine.ui.component.firstHighRiskTerm
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import kotlinx.coroutines.delay
@@ -138,6 +140,8 @@ fun EditScreen(
     var resultImageUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
+    // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
+    var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
     val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }
 
     // Worker 完成事件接收 — 同 GenerateVideoScreen 模式
@@ -457,7 +461,18 @@ fun EditScreen(
                     label = "執 行",
                     icon = "edit",
                     enabled = hasPrompt && sourceUri != null && prefs.isApiKeySet,
-                    onClick = ::runExecute,
+                    onClick = {
+                        val term = firstHighRiskTerm(prompt)
+                        if (term != null) pendingRiskTerm = term else runExecute()
+                    },
+                )
+            }
+
+            pendingRiskTerm?.let { term ->
+                ConfirmHighRiskDialog(
+                    term = term,
+                    onConfirm = { pendingRiskTerm = null; runExecute() },
+                    onDismiss = { pendingRiskTerm = null },
                 )
             }
 

@@ -21,6 +21,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 // 智慧建議 sheet：
 //   上半 — 對目前輸入框的 prompt 做「5 要素」健康檢查(主體/場景/構圖/動作/風格)
@@ -77,6 +79,27 @@ private fun analyzeElements(prompt: String): List<ElementCheck> {
     )
 }
 
+// B2：給輸入框工具列「建議 n/5」徽章用 — 算目前涵蓋了幾個要素。
+fun promptElementCoverage(prompt: String): Int = analyzeElements(prompt).count { it.present }
+
+// B4：把現有描述(可空)擴寫成 5 要素骨架,缺的留【】佔位給使用者填。
+// 已寫的字當「主體」種子塞進去,其餘四項留空待補,搭配「跳格」鈕逐格填。
+fun buildScaffold(seed: String): String {
+    val s = seed.trim()
+    val subject = if (s.isEmpty()) "【主體：誰/什麼，穿什麼，什麼情緒】" else s
+    return buildString {
+        append(subject)
+        append("，")
+        append("【場景：在哪裡，什麼光線時辰】")
+        append("，")
+        append("【構圖：景別＋視角，例如中景平視】")
+        append("，")
+        append("【動作：在做什麼，什麼神態】")
+        append("，")
+        append("【風格：畫風＋色調，例如電影感暖橘】")
+    }
+}
+
 // 片語庫 — 點一下插入游標處。標題 to 片語清單。
 private val SNIPPET_GROUPS = listOf(
     "光線" to listOf("黃昏暖光", "月夜冷光", "逆光剪影", "柔和散射光", "戲劇性側光", "霓虹夜景光"),
@@ -90,10 +113,13 @@ private val SNIPPET_GROUPS = listOf(
 @Composable
 fun PromptAdvisorSheet(
     currentPrompt: String,
+    recentSnippets: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onInsert: (String) -> Unit,
+    onExpand: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     val checks = analyzeElements(currentPrompt)
     val coveredCount = checks.count { it.present }
 
@@ -121,6 +147,37 @@ fun PromptAdvisorSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp, bottom = 12.dp),
             )
+
+            // ── B4：一鍵擴寫成 5 要素骨架 ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .clickable {
+                        onExpand(buildScaffold(currentPrompt))
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ImagineIcon(
+                    name = "auto_awesome",
+                    size = 20.dp,
+                    fill = 1,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Text(
+                    text = if (currentPrompt.isBlank()) "產生 5 要素空白骨架" else "把現有描述擴寫成 5 要素骨架",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
 
             // ── 5 要素檢查 ──
             checks.forEach { c ->
@@ -174,8 +231,12 @@ fun PromptAdvisorSheet(
                 modifier = Modifier.padding(bottom = 4.dp),
             )
 
-            // ── 片語庫 ──
-            SNIPPET_GROUPS.forEach { (group, items) ->
+            // ── 片語庫（B3：最近用過置頂）──
+            val groups = buildList {
+                if (recentSnippets.isNotEmpty()) add("最近用過" to recentSnippets)
+                addAll(SNIPPET_GROUPS)
+            }
+            groups.forEach { (group, items) ->
                 Text(
                     text = group,
                     fontSize = 12.sp,

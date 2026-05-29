@@ -41,6 +41,7 @@ import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ChipVariant
+import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineChip
@@ -50,6 +51,7 @@ import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
+import com.za869765.imagine.ui.component.firstHighRiskTerm
 import com.za869765.imagine.ui.theme.ImagineCustomShapes
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
@@ -87,6 +89,8 @@ fun GenerateImageScreen(
     var lastMeta by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
+    // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
+    var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
 
     fun runGenerate() {
         // 點生成 = 自動收鍵盤(避免 IME 佔走畫面看不到生成中/結果)
@@ -226,8 +230,19 @@ fun GenerateImageScreen(
                 icon = if (loading) null else "auto_awesome",
                 loading = loading,
                 enabled = prompt.isNotBlank() && !loading && prefs.isApiKeySet,
-                onClick = ::runGenerate,
+                onClick = {
+                    val term = firstHighRiskTerm(prompt)
+                    if (term != null) pendingRiskTerm = term else runGenerate()
+                },
             )
+
+            pendingRiskTerm?.let { term ->
+                ConfirmHighRiskDialog(
+                    term = term,
+                    onConfirm = { pendingRiskTerm = null; runGenerate() },
+                    onDismiss = { pendingRiskTerm = null },
+                )
+            }
 
             if (lastError.isNotBlank()) {
                 // 審核被拒 (HTTP 400 content policy) 用紅色 errorContainer 突出，
