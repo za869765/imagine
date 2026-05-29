@@ -155,6 +155,30 @@ fun PromptInput(
         suppressSelectAllOnce = true
     }
 
+    // 片語庫「智慧插入」: 若 prompt 內已有同一類型(同欄位)的詞 → 換掉它避免衝突
+    //   (例如已有「暖橘色調」再點「冷藍色調」就替換,不會兩個並存);否則插入游標處。
+    // 取最長命中當作既有值 (避免「大波浪」誤判),並用 guard 排除「短詞是更長詞的子字串」
+    //   情況 (例如色調「黑白」其實是風格「黑白底片」的一部分 → 不替換、改插入,避免砍壞長詞)。
+    fun smartInsert(option: String, sameTypeOptions: List<String>) {
+        val text = tfValue.text
+        if (text.contains(option)) return  // 已有同一個詞,不重複加
+        val present = BUILDER_FIELDS.flatMap { it.options }
+            .filter { it != "(不指定)" && text.contains(it) }
+        val existing = sameTypeOptions
+            .filter { it != option && it != "(不指定)" && text.contains(it) }
+            .maxByOrNull { it.length }
+            ?.takeIf { ex -> present.none { it != ex && it.length > ex.length && it.contains(ex) } }
+        if (existing != null) {
+            replaceTerm(existing, option)
+            val recent = prefs.recentSnippets.toMutableList()
+            recent.remove(option)
+            recent.add(0, option)
+            prefs.recentSnippets = recent.take(6)
+        } else {
+            insertAtCursor(option)
+        }
+    }
+
     // B1: 跳到下一個【…】佔位符並選取,直接打字覆蓋;到底繞回第一個。
     fun jumpToNextPlaceholder() {
         val text = tfValue.text
@@ -309,7 +333,7 @@ fun PromptInput(
                 currentPrompt = value,
                 recentSnippets = prefs.recentSnippets,
                 onDismiss = { showAdvisorSheet = false },
-                onInsert = { snippet -> insertAtCursor(snippet) },
+                onInsert = { option, sameType -> smartInsert(option, sameType) },
                 onExpand = { scaffold -> applyTemplate(scaffold) },
                 onReplace = { oldTerm, newTerm -> replaceTerm(oldTerm, newTerm) },
             )
