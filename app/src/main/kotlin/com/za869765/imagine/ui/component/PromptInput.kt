@@ -63,6 +63,8 @@ fun PromptInput(
     minHeight: Int = 156,
     // 被審核擋下時設 true → 邊框/label/hint 都變紅,引導使用者改寫
     flagged: Boolean = false,
+    // 影片頁傳 true → 範本/建議才顯示影片限定欄位 (動作/聲音/字幕);圖片頁 false 隱藏
+    forVideo: Boolean = false,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -325,6 +327,7 @@ fun PromptInput(
             PromptTemplateSheet(
                 onDismiss = { showTemplateSheet = false },
                 onUse = { template -> applyTemplate(template) },
+                forVideo = forVideo,
             )
         }
 
@@ -336,6 +339,7 @@ fun PromptInput(
                 onInsert = { option, sameType -> smartInsert(option, sameType) },
                 onExpand = { scaffold -> applyTemplate(scaffold) },
                 onReplace = { oldTerm, newTerm -> replaceTerm(oldTerm, newTerm) },
+                forVideo = forVideo,
             )
         }
     }

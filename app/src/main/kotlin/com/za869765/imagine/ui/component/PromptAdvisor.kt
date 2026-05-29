@@ -116,11 +116,14 @@ fun PromptAdvisorSheet(
     onInsert: (String, List<String>) -> Unit,
     onExpand: (String) -> Unit = {},
     onReplace: (String, String) -> Unit = { _, _ -> },
+    forVideo: Boolean = true,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val checks = analyzeElements(currentPrompt)
     val coveredCount = checks.count { it.present }
+    // 圖片模式隱藏影片限定類別 (動作/聲音/字幕)
+    val fields = if (forVideo) BUILDER_FIELDS else BUILDER_FIELDS.filter { it.label !in VIDEO_ONLY_FIELDS }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -392,7 +395,7 @@ fun PromptAdvisorSheet(
             // 點類別展開;點片語=智慧插入(prompt 內已有同類型詞就替換、否則插入游標處)。
             // 標題顯示目前該類型在 prompt 內的選擇(目前：X),展開時對應 chip 也高亮。
             var expandedGroup by remember { mutableStateOf<String?>(null) }
-            BUILDER_FIELDS.forEach { field ->
+            fields.forEach { field ->
                 val opts = field.options.filter { it != "(不指定)" }
                 val active = opts.filter { currentPrompt.contains(it) }.maxByOrNull { it.length }
                 Row(

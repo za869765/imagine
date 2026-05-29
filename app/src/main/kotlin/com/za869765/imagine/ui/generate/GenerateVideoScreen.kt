@@ -455,6 +455,7 @@ fun GenerateVideoScreen(
                 placeholder = "描述要怎麼動...",
                 minHeight = 88,
                 flagged = lastErrorIsPolicy,
+                forVideo = true,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

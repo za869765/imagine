@@ -433,6 +433,9 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
     ),
 )
 
+// 影片限定欄位 — 圖片模式不顯示 (靜態圖片沒有運鏡/聲音/字幕)。
+val VIDEO_ONLY_FIELDS = setOf("動作", "聲音", "字幕")
+
 // 把選好的欄位組成一段乾淨、無方括號、可直接生成的完整 prompt。
 // 值為空字串或「(不指定)」一律略過。
 fun assembleBuilderPrompt(sel: Map<String, String>): String {
@@ -482,6 +485,7 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
 fun PromptTemplateSheet(
     onDismiss: () -> Unit,
     onUse: (String) -> Unit,
+    forVideo: Boolean = true,
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -496,6 +500,8 @@ fun PromptTemplateSheet(
     }
     // 目前展開搜尋的欄位 (一次只展開一個,保持面板清爽)
     var expandedField by remember { mutableStateOf<String?>(null) }
+    // 圖片模式隱藏影片限定欄位 (動作/聲音/字幕);selected 仍含全部 key(隱藏的維持「(不指定)」不入 prompt)
+    val fields = if (forVideo) BUILDER_FIELDS else BUILDER_FIELDS.filter { it.label !in VIDEO_ONLY_FIELDS }
 
     fun pick(prompt: String) {
         onUse(prompt)
@@ -600,10 +606,10 @@ fun PromptTemplateSheet(
             } else {
                 // ── ② 自己組 (可搜尋下拉) ──
                 RandomBar(label = "🎲  全部隨機") {
-                    BUILDER_FIELDS.forEach { selected[it.label] = it.options.random() }
+                    fields.forEach { selected[it.label] = it.options.random() }
                 }
 
-                BUILDER_FIELDS.forEach { field ->
+                fields.forEach { field ->
                     SearchableField(
                         label = field.label,
                         value = selected[field.label].orEmpty(),
