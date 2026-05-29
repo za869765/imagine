@@ -20,6 +20,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -436,6 +437,33 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
 // 影片限定欄位 — 圖片模式不顯示 (靜態圖片沒有運鏡/聲音/字幕)。
 val VIDEO_ONLY_FIELDS = setOf("動作", "聲音", "字幕")
 
+// ── 影片分鏡 (storyboard) — 公式範本 + 分段選擇器,只在影片模式的範本顯示 ──
+data class ShotFormula(val name: String, val shots: List<String>)
+
+val SHOT_FORMULAS: List<ShotFormula> = listOf(
+    ShotFormula("三段運鏡", listOf("鏡頭緩緩推近至特寫", "鏡頭環繞主體", "鏡頭拉遠收尾")),
+    ShotFormula("情緒轉折", listOf("靜止凝視前方", "緩緩轉頭看向鏡頭", "嫣然一笑")),
+    ShotFormula("動感節奏", listOf("主角疾走入鏡", "躍起的慢動作", "落地後回眸")),
+    ShotFormula("氛圍鋪陳", listOf("空景帶到環境", "主角緩步入鏡", "鏡頭上搖望向天空")),
+    ShotFormula("時尚走秀", listOf("正面走向鏡頭", "側身定格擺姿", "回頭一甩髮")),
+)
+
+private val STORYBOARD_NUM = listOf("①", "②", "③", "④", "⑤")
+
+// 把場景(整支共用)+ 各段鏡頭組成編號分鏡 prompt。
+fun assembleStoryboard(scene: String, shots: List<String>): String {
+    val s = scene.trim()
+    val numbered = shots
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && it != "(不指定)" }
+        .mapIndexed { i, shot -> "${STORYBOARD_NUM.getOrElse(i) { "${i + 1}." }} $shot" }
+        .joinToString("；")
+    return buildString {
+        if (s.isNotEmpty() && s != "(不指定)") append("場景：").append(s).append("。\n")
+        if (numbered.isNotEmpty()) append("分鏡：").append(numbered).append("。")
+    }.trim()
+}
+
 // 把選好的欄位組成一段乾淨、無方括號、可直接生成的完整 prompt。
 // 值為空字串或「(不指定)」一律略過。
 fun assembleBuilderPrompt(sel: Map<String, String>): String {
@@ -536,10 +564,11 @@ fun PromptTemplateSheet(
             )
 
             SegmentedTab(
-                options = listOf(
-                    SegmentedOption("ready", "現成範例"),
-                    SegmentedOption("build", "自己組"),
-                ),
+                options = buildList {
+                    add(SegmentedOption("ready", "現成範例"))
+                    add(SegmentedOption("build", "自己組"))
+                    if (forVideo) add(SegmentedOption("storyboard", "分鏡"))
+                },
                 activeId = tab,
                 onSelected = { tab = it },
             )
@@ -603,6 +632,8 @@ fun PromptTemplateSheet(
                         }
                     }
                 }
+            } else if (tab == "storyboard") {
+                StoryboardTab(onPick = { pick(it) })
             } else {
                 // ── ② 自己組 (可搜尋下拉) ──
                 RandomBar(label = "🎲  全部隨機") {
@@ -814,5 +845,166 @@ private fun SearchableField(
                 }
             }
         }
+    }
+}
+
+// 影片分鏡 tab:上半「運鏡公式」一鍵帶入,下半「分段選擇器」(場景共用 + 逐段挑鏡頭/動作)。
+@Composable
+private fun StoryboardTab(onPick: (String) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val motionOpts = remember {
+        BUILDER_FIELDS.first { it.label == "動作" }.options.filter { it != "(不指定)" }
+    }
+    val sceneOpts = remember {
+        listOf("(不指定)") + BUILDER_FIELDS.first { it.label == "場景地點" }.options
+    }
+    val segments = remember { mutableStateListOf("鏡頭緩緩推近至特寫", "緩緩轉頭看向鏡頭") }
+    var scene by remember { mutableStateOf("(不指定)") }
+    var openPicker by remember { mutableStateOf<String?>(null) }
+
+    // ── 運鏡公式 ──
+    Text(
+        text = "運鏡公式 — 點「使用」一鍵帶入分鏡",
+        fontSize = 12.sp,
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+    )
+    SHOT_FORMULAS.forEach { f ->
+        val text = assembleStoryboard("", f.shots)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Text(
+                text = f.name,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W700,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = f.shots.mapIndexed { i, s ->
+                    "${STORYBOARD_NUM.getOrElse(i) { "${i + 1}." }} $s"
+                }.joinToString("　"),
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextActionButton(
+                    label = "複製",
+                    icon = "content_copy",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = { Clipboard.copy(ctx, text, toastMsg = "已複製分鏡") },
+                )
+                TextActionButton(label = "使用", icon = "check", onClick = { onPick(text) })
+            }
+        }
+    }
+
+    // ── 分段選擇器 ──
+    Text(
+        text = "自己排分鏡 — 場景共用,逐段挑鏡頭/動作",
+        fontSize = 12.sp,
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 18.dp, bottom = 2.dp),
+    )
+    SearchableField(
+        label = "場景(整支共用,可不選)",
+        value = scene,
+        options = sceneOpts,
+        expanded = openPicker == "scene",
+        onToggle = { openPicker = if (openPicker == "scene") null else "scene" },
+        onPick = { scene = it; openPicker = null },
+        onRandom = { scene = sceneOpts.random() },
+    )
+    segments.forEachIndexed { idx, shot ->
+        Row(verticalAlignment = Alignment.Top) {
+            Box(modifier = Modifier.weight(1f)) {
+                SearchableField(
+                    label = "第 ${idx + 1} 段　鏡頭/動作",
+                    value = shot,
+                    options = motionOpts,
+                    expanded = openPicker == "seg$idx",
+                    onToggle = { openPicker = if (openPicker == "seg$idx") null else "seg$idx" },
+                    onPick = { segments[idx] = it; openPicker = null },
+                    onRandom = { segments[idx] = motionOpts.random() },
+                )
+            }
+            if (segments.size > 1) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 6.dp, top = 20.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (openPicker == "seg$idx") openPicker = null
+                            segments.removeAt(idx)
+                        }
+                        .padding(8.dp),
+                ) {
+                    ImagineIcon(
+                        name = "close",
+                        size = 18.dp,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+    if (segments.size < 5) {
+        Box(modifier = Modifier.padding(top = 10.dp)) {
+            RandomBar(label = "＋  加一段") { segments.add(motionOpts.random()) }
+        }
+    }
+
+    // ── 預覽 + 填入 ──
+    Text(
+        text = "預覽",
+        fontSize = 12.sp,
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
+    )
+    val preview = assembleStoryboard(scene, segments)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = preview.ifEmpty { "（加幾段鏡頭，這裡會組成編號分鏡）" },
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextActionButton(
+            label = "複製",
+            icon = "content_copy",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            onClick = { Clipboard.copy(ctx, preview, toastMsg = "已複製分鏡") },
+        )
+        TextActionButton(label = "填入", icon = "check", onClick = { onPick(preview) })
     }
 }
