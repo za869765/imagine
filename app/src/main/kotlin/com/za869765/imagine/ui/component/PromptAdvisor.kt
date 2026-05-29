@@ -21,7 +21,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -100,14 +104,7 @@ fun buildScaffold(seed: String): String {
     }
 }
 
-// 片語庫 — 點一下插入游標處。標題 to 片語清單。
-private val SNIPPET_GROUPS = listOf(
-    "光線" to listOf("黃昏暖光", "月夜冷光", "逆光剪影", "柔和散射光", "戲劇性側光", "霓虹夜景光"),
-    "鏡頭" to listOf("臉部特寫", "中景", "全身遠景", "低角度仰拍", "俯視角", "跟拍鏡頭", "淺景深"),
-    "色調" to listOf("暖橘色調", "冷藍色調", "高對比", "柔和粉彩", "電影感分級", "復古褪色"),
-    "情緒" to listOf("含笑垂眸", "焦急", "決絕眼神", "落寞神情", "驚訝", "溫柔凝視"),
-    "風格" to listOf("電影感", "35mm 底片質感", "動漫風", "寫實攝影", "油畫質感", "水彩風"),
-)
+// 片語庫已改為衍生自 BUILDER_FIELDS (與「自己組」同步、單一真相源)，渲染見 PromptAdvisorSheet。
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -360,53 +357,89 @@ fun PromptAdvisorSheet(
             )
 
             Text(
-                text = "片語庫 — 點一下插入游標處",
+                text = "片語庫 — 點類別展開，點片語插入游標處",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W700,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 4.dp),
             )
 
-            // ── 片語庫（B3：最近用過置頂）──
-            val groups = buildList {
-                if (recentSnippets.isNotEmpty()) add("最近用過" to recentSnippets)
-                addAll(SNIPPET_GROUPS)
-            }
-            groups.forEach { (group, items) ->
+            // 最近用過 (置頂、常駐展開)
+            if (recentSnippets.isNotEmpty()) {
                 Text(
-                    text = group,
+                    text = "最近用過",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                    modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
                 )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items.forEach { snippet ->
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .border(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outline,
-                                    RoundedCornerShape(20.dp),
-                                )
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable { onInsert(snippet) }
-                                .padding(horizontal = 14.dp, vertical = 8.dp),
-                        ) {
-                            Text(
-                                text = snippet,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.W500,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
+                    recentSnippets.forEach { snippet ->
+                        SnippetChip(text = snippet) { onInsert(snippet) }
+                    }
+                }
+            }
+
+            // 類別 — 與「自己組」同步,衍生自 BUILDER_FIELDS;點類別展開該類所有片語,點片語插入游標處。
+            var expandedGroup by remember { mutableStateOf<String?>(null) }
+            BUILDER_FIELDS.forEach { field ->
+                val opts = field.options.filter { it != "(不指定)" }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            expandedGroup = if (expandedGroup == field.label) null else field.label
+                        }
+                        .padding(top = 10.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "${field.label}  (${opts.size})",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    ImagineIcon(
+                        name = if (expandedGroup == field.label) "expand_less" else "expand_more",
+                        size = 18.dp,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (expandedGroup == field.label) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        opts.forEach { snippet ->
+                            SnippetChip(text = snippet) { onInsert(snippet) }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+// 片語庫的可插入 chip — 點一下插入游標處。
+@Composable
+private fun SnippetChip(text: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.W500,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
