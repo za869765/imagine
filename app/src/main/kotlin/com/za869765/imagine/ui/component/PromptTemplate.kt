@@ -236,15 +236,15 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
             "電影感寫實", "自然光人像", "日系清新", "韓系雜誌", "古裝劇", "國風工筆",
             "日系動漫", "厚塗插畫", "水彩", "油畫質感", "黑白底片", "復古膠片",
             "賽博龐克", "蒸氣龐克", "奇幻史詩", "時尚雜誌", "紀實街拍", "夢幻柔焦",
-            "極簡棚拍", "電影海報",
+            "極簡棚拍", "電影海報", "黑色電影", "唯美沙龍", "個人寫真", "雜誌跨頁",
         ),
     ),
     BuilderField(
         "主體對象",
         listOf(
-            "一位女子", "一位青年男子", "一位女性", "一位男性", "一對情侶", "一群好友",
-            "一名孩童", "一位長者", "一隻橘貓", "一隻柴犬", "一名女戰士", "一名男劍客",
-            "一名機械少女",
+            "一位女子", "一位少女", "一位輕熟女", "一位女學生", "一位 OL", "一位女神",
+            "一位青年男子", "一位女性", "一位男性", "一對情侶", "一群好友", "一名孩童",
+            "一位長者", "一隻橘貓", "一隻柴犬", "一名女戰士", "一名男劍客", "一名機械少女",
         ),
     ),
     BuilderField(
@@ -258,7 +258,8 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         "氣質類型",
         listOf(
             "(不指定)", "清純", "知性", "甜美", "冷豔", "英氣", "御姐", "古典", "文青",
-            "活潑", "神秘", "高冷", "溫柔", "中性帥氣", "華麗", "鄰家", "個性",
+            "活潑", "神秘", "高冷", "溫柔", "中性帥氣", "華麗", "鄰家", "個性", "颯爽",
+            "慵懶", "清冷", "嫵媚", "純真", "幹練", "仙氣", "嬌憨",
         ),
     ),
     BuilderField(
@@ -266,7 +267,8 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         listOf(
             "(不指定)", "學生", "上班族", "醫師", "護理師", "教師", "咖啡師", "攝影師",
             "設計師", "舞者", "音樂家", "畫家", "作家", "運動員", "廚師", "空服員",
-            "軍人", "警察", "律師", "科學家", "花藝師", "旅人",
+            "軍人", "警察", "律師", "科學家", "花藝師", "旅人", "模特兒", "主播",
+            "記者", "瑜伽教練", "芭蕾舞者", "鋼琴家", "偵探", "太空人", "巫女", "女僕",
         ),
     ),
     BuilderField(
@@ -276,9 +278,24 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
     BuilderField(
         "髮型髮色",
         listOf(
-            "(不指定)", "黑長直髮", "棕色波浪捲", "俐落短髮", "高馬尾", "雙麻花辮",
-            "公主切", "齊瀏海", "中分長髮", "銀白髮", "亞麻金髮", "酒紅挑染", "丸子頭",
-            "微卷鮑伯", "濕髮後梳", "蓬鬆捲髮",
+            "(不指定)", "黑長直髮", "黑長捲髮", "棕色波浪捲", "俐落短髮", "高馬尾",
+            "雙馬尾", "雙麻花辮", "公主切", "齊瀏海", "妹妹頭", "中分長髮", "大波浪",
+            "銀白髮", "亞麻金髮", "酒紅挑染", "粉色挑染", "漸層藍髮", "丸子頭", "編髮盤髮",
+            "微卷鮑伯", "狼尾剪", "濕髮後梳", "蓬鬆捲髮",
+        ),
+    ),
+    BuilderField(
+        "妝容",
+        listOf(
+            "(不指定)", "裸妝", "清透淡妝", "韓系水光妝", "紅唇妝", "煙燻眼妝", "復古妝",
+            "日系蜜桃妝", "古典花鈿妝", "舞台濃妝", "曬傷腮紅妝",
+        ),
+    ),
+    BuilderField(
+        "配件",
+        listOf(
+            "(不指定)", "細框眼鏡", "黑框眼鏡", "墨鏡", "珍珠耳環", "細項鍊", "寬簷帽",
+            "貝雷帽", "緞帶髮飾", "絲巾", "皮手套", "耳機", "團扇", "口罩", "花冠",
         ),
     ),
     BuilderField(
@@ -287,6 +304,16 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
             "月白絲質長裙", "靛藍棉麻長衫", "改良式漢服", "白色襯衫", "米色針織毛衣",
             "黑色皮衣", "卡其風衣", "牛仔外套", "紅色禮服", "學院制服", "運動套裝",
             "金屬感盔甲", "復古西裝", "旗袍", "和服", "波希米亞長裙", "醫師白袍", "太空裝",
+            "連身洋裝", "JK 制服", "露肩晚禮服", "毛呢大衣", "羽絨外套", "浴衣", "護士服",
+            "女僕裝", "婚紗",
+        ),
+    ),
+    BuilderField(
+        "姿勢",
+        listOf(
+            "(不指定)", "自然站姿", "慵懶坐姿", "托腮沉思", "雙手插口袋", "撥動髮絲",
+            "回頭凝望", "倚牆而立", "盤腿而坐", "雙手抱膝", "伸懶腰", "比 V 手勢",
+            "雙手托臉", "回眸轉身",
         ),
     ),
     BuilderField(
@@ -294,7 +321,7 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         listOf(
             "含笑垂眸", "溫柔凝視鏡頭", "緊抿嘴唇眉心微蹙", "眼神決絕", "燦爛大笑",
             "落寞出神", "驚訝張口", "沉靜閉眼", "自信淺笑", "回眸一笑", "若有所思",
-            "專注凝神",
+            "專注凝神", "嫣然一笑", "噘嘴", "挑眉", "害羞低頭", "冷笑", "淚眼婆娑",
         ),
     ),
     BuilderField(
@@ -303,7 +330,8 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
             "古典庭院", "堆滿書卷的書房", "雨後石板街道", "灑入陽光的落地窗客廳",
             "午後咖啡廳", "霧氣繚繞的森林", "海邊礁岩", "櫻花樹下", "都市霓虹街頭",
             "圖書館長廊", "雪地森林", "花田", "廢墟教堂", "屋頂天台", "地鐵月台",
-            "沙漠", "山頂雲海", "攝影棚純色背景",
+            "沙漠", "山頂雲海", "攝影棚純色背景", "教室", "神社", "遊樂園", "火車車廂",
+            "楓葉林", "星空草原",
         ),
     ),
     BuilderField(
@@ -317,19 +345,45 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
     BuilderField(
         "構圖鏡頭",
         listOf(
-            "臉部特寫", "胸上中景", "七分身", "全身遠景", "過肩鏡頭", "大特寫眼神",
-            "廣角環境人像", "俯拍全身", "對稱構圖", "三分法構圖",
+            "臉部特寫", "胸上中景", "半身像", "七分身", "膝上景", "全身遠景", "過肩鏡頭",
+            "大特寫眼神", "特寫手部", "廣角環境人像", "俯拍全身", "對稱構圖", "三分法構圖",
         ),
     ),
     BuilderField(
         "視角",
-        listOf("平視", "低角度仰拍", "高角度俯視", "微側 45 度", "背影回眸", "鳥瞰"),
+        listOf(
+            "平視", "低角度仰拍", "高角度俯視", "微側 45 度", "背影回眸", "鳥瞰",
+            "第一人稱視角", "廣角畸變",
+        ),
     ),
     BuilderField(
         "色調",
         listOf(
             "暖橘色調", "冷藍色調", "高對比", "柔和粉彩", "復古褪色", "黑白",
-            "莫蘭迪低飽和", "青橙電影調", "暖金色調", "冷峻銀藍",
+            "莫蘭迪低飽和", "青橙電影調", "暖金色調", "冷峻銀藍", "蒂芬妮藍", "奶油色調",
+            "賽博霓虹",
+        ),
+    ),
+    BuilderField(
+        "動作",
+        listOf(
+            "(不指定)", "緩緩轉頭看向鏡頭", "微風吹動髮絲", "回眸一笑", "緩步走向鏡頭",
+            "伸手撥開髮絲", "裙襬隨風飛揚", "輕輕眨眼", "轉身離開", "抬頭仰望", "低頭淺笑",
+            "揮手致意", "奔跑跳躍", "慢動作回頭", "鏡頭緩緩推近", "鏡頭環繞主體", "衣袂飄動",
+        ),
+    ),
+    BuilderField(
+        "聲音",
+        listOf(
+            "(不指定)", "輕柔鋼琴背景樂", "舒緩弦樂", "海浪聲", "雨聲淅瀝", "微風與鳥鳴",
+            "城市環境音", "篝火劈啪聲", "腳步聲回響", "人聲輕語", "熱鬧人潮聲", "寂靜無聲",
+        ),
+    ),
+    BuilderField(
+        "字幕",
+        listOf(
+            "(不指定)", "無字幕", "底部置中字幕", "電影感寬螢幕字幕", "開場標題大字",
+            "手寫風字幕", "雙語字幕", "純淨無文字",
         ),
     ),
 )
@@ -349,18 +403,27 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
             v("職業"),
             v("身形"),
             v("髮型髮色"),
+            v("妝容"),
         ).filter { it.isNotEmpty() }
         if (mods.isNotEmpty()) append("，").append(mods.joinToString("，"))
+        if (v("配件").isNotEmpty()) append("，配戴").append(v("配件"))
         if (v("服飾").isNotEmpty()) append("，穿").append(v("服飾"))
+        if (v("姿勢").isNotEmpty()) append("，").append(v("姿勢"))
         if (v("情緒狀態").isNotEmpty()) append("，").append(v("情緒狀態"))
     }
     val scene = listOf(v("場景地點"), v("光線時辰")).filter { it.isNotEmpty() }.joinToString("，")
     val comp = listOf(v("構圖鏡頭"), v("視角")).filter { it.isNotEmpty() }.joinToString("，")
     val style = listOf(v("風格類型"), v("色調"), "淺景深").filter { it.isNotEmpty() }.joinToString("，")
+    val motion = v("動作")
+    val sound = v("聲音")
+    val caption = v("字幕")
     return buildString {
         if (person.isNotEmpty()) append("主體：").append(person).append("。\n")
         if (scene.isNotEmpty()) append("場景：").append(scene).append("。\n")
         if (comp.isNotEmpty()) append("構圖：").append(comp).append("。\n")
+        if (motion.isNotEmpty()) append("動態：").append(motion).append("。\n")
+        if (sound.isNotEmpty()) append("聲音：").append(sound).append("。\n")
+        if (caption.isNotEmpty()) append("字幕：").append(caption).append("。\n")
         if (style.isNotEmpty()) append("風格：").append(style).append("。")
     }.trim()
 }
@@ -658,34 +721,8 @@ private fun SearchableField(
             )
             val q = query.trim()
             val filtered = if (q.isEmpty()) options else options.filter { it.contains(q, ignoreCase = true) }
-            val shown = filtered.take(12)
-            shown.forEach { opt ->
-                val isSelected = opt == value
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPick(opt) }
-                        .padding(vertical = 11.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = opt,
-                        fontSize = 15.sp,
-                        fontWeight = if (isSelected) FontWeight.W700 else FontWeight.W500,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (isSelected) {
-                        ImagineIcon(
-                            name = "check",
-                            size = 18.dp,
-                            fill = 1,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            }
+            // v1.0.64: 拿掉 12 筆上限,改全部 inline 渲染 → 靠外層 sheet 捲動就能看到所有選項
+            // (修「選單無法下拉看到最後選項」)。搜尋框仍可打字縮小範圍。
             if (filtered.isEmpty()) {
                 Text(
                     text = "找不到符合的選項，換個關鍵字",
@@ -693,13 +730,34 @@ private fun SearchableField(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
                 )
-            } else if (filtered.size > shown.size) {
-                Text(
-                    text = "還有 ${filtered.size - shown.size} 項，打字縮小範圍",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                )
+            } else {
+                filtered.forEach { opt ->
+                    val isSelected = opt == value
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(opt) }
+                            .padding(vertical = 11.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = opt,
+                            fontSize = 15.sp,
+                            fontWeight = if (isSelected) FontWeight.W700 else FontWeight.W500,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (isSelected) {
+                            ImagineIcon(
+                                name = "check",
+                                size = 18.dp,
+                                fill = 1,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
