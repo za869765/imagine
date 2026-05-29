@@ -143,6 +143,18 @@ fun PromptInput(
         prefs.recentSnippets = recent.take(6)
     }
 
+    // 建議-風險: 把命中的高風險詞換成使用者點選的較溫和替代 (所有出現處,不分大小寫)。
+    // 不關 sheet — 換完 value 變動會讓 sheet 重新掃描,使用者可接著處理下一個。
+    fun replaceTerm(oldTerm: String, newTerm: String) {
+        val cur = tfValue.text
+        val replaced = cur.replace(oldTerm, newTerm, ignoreCase = true)
+        if (replaced == cur) return
+        val clipped = if (replaced.length > maxChars) replaced.take(maxChars) else replaced
+        tfValue = TextFieldValue(clipped, selection = TextRange(clipped.length))
+        onValueChange(clipped)
+        suppressSelectAllOnce = true
+    }
+
     // B1: 跳到下一個【…】佔位符並選取,直接打字覆蓋;到底繞回第一個。
     fun jumpToNextPlaceholder() {
         val text = tfValue.text
@@ -299,6 +311,7 @@ fun PromptInput(
                 onDismiss = { showAdvisorSheet = false },
                 onInsert = { snippet -> insertAtCursor(snippet) },
                 onExpand = { scaffold -> applyTemplate(scaffold) },
+                onReplace = { oldTerm, newTerm -> replaceTerm(oldTerm, newTerm) },
             )
         }
     }
@@ -366,6 +379,55 @@ private fun matchesTerm(low: String, term: String): Boolean =
 fun firstHighRiskTerm(prompt: String): String? {
     val low = prompt.lowercase()
     return HIGH_RISK_TERMS.firstOrNull { matchesTerm(low, it) }
+}
+
+// ── 「建議」鈕的審核風險字詞偵測 (與 A2 共用同一份字庫,單一真相源) ──────────
+// 兩類詞處理方式刻意不同:
+//   ① blocked  — 裸露/性/未成年/性暗示。xAI 後端審核是強制的,改寫也過不了,
+//      所以這裡「只標紅 + 說明」,不提供任何「替代詞」。本工具不做規避審核用途;
+//      給假替代只會讓使用者照樣被擋還白花錢 ($0.05/張)。
+//   ② artistic — 血腥/暴力/武器/恐怖 這類「常被誤判」的藝術/歷史/恐怖帶。
+//      提供幾個較溫和、保留創作意圖的改寫,點一下就換掉 → 提高過審率、省錢。
+data class RiskHit(val term: String, val alternatives: List<String>)
+
+// 性暗示帶: 跟 HIGH_RISK_TERMS 同樣只標紅、不給替代。
+private val SEXUAL_ADJACENT = listOf(
+    "bikini", "topless", "lingerie", "sensual", "suggestive", "fetish",
+    "比基尼", "內衣", "戀物",
+)
+
+// 藝術帶: 詞 → 幾個較溫和、保留意圖的改寫。
+private val ARTISTIC_ALTERNATIVES: List<Pair<String, List<String>>> = listOf(
+    "血腥" to listOf("暗紅色潑灑", "戲劇性紅色光影", "濃烈紅色調"),
+    "鮮血" to listOf("暗紅色液體", "猩紅顏料感", "紅色潑墨"),
+    "blood" to listOf("dark red splashes", "crimson tone"),
+    "gore" to listOf("dramatic dark-red imagery", "intense crimson mood"),
+    "暴力" to listOf("激烈動作場面", "緊張對峙張力", "武打動作編排"),
+    "violence" to listOf("intense action scene", "dramatic confrontation"),
+    "violent" to listOf("intense", "high-energy"),
+    "武器" to listOf("古代兵器道具", "道具刀劍", "器械道具"),
+    "weapon" to listOf("prop weapon", "ceremonial blade"),
+    "gun" to listOf("prop firearm", "sci-fi blaster prop"),
+    "knife" to listOf("prop blade", "kitchen utensil"),
+    "殺戮" to listOf("對決場面", "衝突高潮"),
+    "kill" to listOf("confront", "defeat in a duel"),
+    "murder" to listOf("stylized mystery scene", "dramatic confrontation"),
+    "恐怖" to listOf("懸疑詭譎氛圍", "暗黑奇幻風格", "哥德式陰森美學"),
+    "horror" to listOf("dark fantasy mood", "gothic eerie aesthetic"),
+    "scary" to listOf("eerie", "suspenseful"),
+    "屍體" to listOf("倒臥的身影", "靜止的人形"),
+    "corpse" to listOf("fallen figure", "still silhouette"),
+)
+
+// 掃描 prompt → (blocked 命中詞清單, artistic 命中詞+替代清單)。給「建議」sheet 用。
+fun scanPromptRisks(prompt: String): Pair<List<String>, List<RiskHit>> {
+    if (prompt.isBlank()) return emptyList<String>() to emptyList<RiskHit>()
+    val low = prompt.lowercase()
+    val blocked = (HIGH_RISK_TERMS + SEXUAL_ADJACENT).filter { matchesTerm(low, it) }.distinct()
+    val artistic = ARTISTIC_ALTERNATIVES
+        .filter { matchesTerm(low, it.first) }
+        .map { RiskHit(it.first, it.second) }
+    return blocked to artistic
 }
 
 // A2: 送出前的軟確認對話框。只是提醒+省錢,不是硬擋 (誤判頂多多按一下)。

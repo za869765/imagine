@@ -117,6 +117,7 @@ fun PromptAdvisorSheet(
     onDismiss: () -> Unit,
     onInsert: (String) -> Unit,
     onExpand: (String) -> Unit = {},
+    onReplace: (String, String) -> Unit = { _, _ -> },
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -142,10 +143,145 @@ fun PromptAdvisorSheet(
                 modifier = Modifier.padding(top = 4.dp),
             )
             Text(
-                text = "對照 5 要素，缺哪個補哪個更穩（$coveredCount / 5）",
+                text = "先處理高風險字詞，再用 5 要素補強（$coveredCount / 5）",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp, bottom = 12.dp),
+            )
+
+            // ── 審核風險字詞 (置頂) ──────────────────────────────
+            // blocked = 裸露/性/未成年/性暗示: 只標紅+說明,不給替代 (不做規避審核)。
+            // artistic = 血腥/暴力/武器/恐怖: 給較溫和替代,點一下換掉。
+            val (blockedTerms, artisticHits) = scanPromptRisks(currentPrompt)
+            Text(
+                text = "審核風險字詞",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W700,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+            if (currentPrompt.isBlank()) {
+                Text(
+                    text = "先輸入一些描述，這裡會標出可能被審核的字詞並提供替代。",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (blockedTerms.isEmpty() && artisticHits.isEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ImagineIcon(
+                        name = "check",
+                        size = 18.dp,
+                        fill = 1,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "目前沒偵測到高風險字詞",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            } else {
+                if (blockedTerms.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(
+                                name = "warning",
+                                size = 18.dp,
+                                fill = 1,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                            Text(
+                                text = "幾乎一定被擋：" + blockedTerms.joinToString("、"),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W700,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                        Text(
+                            text = "xAI 後端審核是強制的，改寫也過不了 — 建議換個方向，別硬湊（送出仍會計費）。",
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+                artisticHits.forEach { hit ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(
+                                name = "warning",
+                                size = 16.dp,
+                                fill = 0,
+                                tint = Color(0xFFE0A500),
+                            )
+                            Text(
+                                text = "「${hit.term}」可能被誤判 — 點替代詞換掉",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            hit.alternatives.forEach { alt ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.primary,
+                                            RoundedCornerShape(20.dp),
+                                        )
+                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                        .clickable { onReplace(hit.term, alt) }
+                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                ) {
+                                    Text(
+                                        text = alt,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 分隔 (風險區 ↔ 下方 5 要素健檢/片語庫) ──
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 14.dp)
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant),
             )
 
             // ── B4：一鍵擴寫成 5 要素骨架 ──
