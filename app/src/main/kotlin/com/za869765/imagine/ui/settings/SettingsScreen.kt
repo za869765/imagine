@@ -56,12 +56,10 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.data.storage.MediaImporter
 import kotlinx.coroutines.launch
-import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
-import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.SectionHeader
@@ -73,7 +71,7 @@ fun SettingsScreen(
     onApiKeyClick: () -> Unit,
     onLibraryClick: () -> Unit,
     onClearedAndReset: () -> Unit,
-    onNavSelected: (NavTab) -> Unit,
+    onBack: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -150,9 +148,9 @@ fun SettingsScreen(
     }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "設定", trailing = { Box(modifier = Modifier.size(48.dp)) }) },
+        appBar = { ImagineTopAppBar(title = "設定", showBack = true, onBackClick = onBack, trailing = { Box(modifier = Modifier.size(48.dp)) }) },
         showBalanceBar = false,
-        bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
+        bottomNav = null,
     ) {
         Column(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),

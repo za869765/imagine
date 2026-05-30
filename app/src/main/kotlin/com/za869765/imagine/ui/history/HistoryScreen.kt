@@ -41,12 +41,9 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
-import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineIcon
-import com.za869765.imagine.ui.component.ImagineIconButton
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
-import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.util.Clipboard
@@ -64,7 +61,7 @@ data class HistoryItem(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
-    onNavSelected: (NavTab) -> Unit,
+    onBack: () -> Unit,
     onItemClick: (HistoryItem) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -90,9 +87,9 @@ fun HistoryScreen(
         appBar = {
             ImagineTopAppBar(
                 title = "歷史",
-                trailing = {
-                    ImagineIconButton(name = "auto_awesome", onClick = {})
-                },
+                showBack = true,
+                onBackClick = onBack,
+                trailing = { Box(modifier = Modifier.size(48.dp)) },
             )
         },
         showBalanceBar = false,
@@ -101,7 +98,7 @@ fun HistoryScreen(
         // 「Vertically scrollable component was measured with an infinity maximum height」。
         // LazyVerticalGrid 自己有 scroll，外層關掉即可。
         scroll = false,
-        bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
+        bottomNav = null,
     ) {
         // v1.0.54 O3: Column + forEach → SegmentedTab 在外 + LazyVerticalGrid 為主體。
         // 避免幾百張縮圖一次全部 inflate 導致記憶體用量爆 + 首次渲染卡 1-2 秒。

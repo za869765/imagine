@@ -141,11 +141,11 @@ fun ImagineRoot() {
                 GenerateImageScreen(
                     initialPrompt = initPrompt,
                     onSwitchToVideo = {
-                        // popUpTo 用 GENERATE_IMAGE (BottomNav 主舞台,永遠在 stack 底),
-                        // 不用 startDestinationId — SPLASH 是 startDestination 但啟動後
-                        // inclusive pop 掉了,popUpTo 不可達 destination 時 saveState 不可靠
+                        // 圖/影互切錨定 MATERIAL_HUB(素材生成 section root,啟動後永遠在 stack 底)。
+                        // 不可錨 GENERATE_IMAGE:從 hub 直接進影片頁時它根本不在 stack,
+                        // popUpTo 不可達會讓 saveState 失效 + 畫面一直疊加。
                         navController.navigate(Routes.GENERATE_VIDEO) {
-                            popUpTo(Routes.GENERATE_IMAGE) { saveState = true }
+                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -186,7 +186,7 @@ fun ImagineRoot() {
                 GenerateVideoScreen(
                     onSwitchToImage = {
                         navController.navigate(Routes.GENERATE_IMAGE) {
-                            popUpTo(Routes.GENERATE_IMAGE) { saveState = true }
+                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -225,7 +225,7 @@ fun ImagineRoot() {
 
             composable(Routes.HISTORY) {
                 HistoryScreen(
-                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                    onBack = { navController.popBackStack() },
                     onItemClick = { item ->
                         navController.currentBackStackEntry
                             ?.savedStateHandle?.set(KEY_HISTORY_URI, item.id)
@@ -323,7 +323,7 @@ fun ImagineRoot() {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                    onBack = { navController.popBackStack() },
                 )
             }
 
