@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.za869765.imagine.data.storage.CharacterStore
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -68,20 +69,26 @@ fun HistoryScreen(
     var entries by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("all") }
+    var characters by remember { mutableStateOf<Set<String>>(emptySet()) }
 
+    // LaunchedEffect(Unit) 在每次回到本頁時重跑(導覽返回會 dispose→recompose)，
+    // 所以在 detail 標記角色後回來，characters 會是最新的。
     LaunchedEffect(Unit) {
         entries = MediaHistory.loadAll(ctx)
+        characters = CharacterStore.all(ctx)
         loaded = true
     }
 
     val items = when (filter) {
         "img" -> entries.filter { !it.isVideo }
         "vid" -> entries.filter { it.isVideo }
+        "char" -> entries.filter { !it.isVideo && it.displayName in characters }
         else -> entries
     }
     val grouped = items.groupBy { formatDate(it.addedAtSec) }
     val imgCount = entries.count { !it.isVideo }
     val vidCount = entries.count { it.isVideo }
+    val charCount = entries.count { !it.isVideo && it.displayName in characters }
 
     ImagineScreen(
         appBar = {
@@ -109,6 +116,7 @@ fun HistoryScreen(
                     SegmentedOption("all", "全部 ${entries.size}"),
                     SegmentedOption("img", "圖片 $imgCount"),
                     SegmentedOption("vid", "影片 $vidCount"),
+                    SegmentedOption("char", "⭐ $charCount"),
                 ),
                 activeId = filter,
                 onSelected = { filter = it },
@@ -145,6 +153,7 @@ fun HistoryScreen(
                         HistoryThumbnail(
                             entry = entry,
                             date = date,
+                            isCharacter = entry.displayName in characters,
                             onItemClick = onItemClick,
                             ctx = ctx,
                         )
@@ -160,6 +169,7 @@ fun HistoryScreen(
 private fun HistoryThumbnail(
     entry: MediaEntry,
     date: String,
+    isCharacter: Boolean,
     onItemClick: (HistoryItem) -> Unit,
     ctx: android.content.Context,
 ) {
@@ -198,6 +208,18 @@ private fun HistoryThumbnail(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
+        if (isCharacter) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(4.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+            ) {
+                Text(text = "⭐", fontSize = 11.sp)
+            }
+        }
         if (!entry.prompt.isNullOrBlank()) {
             Box(
                 modifier = Modifier

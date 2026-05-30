@@ -1,6 +1,7 @@
 package com.za869765.imagine.ui.history
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +40,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
+import com.za869765.imagine.data.storage.CharacterStore
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ImagineCard
@@ -185,6 +190,16 @@ fun HistoryDetailScreen(
 
             ImagineCard(pad = 0, variant = CardVariant.Filled) {
                 Column {
+                    // 角色庫:圖片可標記為「角色參考圖」(影片不可當圖生圖輸入)
+                    if (!entry.isVideo) {
+                        CharacterToggleRow(ctx = ctx, name = entry.displayName)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(0.5.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant),
+                        )
+                    }
                     val actions = if (entry.isVideo) {
                         listOf(
                             "edit" to "編輯這段",
@@ -254,6 +269,41 @@ private fun DetailRow(label: String, value: String, mono: Boolean = false) {
             fontWeight = if (mono) FontWeight.W500 else FontWeight.W500,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+@Composable
+private fun CharacterToggleRow(ctx: Context, name: String) {
+    var isChar by remember(name) { mutableStateOf(CharacterStore.isCharacter(ctx, name)) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                isChar = CharacterStore.toggle(ctx, name)
+                Toast.makeText(
+                    ctx,
+                    if (isChar) "已設為角色參考圖 ⭐（素材庫「角色」分頁可找到）" else "已從角色庫移除",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(text = if (isChar) "⭐" else "☆", fontSize = 20.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (isChar) "已是角色參考圖（點擊取消）" else "設為角色參考圖",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.W500,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "標記後可在素材庫「角色」分頁快速找到，當圖生圖/圖生影的輸入。",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

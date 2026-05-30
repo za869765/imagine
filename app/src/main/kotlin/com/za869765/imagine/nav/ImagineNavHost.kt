@@ -256,6 +256,7 @@ fun ImagineRoot() {
                                     val path = e.uri.path
                                     if (path != null) java.io.File(path).delete()
                                     com.za869765.imagine.data.storage.PromptIndex.remove(ctx, e.displayName)
+                                    com.za869765.imagine.data.storage.CharacterStore.remove(ctx, e.displayName)
                                 }
                             }
                         }
