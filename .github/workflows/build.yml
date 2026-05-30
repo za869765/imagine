@@ -59,6 +59,19 @@ jobs:
           fail_on_unmatched_files: true
           make_latest: "true"
 
+      - name: Prune old releases (keep latest 5)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list --repo "${{ github.repository }}" --limit 200 --json tagName,createdAt \
+            | jq -r 'sort_by(.createdAt) | reverse | .[5:] | .[].tagName' \
+            | while read -r tag; do
+                [ -z "$tag" ] && continue
+                echo "Deleting old release $tag"
+                gh release delete "$tag" --repo "${{ github.repository }}" --cleanup-tag --yes || true
+              done
+
       - name: Upload lint reports (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
