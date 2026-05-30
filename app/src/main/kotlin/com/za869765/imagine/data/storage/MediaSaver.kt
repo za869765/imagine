@@ -101,6 +101,19 @@ object MediaSaver {
         writeFile(ctx, filename, prompt) { stream.copyTo(it) }
     }
 
+    // v1.0.77 長片組合: MediaMuxer 需要實體輸出檔路徑 → 給 media 目錄下一個新 .mp4 檔
+    // (命名沿用同一套防撞名規則),合成完成後再 registerSaved() 登記 prompt;失敗就刪殘檔。
+    fun newVideoFile(ctx: Context): File = File(mediaDir(ctx), "imagine_${timestamp()}.mp4")
+
+    fun registerSaved(ctx: Context, file: File, prompt: String): String? =
+        if (file.exists() && file.length() > 0L) {
+            PromptIndex.put(ctx, file.name, prompt)
+            file.toUri().toString()
+        } else {
+            runCatching { if (file.exists()) file.delete() }
+            null
+        }
+
     private inline fun writeFile(
         ctx: Context,
         filename: String,
