@@ -71,6 +71,7 @@ import com.za869765.imagine.ui.theme.LocalBudgetColors
 @Composable
 fun SettingsScreen(
     onApiKeyClick: () -> Unit,
+    onLibraryClick: () -> Unit,
     onClearedAndReset: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
 ) {
@@ -151,12 +152,53 @@ fun SettingsScreen(
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "設定", trailing = { Box(modifier = Modifier.size(48.dp)) }) },
         showBalanceBar = false,
-        bottomNav = { ImagineBottomNav(active = NavTab.SETTINGS, onTabSelected = onNavSelected) },
+        bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
     ) {
         Column(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
+            // ── 素材庫 ──
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("素材")
+                ImagineCard(pad = 0, onClick = onLibraryClick) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ImagineIcon(
+                                name = "history",
+                                size = 22.dp,
+                                fill = 1,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "素材庫",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "瀏覽生成過的圖片與影片(歷史)",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
             // ── API ──
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("API")

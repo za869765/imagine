@@ -41,7 +41,7 @@ fun ComponentShowcase() {
     var loading by remember { mutableStateOf(false) }
     var switchOn by remember { mutableStateOf(true) }
     var activeMediaTab by remember { mutableStateOf("image") }
-    var activeNavTab by remember { mutableStateOf(NavTab.GENERATE) }
+    var activeNavTab by remember { mutableStateOf(NavTab.MATERIAL) }
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine · Showcase") },

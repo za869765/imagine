@@ -3,6 +3,9 @@ package com.za869765.imagine.nav
 object Routes {
     const val SPLASH = "splash"
 
+    const val MATERIAL_HUB = "material_hub"
+    const val LONG_VIDEO = "long_video"
+
     const val GENERATE_IMAGE = "generate_image"
     const val GENERATE_VIDEO = "generate_video"
     const val VIDEO_GENERATING = "video_generating"

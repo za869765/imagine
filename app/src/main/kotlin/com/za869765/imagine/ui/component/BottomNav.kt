@@ -26,15 +26,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 enum class NavTab(val id: String, val icon: String, val label: String) {
-    GENERATE("generate", "auto_awesome", "生成"),
-    EDIT("edit", "edit", "編輯"),
-    HISTORY("history", "history", "歷史"),
-    SETTINGS("settings", "settings", "設定"),
+    MATERIAL("material", "auto_awesome", "素材生成"),
+    LONG_VIDEO("long_video", "movie", "長片組合"),
 }
 
 @Composable
 fun ImagineBottomNav(
-    active: NavTab = NavTab.GENERATE,
+    active: NavTab = NavTab.MATERIAL,
     onTabSelected: (NavTab) -> Unit = {},
 ) {
     Column(

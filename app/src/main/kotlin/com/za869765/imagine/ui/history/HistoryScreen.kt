@@ -101,7 +101,7 @@ fun HistoryScreen(
         // 「Vertically scrollable component was measured with an infinity maximum height」。
         // LazyVerticalGrid 自己有 scroll，外層關掉即可。
         scroll = false,
-        bottomNav = { ImagineBottomNav(active = NavTab.HISTORY, onTabSelected = onNavSelected) },
+        bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
     ) {
         // v1.0.54 O3: Column + forEach → SegmentedTab 在外 + LazyVerticalGrid 為主體。
         // 避免幾百張縮圖一次全部 inflate 導致記憶體用量爆 + 首次渲染卡 1-2 秒。

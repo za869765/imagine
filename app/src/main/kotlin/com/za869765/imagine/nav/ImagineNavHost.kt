@@ -27,6 +27,8 @@ import com.za869765.imagine.ui.generate.GenerateImageScreen
 import com.za869765.imagine.ui.generate.GenerateVideoScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
 import com.za869765.imagine.ui.history.HistoryScreen
+import com.za869765.imagine.ui.hub.MaterialHubScreen
+import com.za869765.imagine.ui.longvideo.LongVideoScreen
 import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
 import com.za869765.imagine.ui.settings.SettingsScreen
@@ -102,12 +104,28 @@ fun ImagineRoot() {
                 modifier = Modifier.weight(1f),
             ) {
             composable(Routes.SPLASH) {
-                // PIN 已移除 — Splash 後直接進主畫面
+                // PIN 已移除 — Splash 後直接進素材生成首頁
                 SplashScreen(onTimeout = {
-                    navController.navigate(Routes.GENERATE_IMAGE) {
+                    navController.navigate(Routes.MATERIAL_HUB) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
                     }
                 })
+            }
+
+            composable(Routes.MATERIAL_HUB) {
+                MaterialHubScreen(
+                    onPickImage = { navController.navigate(Routes.GENERATE_IMAGE) },
+                    onPickVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                )
+            }
+
+            composable(Routes.LONG_VIDEO) {
+                LongVideoScreen(
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                )
             }
 
             composable(Routes.GENERATE_IMAGE) {
@@ -297,10 +315,11 @@ fun ImagineRoot() {
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     onApiKeyClick = { navController.navigate(Routes.API_KEY_EDIT) },
+                    onLibraryClick = { navController.navigate(Routes.HISTORY) },
                     onClearedAndReset = {
                         prefs.clearAll()
-                        // PIN 已移除 — 清資料後回主畫面 (整個 stack 清掉重來)
-                        navController.navigate(Routes.GENERATE_IMAGE) {
+                        // 清資料後回素材生成首頁 (整個 stack 清掉重來)
+                        navController.navigate(Routes.MATERIAL_HUB) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
@@ -329,17 +348,13 @@ private fun handleTabNav(
     tab: NavTab,
 ) {
     val target = when (tab) {
-        NavTab.GENERATE -> Routes.GENERATE_IMAGE
-        NavTab.EDIT -> Routes.EDIT
-        NavTab.HISTORY -> Routes.HISTORY
-        NavTab.SETTINGS -> Routes.SETTINGS
+        NavTab.MATERIAL -> Routes.MATERIAL_HUB
+        NavTab.LONG_VIDEO -> Routes.LONG_VIDEO
     }
-    // popUpTo 用 GENERATE_IMAGE (BottomNav 主舞台,永遠在 stack 底) 而非
-    // navController.graph.startDestinationId(=SPLASH,啟動後被 inclusive pop 掉
-    // 不在 stack 內)。popUpTo 不可達 destination 時 Compose Navigation 的
-    // saveState 行為不可靠,導致切走再回來 state reset 為 default。
+    // popUpTo 用 MATERIAL_HUB(BottomNav 主舞台,啟動後永遠在 stack 底);saveState/restoreState
+    // 讓兩頁切換保留各自狀態。
     navController.navigate(target) {
-        popUpTo(Routes.GENERATE_IMAGE) { saveState = true }
+        popUpTo(Routes.MATERIAL_HUB) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
