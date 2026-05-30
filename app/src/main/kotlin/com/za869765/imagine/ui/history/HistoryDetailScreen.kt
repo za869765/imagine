@@ -209,7 +209,6 @@ fun HistoryDetailScreen(
                         listOf(
                             "edit" to "編輯這張",
                             "movie" to "動起來（生影片）",
-                            "image" to "當參考圖",
                         )
                     }
                     actions.forEachIndexed { i, (icon, label) ->

@@ -57,12 +57,18 @@ import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SectionHeader
+import com.za869765.imagine.ui.component.SegmentedOption
+import com.za869765.imagine.ui.component.SegmentedTab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 長片組合 — 把素材庫裡生成過的短片，挑選＋排序＋直接串成一支長片(本機 MediaMuxer，不花 API)。
-// P1 挑選/排序、P2 順序預覽(首楨縮圖 + 點縮圖播放預覽)、P3 合成(寫回素材庫)。
+// 合成長片存檔時 prompt 都以此開頭,用來辨識「已合成的長片」與一般短片素材。
+private const val MERGED_PREFIX = "長片組合"
+
+// 長片組合 — 挑素材庫短片、排序、串成長片(本機 MediaMuxer,不花 API)。
+// P1 挑選/排序、P2 首楨縮圖+點縮圖預覽播放、P3 合成(完成即時跳預覽)。
+// 可用片段可依 相似/最新/時長 整理;已合成的長片獨立成一區(歷史)。
 @Composable
 fun LongVideoScreen(
     onSettingsClick: () -> Unit,
@@ -75,7 +81,9 @@ fun LongVideoScreen(
     var loaded by remember { mutableStateOf(false) }
     var merging by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableStateOf(0) }
-    var preview by remember { mutableStateOf<MediaEntry?>(null) }
+    var previewUri by remember { mutableStateOf<Uri?>(null) }
+    var sortMode by remember { mutableStateOf("sim") }
+    var showMerged by remember { mutableStateOf(false) }
     val sequence = remember { mutableStateListOf<MediaEntry>() }
 
     LaunchedEffect(reloadKey) {
@@ -83,7 +91,9 @@ fun LongVideoScreen(
         loaded = true
     }
 
-    val available = allVideos.filter { v -> sequence.none { it.uri == v.uri } }
+    fun isMerged(e: MediaEntry) = (e.prompt ?: "").startsWith(MERGED_PREFIX)
+    val merged = allVideos.filter { isMerged(it) }
+    val rawAvailable = allVideos.filter { v -> !isMerged(v) && sequence.none { it.uri == v.uri } }
     val totalMs = sequence.sumOf { it.durationMs ?: 0L }
 
     ImagineScreen(
@@ -133,7 +143,7 @@ fun LongVideoScreen(
                             entry = entry,
                             isFirst = i == 0,
                             isLast = i == sequence.lastIndex,
-                            onPreview = { preview = entry },
+                            onPreview = { previewUri = entry.uri },
                             onUp = {
                                 if (i > 0) {
                                     val tmp = sequence[i - 1]
@@ -159,7 +169,7 @@ fun LongVideoScreen(
                     )
                 }
 
-                // ── ③ 合成 (P3) ──
+                // ── 合成 (P3) ──
                 val canMerge = sequence.size >= 2 && !merging
                 Row(
                     modifier = Modifier
@@ -175,14 +185,11 @@ fun LongVideoScreen(
                             val clips = sequence.map { it.uri }
                             val count = sequence.size
                             scope.launch {
-                                val result = VideoMerger.merge(ctx, clips, "長片組合 $count 段")
+                                val result = VideoMerger.merge(ctx, clips, "$MERGED_PREFIX $count 段")
                                 merging = false
                                 if (result != null) {
-                                    Toast.makeText(
-                                        ctx,
-                                        "已合成 $count 段，存到素材庫（右上齒輪 → 素材庫查看）",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
+                                    Toast.makeText(ctx, "已合成 $count 段並存到素材庫", Toast.LENGTH_SHORT).show()
+                                    previewUri = Uri.parse(result)   // #5 合成完即時跳預覽
                                     sequence.clear()
                                     reloadKey++
                                 } else {
@@ -222,41 +229,112 @@ fun LongVideoScreen(
                     }
                 }
 
-                // ── ② 可用片段 ──
+                // ── ② 可用片段 (智慧整理:相似/最新/時長) ──
                 Text(
-                    text = "② 可用片段（${available.size}）",
+                    text = "② 可用片段（${rawAvailable.size}）",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W700,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                if (allVideos.isEmpty()) {
+                if (allVideos.none { !isMerged(it) }) {
                     Text(
-                        text = "素材庫還沒有影片 — 先到「素材生成 → 影片」做幾段。",
+                        text = "素材庫還沒有短片 — 先到「素材生成 → 影片」做幾段。",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                } else if (available.isEmpty()) {
+                } else if (rawAvailable.isEmpty()) {
                     Text(
-                        text = "所有影片都加進去了。",
+                        text = "短片都加進去了。",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    available.forEach { entry ->
-                        AvailRow(
-                            entry = entry,
-                            onAdd = { sequence.add(entry) },
-                            onPreview = { preview = entry },
+                    SegmentedTab(
+                        options = listOf(
+                            SegmentedOption("sim", "相似"),
+                            SegmentedOption("new", "最新"),
+                            SegmentedOption("dur", "時長"),
+                        ),
+                        activeId = sortMode,
+                        onSelected = { sortMode = it },
+                    )
+                    when (sortMode) {
+                        "sim" -> {
+                            // 依 prompt 相似度分組:相同主體/開頭的片段聚在一起
+                            rawAvailable.groupBy { similarityKey(it) }.forEach { (key, list) ->
+                                Text(
+                                    text = "· $key（${list.size}）",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.W600,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                                )
+                                list.forEach { entry ->
+                                    AvailRow(
+                                        entry = entry,
+                                        onAdd = { sequence.add(entry) },
+                                        onPreview = { previewUri = entry.uri },
+                                    )
+                                }
+                            }
+                        }
+                        else -> {
+                            val sorted = if (sortMode == "dur") {
+                                rawAvailable.sortedBy { it.durationMs ?: 0L }
+                            } else {
+                                rawAvailable.sortedByDescending { it.addedAtSec }
+                            }
+                            sorted.forEach { entry ->
+                                AvailRow(
+                                    entry = entry,
+                                    onAdd = { sequence.add(entry) },
+                                    onPreview = { previewUri = entry.uri },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // ── ③ 已合成的長片 (歷史,可摺疊;也能再加進序列繼續接) ──
+                if (merged.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showMerged = !showMerged }
+                            .padding(top = 10.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "③ 已合成的長片（${merged.size}）",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W700,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
                         )
+                        ImagineIcon(
+                            name = if (showMerged) "expand_less" else "expand_more",
+                            size = 20.dp,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (showMerged) {
+                        merged.sortedByDescending { it.addedAtSec }.forEach { entry ->
+                            AvailRow(
+                                entry = entry,
+                                onAdd = { sequence.add(entry) },
+                                onPreview = { previewUri = entry.uri },
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // 預覽播放 Dialog (一次一支,關閉即釋放 player)
-        preview?.let { p ->
-            VideoPreviewDialog(uri = p.uri, onDismiss = { preview = null })
+        // 預覽播放 Dialog (合成短片/已選/結果共用,一次一支,關閉即釋放)
+        previewUri?.let { u ->
+            VideoPreviewDialog(uri = u, onDismiss = { previewUri = null })
         }
     }
 }
@@ -303,11 +381,7 @@ private fun SeqRow(
             )
             val d = formatDur(entry.durationMs)
             if (d.isNotEmpty()) {
-                Text(
-                    text = d,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(text = d, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         IconBtn("expand_less", enabled = !isFirst, onClick = onUp)
@@ -316,7 +390,7 @@ private fun SeqRow(
     }
 }
 
-// 可用片段一列:首楨縮圖(點播放) + 名稱/時長 + 加入。
+// 片段一列:首楨縮圖(點播放) + 名稱/時長 + 加入。
 @Composable
 private fun AvailRow(entry: MediaEntry, onAdd: () -> Unit, onPreview: () -> Unit) {
     Row(
@@ -342,11 +416,7 @@ private fun AvailRow(entry: MediaEntry, onAdd: () -> Unit, onPreview: () -> Unit
             )
             val d = formatDur(entry.durationMs)
             if (d.isNotEmpty()) {
-                Text(
-                    text = d,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(text = d, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Box(
@@ -467,6 +537,14 @@ private fun decodeFirstFrame(ctx: Context, uri: Uri): Bitmap? {
     } finally {
         runCatching { r.release() }
     }
+}
+
+// 相似度分組鍵 — 取 prompt 的「主體：」段或開頭前幾字,相同者視為相似聚在一起。
+private fun similarityKey(entry: MediaEntry): String {
+    val p = entry.prompt?.trim().orEmpty()
+    if (p.isEmpty()) return "未命名"
+    val core = if (p.contains("主體：")) p.substringAfter("主體：") else p
+    return core.replace("\n", " ").trim().take(6).ifEmpty { "未命名" }
 }
 
 // 片段標籤:優先用 prompt 開頭，否則用檔名。

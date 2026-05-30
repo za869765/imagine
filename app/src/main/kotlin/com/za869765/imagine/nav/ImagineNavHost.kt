@@ -191,6 +191,12 @@ fun ImagineRoot() {
                             restoreState = true
                         }
                     },
+                    onExtend = {
+                        // 影片延長走獨立的編輯/延長工具 (它有完整的影片選取 + 延長流程)
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle?.set(KEY_INIT_EDIT_MODE, "extend")
+                        navController.navigate(Routes.EDIT)
+                    },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     initialImageUri = initUrl?.let { Uri.parse(it) },
@@ -205,8 +211,10 @@ fun ImagineRoot() {
                     ?.savedStateHandle?.get<String>(KEY_INIT_PROMPT)
                 val initEditMode = navController.previousBackStackEntry
                     ?.savedStateHandle?.get<String>(KEY_INIT_EDIT_MODE)
-                LaunchedEffect(initUrl) {
-                    if (initUrl != null) {
+                LaunchedEffect(initUrl, initEditMode) {
+                    // initEditMode != null 也要清 (GenerateVideoScreen「延長」只帶 mode、不帶 media,
+                    // 否則 KEY_INIT_EDIT_MODE 會殘留在上一頁的 savedStateHandle)
+                    if (initUrl != null || initEditMode != null) {
                         navController.previousBackStackEntry?.savedStateHandle?.apply {
                             remove<String>(KEY_INIT_MEDIA)
                             remove<String>(KEY_INIT_PROMPT)
@@ -267,8 +275,8 @@ fun ImagineRoot() {
                         val url = e.uri.toString()
                         val p = e.prompt.orEmpty()
                         when (label) {
-                            // 圖片才往生影片頁送 (Img2Vid 起始圖 / Ref 參考圖)
-                            "動起來（生影片）", "當參考圖" -> {
+                            // 圖片 → 生影片頁 (當輸入圖)
+                            "動起來（生影片）" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_MEDIA, url)
                                     set(KEY_INIT_PROMPT, p)

@@ -93,6 +93,7 @@ enum class VideoMode { T2V, Img2Vid, Ref }
 @Composable
 fun GenerateVideoScreen(
     onSwitchToImage: () -> Unit,
+    onExtend: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     initialImageUri: Uri? = null,    // 從圖片頁「動起來」帶過來
@@ -402,6 +403,21 @@ fun GenerateVideoScreen(
                             else -> VideoMode.Ref
                         }
                     },
+                )
+            }
+
+            // 影片延長入口 — 放在模式列旁(原本「參考圖」附近);走獨立的延長工具,不重複邏輯。
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onExtend)
+                    .padding(vertical = 4.dp, horizontal = 2.dp),
+            ) {
+                Text(
+                    text = "↗ 延長現有影片（把一段影片接長）",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
 
