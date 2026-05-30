@@ -35,8 +35,8 @@ object UpdateChecker {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    // v1.0.54 O5: 30 分鐘 cache，避免每次 process 啟動就打 GitHub API (60/hr anonymous limit)
-    private const val CHECK_COOLDOWN_MS = 30L * 60 * 1000
+    // 2 分鐘 cooldown — 兼顧「回前景(ON_START)就重新偵測」的即時性,又不超過匿名 60/hr 限制
+    private const val CHECK_COOLDOWN_MS = 2L * 60 * 1000
 
     suspend fun check(ctx: Context? = null): UpdateInfo? = withContext(Dispatchers.IO) {
         // v1.0.54 O5: cache cooldown

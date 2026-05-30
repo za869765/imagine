@@ -1,10 +1,10 @@
 package com.za869765.imagine.nav
 
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -20,7 +20,6 @@ import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.update.Installer
 import com.za869765.imagine.data.update.UpdateChecker
 import com.za869765.imagine.data.update.UpdateInfo
-import com.za869765.imagine.lock.AppLockManager
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.UpdateBanner
 import com.za869765.imagine.ui.edit.EditScreen
@@ -28,17 +27,17 @@ import com.za869765.imagine.ui.generate.GenerateImageScreen
 import com.za869765.imagine.ui.generate.GenerateVideoScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
 import com.za869765.imagine.ui.history.HistoryScreen
-import com.za869765.imagine.ui.onboarding.LockScreen
-import com.za869765.imagine.ui.onboarding.PinSetupScreen
 import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
-import com.za869765.imagine.ui.settings.ChangePinScreen
 import com.za869765.imagine.ui.settings.SettingsScreen
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 
 private const val KEY_INIT_MEDIA = "init_media_uri"
@@ -50,31 +49,34 @@ private const val KEY_HISTORY_URI = "history_entry_uri"
 fun ImagineRoot() {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    val lockManager = remember { AppLockManager.get(prefs) }
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
 
     val currentRoute by navController.currentBackStackEntryAsState()
-    val isLocked = lockManager.lockedState.value
     val routeId = currentRoute?.destination?.route
-    // Lock overlay 不蓋 onboarding 階段（splash / pin_setup）— 那邊 isLocked 也沒意義。
-    val showLockOverlay = isLocked && prefs.isPinSet &&
-        routeId != null && routeId != Routes.SPLASH && routeId != Routes.PIN_SETUP
 
     // ── in-app updater ────────────────────────────────────────────────
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     var bannerDismissed by remember { mutableStateOf(false) }
     val installerState by Installer.state.collectAsState()
 
-    // 開機拉一次最新 release (repo 已 public, 不需 PAT)
-    // v1.0.54 O5: 傳 ctx 啟用 30min cache，避免每次 cold-start 都打 GitHub API
-    LaunchedEffect(Unit) {
-        updateInfo = UpdateChecker.check(ctx)
+    // v1.0.x: 不只開機檢查 —— 每次 App 回到前景 (ON_START) 都重新偵測,
+    // 配合 UpdateChecker 的短 cooldown,新版發佈後不必整個重開就會跳更新橫幅。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val obs = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                scope.launch {
+                    UpdateChecker.check(ctx)?.let { updateInfo = it; bannerDismissed = false }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
 
     val showUpdateBanner = !bannerDismissed &&
-        routeId != null && routeId != Routes.SPLASH && routeId != Routes.PIN_SETUP &&
-        !isLocked &&
+        routeId != null && routeId != Routes.SPLASH &&
         (updateInfo != null || installerState.stage != Installer.Stage.Idle)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -96,19 +98,10 @@ fun ImagineRoot() {
                 modifier = Modifier.weight(1f),
             ) {
             composable(Routes.SPLASH) {
+                // PIN 已移除 — Splash 後直接進主畫面
                 SplashScreen(onTimeout = {
-                    val next = if (!prefs.isPinSet) Routes.PIN_SETUP else Routes.GENERATE_IMAGE
-                    navController.navigate(next) {
-                        popUpTo(Routes.SPLASH) { inclusive = true }
-                    }
-                })
-            }
-
-            composable(Routes.PIN_SETUP) {
-                PinSetupScreen(onComplete = {
-                    lockManager.unlock()
                     navController.navigate(Routes.GENERATE_IMAGE) {
-                        popUpTo(Routes.PIN_SETUP) { inclusive = true }
+                        popUpTo(Routes.SPLASH) { inclusive = true }
                     }
                 })
             }
@@ -300,11 +293,11 @@ fun ImagineRoot() {
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     onApiKeyClick = { navController.navigate(Routes.API_KEY_EDIT) },
-                    onChangePinClick = { navController.navigate(Routes.CHANGE_PIN) },
                     onClearedAndReset = {
                         prefs.clearAll()
-                        navController.navigate(Routes.PIN_SETUP) {
-                            popUpTo(Routes.SETTINGS) { inclusive = true }
+                        // PIN 已移除 — 清資料後回主畫面 (整個 stack 清掉重來)
+                        navController.navigate(Routes.GENERATE_IMAGE) {
+                            popUpTo(0) { inclusive = true }
                         }
                     },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
@@ -322,29 +315,7 @@ fun ImagineRoot() {
                     },
                 )
             }
-
-            composable(Routes.CHANGE_PIN) {
-                ChangePinScreen(
-                    onBack = { navController.popBackStack() },
-                    onComplete = { navController.popBackStack() },
-                )
             }
-            }
-        }
-
-        if (showLockOverlay) {
-            // 鎖屏期間擋 back，避免使用者繞過 PIN 跳到底層 NavHost
-            BackHandler(enabled = true) { /* swallow */ }
-            LockScreen(
-                onUnlock = { lockManager.unlock() },
-                onForgotPin = {
-                    prefs.clearAll()
-                    lockManager.unlock()
-                    navController.navigate(Routes.PIN_SETUP) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-            )
         }
     }
 }

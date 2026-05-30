@@ -71,7 +71,6 @@ import com.za869765.imagine.ui.theme.LocalBudgetColors
 @Composable
 fun SettingsScreen(
     onApiKeyClick: () -> Unit,
-    onChangePinClick: () -> Unit,
     onClearedAndReset: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
 ) {
@@ -80,7 +79,6 @@ fun SettingsScreen(
     val budgetColors = LocalBudgetColors.current
     val scope = rememberCoroutineScope()
 
-    var lockOnBg by remember { mutableStateOf(prefs.lockOnBackground) }
     var screenshots by remember { mutableStateOf(prefs.preventScreenshots) }
 
     var showClearDataConfirm by remember { mutableStateOf(false) }
@@ -279,16 +277,6 @@ fun SettingsScreen(
                 SectionHeader("安全")
                 ImagineCard(pad = 0, onClick = null) {
                     Column {
-                        SettingRow(divider = true, onClick = onChangePinClick) {
-                            Text("變更 PIN", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                            ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        SettingRow(divider = true) {
-                            Text("APP 切背景立即鎖", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                            Switch(checked = lockOnBg, onCheckedChange = {
-                                lockOnBg = it; prefs.lockOnBackground = it
-                            })
-                        }
                         SettingRow(divider = false) {
                             Text("防止截圖與錄影", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                             Switch(checked = screenshots, onCheckedChange = {
