@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -15,6 +16,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -257,6 +259,19 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         ),
     ),
     BuilderField(
+        "畫面人數",
+        listOf(
+            "(不指定)", "單人", "兩人", "三人", "四到五人小群像", "六人以上群像",
+        ),
+    ),
+    BuilderField(
+        "配角安排",
+        listOf(
+            "(不指定)", "配角在主角兩側", "配角在背景虛化", "主配角並肩同框",
+            "主角在前、配角在後", "眾人圍繞主角",
+        ),
+    ),
+    BuilderField(
         "種族風格",
         listOf(
             "(不指定)", "東亞臉孔", "日系", "韓系", "華人古典", "東南亞", "歐美", "北歐",
@@ -287,6 +302,14 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
             "軍人", "警察", "律師", "科學家", "花藝師", "旅人", "模特兒", "主播",
             "記者", "瑜伽教練", "芭蕾舞者", "鋼琴家", "偵探", "太空人", "巫女", "女僕",
             "女祭司", "魔法師", "女騎士", "公主", "女王", "甜點師",
+        ),
+    ),
+    BuilderField(
+        "偽裝身份",
+        listOf(
+            "(不指定)", "臥底警察偽裝成便利店店員", "便衣刑警混入人群",
+            "臥底記者扮成上班族", "特務偽裝成餐廳服務生", "臥底探員扮成計程車司機",
+            "便衣保全扮成路人", "臥底幹員偽裝成清潔人員",
         ),
     ),
     BuilderField(
@@ -434,8 +457,69 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
     ),
 )
 
-// 影片限定欄位 — 圖片模式不顯示 (靜態圖片沒有運鏡/聲音/字幕)。
-val VIDEO_ONLY_FIELDS = setOf("動作", "聲音", "字幕")
+// 影片限定欄位 — 圖片模式不顯示 (靜態圖片沒有運鏡與聲音)。
+// 字幕兩者都有 (圖片也可印字),故不在此集合內。
+val VIDEO_ONLY_FIELDS = setOf("動作", "聲音")
+
+// ── 大類別分組 (範本精靈): 大類採卡片導覽,點進去後該大類的欄位 inline 逐項挑 (每欄可跳過) ──
+data class BuilderCategory(val emoji: String, val name: String, val fieldLabels: List<String>)
+
+val BUILDER_CATEGORIES: List<BuilderCategory> = listOf(
+    BuilderCategory("👤", "主體與人數", listOf("主體對象", "畫面人數", "配角安排", "職業", "偽裝身份")),
+    BuilderCategory("🧬", "外貌特徵", listOf("種族風格", "年齡感", "氣質類型", "身形", "臉型五官", "膚色", "髮型髮色", "妝容")),
+    BuilderCategory("👗", "服裝造型", listOf("服飾", "配件")),
+    BuilderCategory("🎭", "姿勢情緒", listOf("姿勢", "情緒狀態")),
+    BuilderCategory("🏞️", "場景光線", listOf("場景地點", "光線時辰")),
+    BuilderCategory("🎬", "構圖風格", listOf("構圖鏡頭", "視角", "色調", "風格類型")),
+    BuilderCategory("🎥", "動態·聲音·字幕", listOf("動作", "聲音", "字幕")),
+)
+
+// 一鍵「有方向」: 套用一組協調的起手式 (只設關鍵欄位,值都對應各欄真實選項,其餘留白讓使用者補)。
+data class BuilderTheme(val name: String, val preset: Map<String, String>)
+
+val BUILDER_THEMES: List<BuilderTheme> = listOf(
+    BuilderTheme(
+        "日系清新",
+        mapOf(
+            "風格類型" to "日系清新", "主體對象" to "一位少女", "氣質類型" to "清純",
+            "髮型髮色" to "黑長直髮", "服飾" to "白色襯衫", "場景地點" to "午後咖啡廳",
+            "光線時辰" to "窗邊側光", "構圖鏡頭" to "胸上中景", "色調" to "奶油色調",
+        ),
+    ),
+    BuilderTheme(
+        "古風國韻",
+        mapOf(
+            "風格類型" to "古裝劇", "主體對象" to "一位女子", "氣質類型" to "古典",
+            "髮型髮色" to "簪花盤髮", "服飾" to "古風襦裙", "場景地點" to "古典庭院",
+            "光線時辰" to "黃昏暖橘光", "構圖鏡頭" to "胸上中景", "色調" to "暖金色調",
+        ),
+    ),
+    BuilderTheme(
+        "都會時尚",
+        mapOf(
+            "風格類型" to "時尚雜誌", "主體對象" to "一位女性", "職業" to "模特兒",
+            "氣質類型" to "冷豔", "髮型髮色" to "俐落短髮", "服飾" to "紅色禮服",
+            "場景地點" to "攝影棚純色背景", "光線時辰" to "棚燈柔光", "構圖鏡頭" to "七分身",
+            "色調" to "冷藍色調",
+        ),
+    ),
+    BuilderTheme(
+        "賽博未來",
+        mapOf(
+            "風格類型" to "賽博龐克", "主體對象" to "一名機械少女", "氣質類型" to "神秘",
+            "服飾" to "金屬感盔甲", "場景地點" to "都市霓虹街頭", "光線時辰" to "霓虹夜光",
+            "構圖鏡頭" to "七分身", "色調" to "賽博霓虹",
+        ),
+    ),
+    BuilderTheme(
+        "婚紗唯美",
+        mapOf(
+            "風格類型" to "唯美沙龍", "主體對象" to "一位女子", "氣質類型" to "溫柔",
+            "髮型髮色" to "大波浪", "服飾" to "婚紗", "場景地點" to "海邊礁岩",
+            "光線時辰" to "逆光剪影", "構圖鏡頭" to "全身遠景", "色調" to "暖金色調",
+        ),
+    ),
+)
 
 // 判斷 term 是否「獨立出現」在 prompt(不是被更長的選項字串包住,例如色調「黑白」其實是
 // 風格「黑白底片」的一段)。用於:智慧插入早退判斷、建議面板「目前：X」高亮 —— 避免短詞被長詞誤判。
@@ -501,6 +585,16 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
         if (v("姿勢").isNotEmpty()) append("，").append(v("姿勢"))
         if (v("情緒狀態").isNotEmpty()) append("，").append(v("情緒狀態"))
     }
+    val disguise = v("偽裝身份")
+    val crowd = v("畫面人數")
+    val arrange = v("配角安排")
+    val people = buildString {
+        if (crowd.isNotEmpty() && crowd != "單人") {
+            append(crowd)
+            if (arrange.isNotEmpty()) append("，").append(arrange)
+            append("，配角與主角同風格")
+        }
+    }
     val scene = listOf(v("場景地點"), v("光線時辰")).filter { it.isNotEmpty() }.joinToString("，")
     val comp = listOf(v("構圖鏡頭"), v("視角")).filter { it.isNotEmpty() }.joinToString("，")
     val style = listOf(v("風格類型"), v("色調")).filter { it.isNotEmpty() }.joinToString("，")
@@ -509,6 +603,8 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
     val caption = v("字幕")
     return buildString {
         if (person.isNotEmpty()) append("主體：").append(person).append("。\n")
+        if (disguise.isNotEmpty()) append("設定：").append(disguise).append("。\n")
+        if (people.isNotEmpty()) append("人數：").append(people).append("。\n")
         if (scene.isNotEmpty()) append("場景：").append(scene).append("。\n")
         if (comp.isNotEmpty()) append("構圖：").append(comp).append("。\n")
         if (motion.isNotEmpty()) append("動態：").append(motion).append("。\n")
@@ -539,6 +635,8 @@ fun PromptTemplateSheet(
     }
     // 目前展開搜尋的欄位 (一次只展開一個,保持面板清爽)
     var expandedField by remember { mutableStateOf<String?>(null) }
+    // 範本精靈目前進入的大類 (null = 顯示大類卡片 grid)
+    var openCategory by remember { mutableStateOf<String?>(null) }
     // 圖片模式隱藏影片限定欄位 (動作/聲音/字幕);selected 仍含全部 key(隱藏的維持「(不指定)」不入 prompt)
     val fields = if (forVideo) BUILDER_FIELDS else BUILDER_FIELDS.filter { it.label !in VIDEO_ONLY_FIELDS }
 
@@ -646,29 +744,126 @@ fun PromptTemplateSheet(
             } else if (tab == "storyboard") {
                 StoryboardTab(onPick = { pick(it) })
             } else {
-                // ── ② 自己組 (可搜尋下拉) ──
-                RandomBar(label = "🎲  全部隨機") {
-                    fields.forEach { selected[it.label] = it.options.random() }
+                // ── ② 範本精靈: 一鍵起手式 + 大類卡片導覽(進入後逐欄挑,每欄可跳過) ──
+                // 可見大類: 圖片模式濾掉影片限定欄位(動作/聲音);空大類不顯示。
+                val visCats = remember(forVideo) {
+                    BUILDER_CATEGORIES
+                        .map { cat -> cat to cat.fieldLabels.filter { l -> forVideo || l !in VIDEO_ONLY_FIELDS } }
+                        .filter { it.second.isNotEmpty() }
                 }
 
-                fields.forEach { field ->
-                    SearchableField(
-                        label = field.label,
-                        value = selected[field.label].orEmpty(),
-                        options = field.options,
-                        expanded = expandedField == field.label,
-                        onToggle = {
-                            expandedField = if (expandedField == field.label) null else field.label
-                        },
-                        onPick = {
-                            selected[field.label] = it
-                            expandedField = null
-                        },
-                        onRandom = { selected[field.label] = field.options.random() },
-                    )
+                Text(
+                    text = "一鍵起手式 — 套用協調的一組，再自己微調",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BUILDER_THEMES.forEach { theme ->
+                        ThemeChip(name = theme.name) {
+                            theme.preset.forEach { (k, value) ->
+                                if (selected.containsKey(k)) selected[k] = value
+                            }
+                        }
+                    }
                 }
 
-                // 即時預覽
+                Box(modifier = Modifier.padding(top = 10.dp))
+                RandomBar(label = "🎲  全部隨機(打散所有欄位)") {
+                    fields.forEach { f ->
+                        selected[f.label] =
+                            if (f.label == "年齡感") "約${(18..45).random()}歲" else f.options.random()
+                    }
+                }
+
+                Box(modifier = Modifier.padding(top = 6.dp))
+
+                // openCategory 為 null 或指向已不可見的大類 → 都顯示卡片 grid (不在 composition 內寫 state)
+                val openEntry = openCategory?.let { oc -> visCats.firstOrNull { it.first.name == oc } }
+                if (openEntry == null) {
+                    // 大類卡片 grid (兩欄)
+                    visCats.chunked(2).forEach { rowCats ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowCats.forEach { (cat, labels) ->
+                                val setCount = labels.count { l ->
+                                    val vv = selected[l].orEmpty()
+                                    vv.isNotEmpty() && vv != "(不指定)"
+                                }
+                                Box(modifier = Modifier.weight(1f)) {
+                                    CategoryCard(cat.emoji, cat.name, setCount, labels.size) {
+                                        expandedField = null
+                                        openCategory = cat.name
+                                    }
+                                }
+                            }
+                            if (rowCats.size == 1) Box(modifier = Modifier.weight(1f))
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { expandedField = null; openCategory = null }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ImagineIcon(
+                            name = "arrow_back",
+                            size = 20.dp,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "  ${openEntry.first.emoji} ${openEntry.first.name}",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.W700,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    openEntry.second.forEach { label ->
+                        if (label == "年齡感") {
+                            AgeSliderField(
+                                value = selected["年齡感"].orEmpty(),
+                                onChange = { selected["年齡感"] = it },
+                            )
+                        } else {
+                            val field = BUILDER_FIELDS.first { it.label == label }
+                            // 每欄都附「(不指定)」= 跳過;原本就有的不重複加。
+                            val opts = if (field.options.firstOrNull() == "(不指定)") field.options
+                            else listOf("(不指定)") + field.options
+                            SearchableField(
+                                label = field.label,
+                                value = selected[field.label].orEmpty(),
+                                options = opts,
+                                expanded = expandedField == field.label,
+                                onToggle = {
+                                    expandedField = if (expandedField == field.label) null else field.label
+                                },
+                                onPick = {
+                                    selected[field.label] = it
+                                    expandedField = null
+                                },
+                                onRandom = {
+                                    selected[field.label] =
+                                        field.options.filter { o -> o != "(不指定)" }.random()
+                                },
+                            )
+                        }
+                    }
+                }
+
+                // 即時預覽 (不論在卡片頁或大類內都顯示)
                 Text(
                     text = "預覽",
                     fontSize = 12.sp,
@@ -685,7 +880,7 @@ fun PromptTemplateSheet(
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                 ) {
                     Text(
-                        text = preview,
+                        text = preview.ifEmpty { "（挑幾個條件，這裡會即時組成 prompt）" },
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -705,7 +900,7 @@ fun PromptTemplateSheet(
                         onClick = { Clipboard.copy(ctx, preview, toastMsg = "已複製") },
                     )
                     TextActionButton(
-                        label = "填入",
+                        label = "使用",
                         icon = "check",
                         onClick = { pick(preview) },
                     )
@@ -733,6 +928,111 @@ private fun RandomBar(label: String, onClick: () -> Unit) {
             fontSize = 14.sp,
             fontWeight = FontWeight.W700,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+}
+
+// 一鍵起手式的主題 pill (tonal)。
+@Composable
+private fun ThemeChip(name: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = name,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.W600,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+}
+
+// 大類卡片: emoji + 名稱 + 「已設定 N/M」。
+@Composable
+private fun CategoryCard(
+    emoji: String,
+    name: String,
+    setCount: Int,
+    total: Int,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+    ) {
+        Text(text = emoji, fontSize = 22.sp)
+        Text(
+            text = name,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W700,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            text = if (setCount > 0) "已設定 $setCount/$total" else "未指定 0/$total",
+            fontSize = 11.sp,
+            color = if (setCount > 0) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
+
+// 年齡拉桿 (10~50,單一數值);「跳過」設回 (不指定)。value 格式為「約N歲」或「(不指定)」。
+@Composable
+private fun AgeSliderField(value: String, onChange: (String) -> Unit) {
+    val on = value.isNotEmpty() && value != "(不指定)"
+    val age = value.removePrefix("約").removeSuffix("歲").trim().toIntOrNull() ?: 25
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "年齡",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = if (on) "約 $age 歲" else "(不指定)",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onChange("(不指定)") }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = "跳過",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Slider(
+            value = age.toFloat(),
+            onValueChange = { onChange("約${it.toInt()}歲") },
+            valueRange = 10f..50f,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
