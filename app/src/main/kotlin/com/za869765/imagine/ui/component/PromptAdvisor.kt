@@ -368,6 +368,9 @@ fun PromptAdvisorSheet(
                 modifier = Modifier.padding(bottom = 4.dp),
             )
 
+            // expandedGroup 提前宣告(放在條件區塊之前,remember 槽位不受 recentSnippets 變動影響)
+            var expandedGroup by remember { mutableStateOf<String?>(null) }
+
             // 最近用過 (置頂、常駐展開)
             if (recentSnippets.isNotEmpty()) {
                 Text(
@@ -384,7 +387,7 @@ fun PromptAdvisorSheet(
                     recentSnippets.forEach { snippet ->
                         val sameType = BUILDER_FIELDS.firstOrNull { snippet in it.options }?.options
                             ?: emptyList()
-                        SnippetChip(text = snippet, active = currentPrompt.contains(snippet)) {
+                        SnippetChip(text = snippet, active = isStandaloneOption(currentPrompt, snippet)) {
                             onInsert(snippet, sameType)
                         }
                     }
@@ -394,10 +397,9 @@ fun PromptAdvisorSheet(
             // 類別 — 與「自己組」同步,衍生自 BUILDER_FIELDS。
             // 點類別展開;點片語=智慧插入(prompt 內已有同類型詞就替換、否則插入游標處)。
             // 標題顯示目前該類型在 prompt 內的選擇(目前：X),展開時對應 chip 也高亮。
-            var expandedGroup by remember { mutableStateOf<String?>(null) }
             fields.forEach { field ->
                 val opts = field.options.filter { it != "(不指定)" }
-                val active = opts.filter { currentPrompt.contains(it) }.maxByOrNull { it.length }
+                val active = opts.filter { isStandaloneOption(currentPrompt, it) }.maxByOrNull { it.length }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

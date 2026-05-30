@@ -67,7 +67,11 @@ fun ImagineRoot() {
         val obs = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
                 scope.launch {
-                    UpdateChecker.check(ctx)?.let { updateInfo = it; bannerDismissed = false }
+                    UpdateChecker.check(ctx)?.let { info ->
+                        // 只有偵測到「比目前更新的版本」才重開橫幅;同一新版重複偵測不覆蓋使用者已按的關閉
+                        if (info.latestVersionCode != updateInfo?.latestVersionCode) bannerDismissed = false
+                        updateInfo = info
+                    }
                 }
             }
         }

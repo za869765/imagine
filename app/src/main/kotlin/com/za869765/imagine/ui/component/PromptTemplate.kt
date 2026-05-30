@@ -437,6 +437,17 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
 // 影片限定欄位 — 圖片模式不顯示 (靜態圖片沒有運鏡/聲音/字幕)。
 val VIDEO_ONLY_FIELDS = setOf("動作", "聲音", "字幕")
 
+// 判斷 term 是否「獨立出現」在 prompt(不是被更長的選項字串包住,例如色調「黑白」其實是
+// 風格「黑白底片」的一段)。用於:智慧插入早退判斷、建議面板「目前：X」高亮 —— 避免短詞被長詞誤判。
+fun isStandaloneOption(prompt: String, term: String): Boolean {
+    if (!prompt.contains(term)) return false
+    return BUILDER_FIELDS.none { f ->
+        f.options.any { opt ->
+            opt != term && opt.length > term.length && opt.contains(term) && prompt.contains(opt)
+        }
+    }
+}
+
 // ── 影片分鏡 (storyboard) — 公式範本 + 分段選擇器,只在影片模式的範本顯示 ──
 data class ShotFormula(val name: String, val shots: List<String>)
 
@@ -492,7 +503,7 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
     }
     val scene = listOf(v("場景地點"), v("光線時辰")).filter { it.isNotEmpty() }.joinToString("，")
     val comp = listOf(v("構圖鏡頭"), v("視角")).filter { it.isNotEmpty() }.joinToString("，")
-    val style = listOf(v("風格類型"), v("色調"), "淺景深").filter { it.isNotEmpty() }.joinToString("，")
+    val style = listOf(v("風格類型"), v("色調")).filter { it.isNotEmpty() }.joinToString("，")
     val motion = v("動作")
     val sound = v("聲音")
     val caption = v("字幕")
@@ -949,7 +960,15 @@ private fun StoryboardTab(onPick: (String) -> Unit) {
                         .padding(start = 6.dp, top = 20.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .clickable {
-                            if (openPicker == "seg$idx") openPicker = null
+                            // 刪段後把展開中的 picker 索引重映,避免指向錯段/誤收
+                            val openIdx = openPicker?.removePrefix("seg")?.toIntOrNull()
+                            if (openIdx != null) {
+                                openPicker = when {
+                                    openIdx == idx -> null
+                                    openIdx > idx -> "seg${openIdx - 1}"
+                                    else -> openPicker
+                                }
+                            }
                             segments.removeAt(idx)
                         }
                         .padding(8.dp),

@@ -141,8 +141,12 @@ fun GenerateVideoScreen(
     var pendingScrollToResult by remember { mutableStateOf(false) }
     LaunchedEffect(pendingScrollToResult) {
         if (pendingScrollToResult) {
-            scrollState.animateScrollTo(scrollState.maxValue)
-            pendingScrollToResult = false
+            try {
+                scrollState.animateScrollTo(scrollState.maxValue)
+            } finally {
+                // 動畫被取消(使用者甩動)也要歸位,避免下次重組又回彈
+                pendingScrollToResult = false
+            }
         }
     }
     val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }

@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,7 +56,9 @@ import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.firstHighRiskTerm
 import com.za869765.imagine.ui.theme.ImagineCustomShapes
 import com.za869765.imagine.ui.util.Clipboard
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun GenerateImageScreen(
@@ -99,8 +102,17 @@ fun GenerateImageScreen(
     var pendingScrollToResult by remember { mutableStateOf(false) }
     LaunchedEffect(pendingScrollToResult) {
         if (pendingScrollToResult) {
-            scrollState.animateScrollTo(scrollState.maxValue)
-            pendingScrollToResult = false
+            try {
+                scrollState.animateScrollTo(scrollState.maxValue)
+                // 結果圖是非同步載入,高度稍後才長出 → 等高度增加(最多 4 秒)再捲一次,真正落在結果上
+                val base = scrollState.maxValue
+                withTimeoutOrNull(4000) {
+                    snapshotFlow { scrollState.maxValue }.first { it > base }
+                }
+                scrollState.animateScrollTo(scrollState.maxValue)
+            } finally {
+                pendingScrollToResult = false
+            }
         }
     }
 

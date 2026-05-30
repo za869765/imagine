@@ -421,6 +421,7 @@ fun EditScreen(
                         EditMode.VideoExtend -> "讓主角繼續往街道走..."
                     },
                     minHeight = 104,
+                    forVideo = mode != EditMode.ImageEdit,   // 影片編輯/延長要顯示 動作/聲音/字幕
                 )
             }
 

@@ -163,7 +163,7 @@ fun PromptInput(
     //   情況 (例如色調「黑白」其實是風格「黑白底片」的一部分 → 不替換、改插入,避免砍壞長詞)。
     fun smartInsert(option: String, sameTypeOptions: List<String>) {
         val text = tfValue.text
-        if (text.contains(option)) return  // 已有同一個詞,不重複加
+        if (isStandaloneOption(text, option)) return  // 已「獨立」存在才算重複;被更長詞包住(子字串)不算
         val present = BUILDER_FIELDS.flatMap { it.options }
             .filter { it != "(不指定)" && text.contains(it) }
         val existing = sameTypeOptions
@@ -499,7 +499,7 @@ private fun evaluatePrompt(p: String, maxChars: Int): PromptHint? {
         "weapon", "gun", "knife", "scary", "horror", "fetish",
         "比基尼", "內衣", "血腥", "暴力", "武器", "殺戮", "恐怖", "戀物",
     )
-    if (medium.any { low.contains(it) }) {
+    if (medium.any { matchesTerm(low, it) }) {
         return PromptHint("⚠️", "可能審核較嚴 (僅參考)", HintColor.Yellow)
     }
 
