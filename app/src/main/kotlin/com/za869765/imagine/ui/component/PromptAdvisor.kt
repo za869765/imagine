@@ -104,6 +104,21 @@ fun buildScaffold(seed: String): String {
     }
 }
 
+// 「擇一」類別:同時出現多個多半互相打架(例:兩個色調 / 兩種風格)。只在這些類別偵測,
+// 避免像「配件」這種本來就能戴多個的誤報。純提醒、不自動改字 (尊重使用者原意)。
+private data class ConflictHit(val field: String, val terms: List<String>)
+
+private val CONFLICT_FIELD_LABELS = listOf("風格類型", "色調", "構圖鏡頭", "視角", "光線時辰")
+
+private fun detectConflicts(prompt: String): List<ConflictHit> {
+    if (prompt.isBlank()) return emptyList()
+    return CONFLICT_FIELD_LABELS.mapNotNull { label ->
+        val field = BUILDER_FIELDS.firstOrNull { it.label == label } ?: return@mapNotNull null
+        val hits = field.options.filter { it != "(不指定)" && isStandaloneOption(prompt, it) }
+        if (hits.size >= 2) ConflictHit(label, hits) else null
+    }
+}
+
 // 片語庫已改為衍生自 BUILDER_FIELDS (與「自己組」同步、單一真相源)，渲染見 PromptAdvisorSheet。
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -144,7 +159,7 @@ fun PromptAdvisorSheet(
                 modifier = Modifier.padding(top = 4.dp),
             )
             Text(
-                text = "先處理高風險字詞，再用 5 要素補強（$coveredCount / 5）",
+                text = "先處理高風險字詞與衝突，再用 5 要素補強（$coveredCount / 5）",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp, bottom = 12.dp),
@@ -272,6 +287,54 @@ fun PromptAdvisorSheet(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // ── 可能衝突的設定 (同一「擇一」類別出現多個 → 提醒,不自動改) ──
+            val conflicts = detectConflicts(currentPrompt)
+            if (conflicts.isNotEmpty()) {
+                Text(
+                    text = "可能衝突的設定",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W700,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+                )
+                conflicts.forEach { c ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(name = "warning", size = 16.dp, fill = 0, tint = Color(0xFFE0A500))
+                            Text(
+                                text = "「${c.field}」出現多個 — 通常擇一",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(
+                            text = c.terms.joinToString("、"),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        Text(
+                            text = "這幾個同類設定可能互相打架，留一個方向通常更穩（這裡只提醒，不會自動改你的字）。",
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
                     }
                 }
             }
