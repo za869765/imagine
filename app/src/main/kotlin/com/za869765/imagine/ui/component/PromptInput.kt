@@ -96,21 +96,11 @@ fun PromptInput(
 
     // 用 TextFieldValue 才能在 focus 時控制 selection (全選現有內容)
     var tfValue by remember { mutableStateOf(TextFieldValue(value)) }
-    // 外部 value 變動 (例如「貼上」按鈕觸發) → sync 內部 + cursor 移到尾
+    // 外部 value 變動 (例如套用範本/建議填入) → sync 內部 + cursor 移到尾
     LaunchedEffect(value) {
         if (tfValue.text != value) {
             tfValue = TextFieldValue(value, selection = TextRange(value.length))
         }
-    }
-
-    fun doPaste() {
-        val pasted = Clipboard.paste(ctx)
-        if (pasted.isNullOrBlank()) {
-            Toast.makeText(ctx, "剪貼簿沒有文字", Toast.LENGTH_SHORT).show()
-            return
-        }
-        // 貼上覆蓋既有內容 — 對「重做生成」場景最常用,要附加文字可手動 select+貼
-        onValueChange(if (pasted.length > maxChars) pasted.take(maxChars) else pasted)
     }
 
     // 範本「使用」— 整段填入,游標移到尾、不全選,並待 sheet 關閉後聚焦
@@ -224,10 +214,15 @@ fun PromptInput(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val advisorLabel = if (value.isBlank()) "建議" else "建議 $coverage/5"
-                PromptToolChip(icon = "lightbulb", label = advisorLabel) { showAdvisorSheet = true }
-                PromptToolChip(icon = "auto_awesome", label = "範本") { showTemplateSheet = true }
-                PromptToolChip(icon = "content_paste", label = "貼上") { doPaste() }
+                // 範本 與 建議 互斥:空白 → 只出「範本」;有內容 → 只出「複製 + 建議」。
+                if (value.isBlank()) {
+                    PromptToolChip(icon = "auto_awesome", label = "範本") { showTemplateSheet = true }
+                } else {
+                    PromptToolChip(icon = "content_copy", label = "複製") {
+                        Clipboard.copy(ctx, value, toastMsg = "已複製提示詞")
+                    }
+                    PromptToolChip(icon = "lightbulb", label = "建議 $coverage/5") { showAdvisorSheet = true }
+                }
                 // B1: 只有當內容含【】(套了範本/擴寫) 才顯示「跳格」
                 if (value.contains("【")) {
                     PromptToolChip(icon = "edit", label = "跳格") { jumpToNextPlaceholder() }
