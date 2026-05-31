@@ -119,6 +119,43 @@ private fun detectConflicts(prompt: String): List<ConflictHit> {
     }
 }
 
+// 影片限定衝突 — 只在影片模式偵測 (靜態圖片沒有運鏡,這些規則對圖片無意義)。
+// 每組:左右兩串詞各命中一個就算互斥,回一句說明。純提醒、不自動改字。
+// 與 PromptInput.firstPhysicalConflict 的影片規則同精神 (運鏡穩定度互斥),這裡擴充幾組常見運鏡矛盾。
+private data class VideoConflict(val title: String, val detail: String)
+
+private fun detectVideoConflicts(prompt: String): List<VideoConflict> {
+    if (prompt.isBlank()) return emptyList()
+    fun anyIn(words: List<String>) = words.any { prompt.contains(it) }
+    val hits = mutableListOf<VideoConflict>()
+    // ① 運鏡穩定度:手持/晃動 vs 平滑/穩定/滑軌
+    if (anyIn(listOf("手持", "晃動", "搖晃")) && anyIn(listOf("平滑", "穩定", "滑軌", "穩定器"))) {
+        hits += VideoConflict(
+            "運鏡穩定度互斥",
+            "「手持/晃動」與「平滑/滑軌」是相反的運鏡質感，同時下達成片會二選一或抖動不自然，留一種方向通常更穩。",
+        )
+    }
+    // ② 運鏡方向:推近/拉遠同時出現 (除非分鏡明寫先後,否則容易互相抵消)
+    if (anyIn(listOf("推近", "推軌", "zoom in")) && anyIn(listOf("拉遠", "拉開", "zoom out")) &&
+        !anyIn(listOf("分鏡", "先", "再", "最後", "s "))
+    ) {
+        hits += VideoConflict(
+            "運鏡方向互斥",
+            "同時要「推近」又「拉遠」且未分段說明先後，鏡頭會猶豫或來回，建議擇一方向、或用分鏡標明先後。",
+        )
+    }
+    // ③ 動態幅度:大幅度動作/激烈 vs 微動/靜止/做減法
+    if (anyIn(listOf("大幅度", "激烈動作", "劇烈")) &&
+        anyIn(listOf("微動", "靜止", "做減法", "幾乎不動"))
+    ) {
+        hits += VideoConflict(
+            "動態幅度互斥",
+            "「大幅度動作」與「微動/做減法」對成片動態量是相反要求，留一種強度更不容易糊。",
+        )
+    }
+    return hits
+}
+
 // 片語庫已改為衍生自 BUILDER_FIELDS (與「自己組」同步、單一真相源)，渲染見 PromptAdvisorSheet。
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -399,6 +436,48 @@ fun PromptAdvisorSheet(
                         )
                         Text(
                             text = "這幾個同類設定可能互相打架，留一個方向通常更穩（這裡只提醒，不會自動改你的字）。",
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+
+            // ── 影片限定:運鏡矛盾 (只在影片模式顯示;圖片沒有運鏡,不適用) ──
+            val videoConflicts = if (forVideo) detectVideoConflicts(currentPrompt) else emptyList()
+            if (videoConflicts.isNotEmpty()) {
+                Text(
+                    text = "影片運鏡可能衝突",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W700,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+                )
+                videoConflicts.forEach { vc ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(name = "warning", size = 16.dp, fill = 0, tint = Color(0xFFE0A500))
+                            Text(
+                                text = vc.title,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(
+                            text = vc.detail,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

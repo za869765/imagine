@@ -55,6 +55,9 @@ import com.za869765.imagine.data.backup.KeyBackupCodec
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.data.storage.MediaImporter
+import com.za869765.imagine.data.update.Installer
+import com.za869765.imagine.data.update.UpdateChecker
+import com.za869765.imagine.data.update.UpdateInfo
 import kotlinx.coroutines.launch
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -84,6 +87,12 @@ fun SettingsScreen(
 
     // ── Settings 狀態 ─────────────────────
     var showImportEditor by remember { mutableStateOf(false) }
+
+    // ── 手動檢查更新狀態 ──
+    // 沿用既有 in-app updater 基礎設施 (UpdateChecker / Installer)，下載進度走 nav host
+    // 的全域 UpdateBanner (它監聽 Installer.state)。這裡只負責「主動觸發查詢」+ 結果對話框。
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var manualUpdateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
 
     // v1.0.46: 從相簿批次匯入歷史 (PhotoPicker，不需 READ_MEDIA_* permission)
     // v1.0.48: importAll 回傳 List<String>，用 .size 拿 count
@@ -143,6 +152,31 @@ fun SettingsScreen(
             onConfirm = {
                 showClearDataConfirm = false
                 onClearedAndReset()
+            },
+        )
+    }
+
+    // 手動檢查更新發現新版 → 對話框，按「下載安裝」走與 nav host 相同的 Installer 流程
+    manualUpdateInfo?.let { info ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { manualUpdateInfo = null },
+            title = { Text("發現新版本") },
+            text = {
+                Text(
+                    "v${info.currentVersionName} → ${info.latestVersionName}（${formatApkSize(info.apkSize)}）",
+                )
+            },
+            confirmButton = {
+                TextActionButton(
+                    label = "下載安裝",
+                    onClick = {
+                        manualUpdateInfo = null
+                        scope.launch { Installer.downloadAndLaunch(ctx, info) }
+                    },
+                )
+            },
+            dismissButton = {
+                TextActionButton(label = "稍後", onClick = { manualUpdateInfo = null })
             },
         )
     }
@@ -541,6 +575,45 @@ fun SettingsScreen(
                 }
             }
 
+            // ── 更新 ──
+            // 沿用 in-app updater：手動觸發 UpdateChecker.check(null) 繞過 2 分鐘 cooldown，
+            // 有新版跳對話框 → Installer 下載安裝 (進度顯示走 nav host 全域 UpdateBanner)。
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("更新")
+                ImagineCard(pad = 16) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "立即向 GitHub Releases 查詢是否有新版本 (一般 App 回到前景時也會自動偵測)。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                        OutlinedActionButton(
+                            label = if (checkingUpdate) "檢查中…" else "檢查更新",
+                            enabled = !checkingUpdate,
+                            onClick = {
+                                checkingUpdate = true
+                                scope.launch {
+                                    // ctx=null 跳過 cooldown，手動檢查每次都直接打網路
+                                    val info = UpdateChecker.check(null)
+                                    checkingUpdate = false
+                                    if (info != null) {
+                                        manualUpdateInfo = info
+                                    } else {
+                                        Toast.makeText(
+                                            ctx,
+                                            "目前已是最新版本 (v${BuildConfig.VERSION_NAME})",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
             // ── 關於 ──
             Column(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -596,6 +669,12 @@ private fun maskKey(key: String?): String {
     if (key.isNullOrBlank()) return "未設定"
     if (key.length <= 8) return key
     return key.take(4) + "•".repeat(13) + key.takeLast(3)
+}
+
+// APK 位元組數 → MB 顯示 (UpdateBanner 的 formatSize 為 private，這裡自帶一份)
+private fun formatApkSize(bytes: Long): String {
+    if (bytes <= 0) return "—"
+    return "%.1f MB".format(bytes / 1024.0 / 1024.0)
 }
 
 @Composable

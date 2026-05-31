@@ -44,7 +44,9 @@ import kotlinx.coroutines.launch
 //               每行附 🎲 單欄隨機、上方「全部隨機」、下方即時預覽,填入後可再打字改。
 // 公式骨架仍是 5 元素: 主體 + 場景 + 構圖 + (動作) + 風格。
 
-data class PromptExample(val tag: String, val text: String)
+// forVideo: null=圖片影片都顯示(通用)、false=只圖片、true=只影片。
+// 用於範本「現成範例」依目前模式分流 (見 PromptTemplateSheet)。
+data class PromptExample(val tag: String, val text: String, val forVideo: Boolean? = null)
 
 // ── ① 現成完整範例 (無方括號,可直接送 xAI Imagine) ──
 val READY_PROMPTS: List<PromptExample> = listOf(
@@ -55,6 +57,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "光線：林布蘭 45 度側光，受光側明亮、暗側壓深的明暗對照，暖主光配偏冷環境補光。" +
             "構圖：85mm 人像奶油散景，胸上中景，主體置於三分線交點、左側留負空間。" +
             "風格：電影感寫實，青橙電影調，柯達 Portra 暖調顆粒與高光柔暈 halation，自然不油膩。",
+        forVideo = false,
     ),
     PromptExample(
         "情緒敘事肖像",
@@ -63,6 +66,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "光線：低調戲劇性布光，僅半邊臉受光，髮與輪廓融入深沉陰影。" +
             "構圖：大特寫，焦點銳利鎖定雙眼、其餘柔和。" +
             "風格：沈鬱電影感，低飽和，濃厚底片顆粒，孤獨內省氛圍。",
+        forVideo = false,
     ),
     PromptExample(
         "大透視環境",
@@ -71,6 +75,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "構圖：16-24mm 廣角大透視，兩側招牌與地面引導線匯聚到遠方消失點，極低機位仰拍，巨大尺度壓迫。" +
             "光線：頂部霓虹光帶與地面濕反光，冷藍主調撞暖橘招牌。" +
             "風格：電影感寫實，遠景薄霧大氣縱深，高對比，自然顆粒不塑料。",
+        forVideo = false,
     ),
     PromptExample(
         "室內自然光",
@@ -79,17 +84,34 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "光線：午後陽光從左側大窗射入，撞擊橙木地板後反射暖黃光填充暗部（色溫傳遞），光線向房間深處漸暗。" +
             "構圖：標準 50mm 中立真實，人物位於右三分、左側留窗景負空間。" +
             "風格：室內生活感攝影，柔和自然光，低飽和電影感，去油膩自然質感。",
+        forVideo = false,
     ),
     PromptExample(
         "影片·做減法運鏡",
         "鏡頭運動：緩慢推近。主體微動：髮絲隨風輕擺、緩緩眨眼、呼吸帶動肩膀起伏。" +
             "環境氛圍：空氣中塵埃漂浮、光線微微閃動。全片保持自然微動，不做大幅度動作。",
+        forVideo = true,
     ),
     PromptExample(
         "影片·時間線分鏡 8s",
         "場景：黃昏古鎮街道，暖橘斜光。" +
             "分鏡：①0-2s 特寫腳步與裙襬、環境微動鋪陳；②2-5s 中景、女子緩緩轉身（先轉頭、肩帶動、裙擺隨慣性擺動）；" +
             "③5-8s 鏡頭緩緩拉遠、走向街道深處、定格收尾。運鏡：平穩跟拍，僅微幅呼吸感。",
+        forVideo = true,
+    ),
+    PromptExample(
+        "影片·人物運鏡微動",
+        "鏡頭運動：緩緩橫移後輕推近至胸上中景。主體微動：女子緩緩轉頭看向鏡頭、輕輕眨眼、" +
+            "唇角漸漸揚起淺笑，髮絲與衣領隨微風擺動，呼吸帶動肩膀起伏。" +
+            "環境氛圍：黃昏暖橘逆光中浮動的塵埃與光斑、背景樹影輕晃。運鏡平穩，僅微幅呼吸感，不做大幅度動作。",
+        forVideo = true,
+    ),
+    PromptExample(
+        "影片·場景運鏡空鏡",
+        "鏡頭運動：沿引導線緩緩向前推軌、最後上搖望向天空。主體微動：霓虹招牌閃爍、" +
+            "地面積水細微波紋、遠處人影緩慢走動、蒸氣與霧氣飄移。" +
+            "環境氛圍：入夜都市雨後濕潤反光、冷藍撞暖橘。運鏡平穩，僅微幅呼吸感，營造沉浸大氣縱深。",
+        forVideo = true,
     ),
     PromptExample(
         "古裝人物",
@@ -97,6 +119,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：黃昏的古典庭院，暖橘色斜光灑落，石桌上一盞油燈。" +
             "構圖：胸上中景、平視，人物位於畫面中央偏右。" +
             "風格：電影感古裝劇，淺景深，35mm 底片質感，暖橘色調。",
+        forVideo = false,
     ),
     PromptExample(
         "現代人像",
@@ -104,6 +127,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：午後灑入陽光的落地窗咖啡廳，木質桌上一杯拿鐵。" +
             "構圖：臉部特寫、微側 45 度。" +
             "風格：日系清新寫實，柔和自然光，淺景深，暖米色調。",
+        forVideo = false,
     ),
     PromptExample(
         "動作場景",
@@ -119,6 +143,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：北歐簡約客廳，米色布沙發、木質長桌、復古檯燈，落地窗灑入自然光。" +
             "構圖：人物身高約沙發椅背的 1.3 倍，位於沙發右側中段，佔畫面約 1/3。" +
             "風格：室內生活感攝影，柔和自然光，暖米色調，淺景深。",
+        forVideo = false,
     ),
     PromptExample(
         "多人物",
@@ -129,6 +154,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "互動：兩名臣子皆望向中央帝王。" +
             "構圖：全景平視，主角佔畫面約 1/3，左右各佔 1/4。" +
             "風格：電影感，沉穩暖金色調，淺景深聚焦主角。",
+        forVideo = false,
     ),
     PromptExample(
         "風景",
@@ -136,6 +162,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：清晨高山，薄霧在山谷間流動，第一道金光打在山尖。" +
             "構圖：廣角全景、平視，孤松位於畫面右側三分之一處。" +
             "風格：大景風光攝影，柔和晨光，冷藍到暖金的漸層色調，高細節。",
+        forVideo = false,
     ),
     PromptExample(
         "動物",
@@ -143,6 +170,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：窗邊灑入午後陽光的木地板，旁邊一盆綠植。" +
             "構圖：臉部特寫、平視，淺景深虛化背景。" +
             "風格：溫暖寫實寵物攝影，自然光，暖橘色調，毛髮細節清晰。",
+        forVideo = false,
     ),
     PromptExample(
         "美食",
@@ -150,6 +178,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：木質餐桌，背景虛化的暖色居酒屋燈光。" +
             "構圖：俯視 45 度特寫，蒸氣上升。" +
             "風格：日系美食攝影，暖黃打光，高對比，淺景深，食物質感誘人。",
+        forVideo = false,
     ),
     PromptExample(
         "科幻",
@@ -157,6 +186,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：霓虹閃爍的賽博龐克都市雨夜，高樓全像廣告倒映在濕地面。" +
             "構圖：七分身中景、低角度仰拍。" +
             "風格：賽博龐克電影感，藍紫霓虹高對比，淺景深，膠片顆粒。",
+        forVideo = false,
     ),
     PromptExample(
         "婚紗",
@@ -164,6 +194,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：黃昏海邊草坡，遠處夕陽沉入海平面，暖金色逆光。" +
             "構圖：全身遠景、低角度，新娘位於畫面左側三分之一，裙襬隨風揚起。" +
             "風格：唯美婚紗攝影，柔焦逆光，暖金色調，淺景深。",
+        forVideo = false,
     ),
     PromptExample(
         "校園青春",
@@ -171,6 +202,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：午後灑滿陽光的教室走廊，窗外是綠樹與藍天。" +
             "構圖：胸上中景、微側 45 度，逆光帶些許耀光。" +
             "風格：日系青春寫實，柔和自然光，清新淡雅色調，淺景深。",
+        forVideo = false,
     ),
     PromptExample(
         "職場專業",
@@ -178,6 +210,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：現代玻璃帷幕辦公室，背景虛化的城市天際線。" +
             "構圖：胸上中景、平視，人物居中。" +
             "風格：商業形象攝影，柔和棚燈，冷靜俐落色調，淺景深。",
+        forVideo = false,
     ),
     PromptExample(
         "旅遊風情",
@@ -185,6 +218,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：希臘聖托里尼藍頂白牆小巷，正午陽光，遠處愛琴海湛藍。" +
             "構圖：七分身、平視，人物位於畫面右側，巷弄向遠方延伸。" +
             "風格：旅遊雜誌寫實，明亮飽和的地中海色調，高細節。",
+        forVideo = false,
     ),
     PromptExample(
         "雪景",
@@ -192,6 +226,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：靜謐的雪夜街道，路燈下細雪紛飛，店家暖黃櫥窗。" +
             "構圖：胸上中景、平視，雪花前景散景。" +
             "風格：電影感冬夜寫實，暖燈與冷藍對比，淺景深，膠片質感。",
+        forVideo = false,
     ),
     PromptExample(
         "夜市煙火",
@@ -199,6 +234,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：日本夏日祭典夜市，攤位燈籠林立，夜空綻放絢爛煙火。" +
             "構圖：胸上中景、低角度仰拍，背景煙火散景。" +
             "風格：日系夏夜寫實，霓虹與煙火高對比，暖色調，淺景深。",
+        forVideo = false,
     ),
     PromptExample(
         "運動瞬間",
@@ -216,6 +252,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "互動：兩人手牽手、額頭相觸。" +
             "構圖：胸上中景、平視，兩人居中。" +
             "風格：溫暖情侶寫真，柔和逆光，暖橘色調，淺景深。",
+        forVideo = false,
     ),
     PromptExample(
         "音樂現場",
@@ -223,6 +260,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：昏暗 Live House 舞台，背後藍紫色聚光燈與煙霧。" +
             "構圖：胸上中景、低角度仰拍，光束穿過煙霧。" +
             "風格：演唱會現場攝影，高對比舞台光，藍紫冷調帶暖膚色，膠片顆粒。",
+        forVideo = false,
     ),
     PromptExample(
         "海島度假",
@@ -230,6 +268,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：熱帶海島白沙灘，碧綠海水與藍天白雲，正午陽光。" +
             "構圖：全身遠景、平視，人物位於畫面左側，海岸線延伸至遠方。" +
             "風格：度假寫真，明亮通透，飽和的海島色調，高細節。",
+        forVideo = false,
     ),
     PromptExample(
         "雨天街景",
@@ -237,6 +276,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：入夜的都市街道，地面積水倒映霓虹招牌，細雨綿綿。" +
             "構圖：全身中景、平視，霓虹倒影為前景。" +
             "風格：都市夜雨電影感，霓虹高對比，青橙色調，淺景深，雨絲清晰。",
+        forVideo = false,
     ),
     PromptExample(
         "優雅長者",
@@ -244,6 +284,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：灑入柔光的老宅書房，背景是木質書櫃與一盆蘭花。" +
             "構圖：臉部特寫、平視，窗邊側光。" +
             "風格：人文肖像攝影，柔和自然光，溫暖低飽和色調，皺紋與膚質細節真實。",
+        forVideo = false,
     ),
     PromptExample(
         "親子日常",
@@ -253,6 +294,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "互動：媽媽張開雙臂迎接孩子。" +
             "構圖：全身中景、平視，兩人居中。" +
             "風格：溫馨家庭生活攝影，柔和自然光，暖米色調，淺景深。",
+        forVideo = false,
     ),
     PromptExample(
         "時尚雜誌",
@@ -260,6 +302,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：純色調棚拍背景，戲劇性側逆光勾勒輪廓。" +
             "構圖：七分身、低角度，留白構圖。" +
             "風格：高端時尚雜誌封面，棚燈硬光高對比，低飽和高級灰色調，高細節。",
+        forVideo = false,
     ),
     PromptExample(
         "黑白人像",
@@ -267,6 +310,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：深色背景，一束窗邊側光打在臉的一側，明暗對比強烈。" +
             "構圖：臉部特寫、微側，林布蘭光。" +
             "風格：經典黑白肖像攝影，高對比層次，膠片顆粒，質感細膩。",
+        forVideo = false,
     ),
 )
 
@@ -725,6 +769,8 @@ fun PromptTemplateSheet(
     var openCategory by remember { mutableStateOf<String?>(null) }
     // 圖片模式隱藏影片限定欄位 (動作/聲音/字幕);selected 仍含全部 key(隱藏的維持「(不指定)」不入 prompt)
     val fields = if (forVideo) BUILDER_FIELDS else BUILDER_FIELDS.filter { it.label !in VIDEO_ONLY_FIELDS }
+    // 現成範例依模式分流:圖片模式留 forVideo==false||null,影片模式留 forVideo==true||null (null=通用兩者皆顯示)
+    val readyPrompts = READY_PROMPTS.filter { if (forVideo) it.forVideo != false else it.forVideo != true }
 
     fun pick(prompt: String) {
         onUse(prompt)
@@ -772,8 +818,8 @@ fun PromptTemplateSheet(
 
             if (tab == "ready") {
                 // ── ① 現成範例 ──
-                RandomBar(label = "🎲  隨機一條") { pick(READY_PROMPTS.random().text) }
-                READY_PROMPTS.forEach { ex ->
+                RandomBar(label = "🎲  隨機一條") { pick(readyPrompts.random().text) }
+                readyPrompts.forEach { ex ->
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
