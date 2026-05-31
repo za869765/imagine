@@ -69,7 +69,6 @@ import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
-import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.ChipVariant
@@ -94,8 +93,6 @@ enum class VideoMode { T2V, Img2Vid }
 @Composable
 fun GenerateVideoScreen(
     onSwitchToImage: () -> Unit,
-    onExtend: () -> Unit,
-    onOpenVideoEdit: () -> Unit = {},
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     initialImageUri: Uri? = null,    // 從圖片頁「動起來」帶過來
@@ -117,6 +114,9 @@ fun GenerateVideoScreen(
     var mode by rememberSaveable {
         mutableStateOf(if (initialImageUri != null) VideoMode.Img2Vid else VideoMode.T2V)
     }
+    // 影片頁子功能：gen=生成(文生影/圖生影,用 mode 細分) / extend=影片延長 / edit=影片編輯。
+    // extend / edit 內嵌 EditPane;VideoMode 僅在 gen 時有意義。
+    var videoFn by rememberSaveable { mutableStateOf("gen") }
     var duration by rememberSaveable { mutableStateOf(5) }
     var aspect by rememberSaveable { mutableStateOf("1:1") }
     var resolution by rememberSaveable { mutableStateOf("480p") }
@@ -382,30 +382,44 @@ fun GenerateVideoScreen(
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("模式")
+                // 4 等寬分頁:生成(文生影/圖生影) + 影片延長 + 影片編輯。延長/編輯內嵌 EditPane,
+                // 取代 v1.0.86 的獨立「影片編輯」OutlinedActionButton 與導頁式「影片延長」。
                 SegmentedTab(
                     options = listOf(
                         SegmentedOption("t2v", "文生影"),
                         SegmentedOption("img2vid", "圖生影"),
                         SegmentedOption("extend", "影片延長"),
+                        SegmentedOption("edit", "影片編輯"),
                     ),
-                    activeId = when (mode) {
-                        VideoMode.T2V -> "t2v"
-                        VideoMode.Img2Vid -> "img2vid"
+                    activeId = when (videoFn) {
+                        "extend" -> "extend"
+                        "edit" -> "edit"
+                        else -> when (mode) {
+                            VideoMode.T2V -> "t2v"
+                            VideoMode.Img2Vid -> "img2vid"
+                        }
                     },
                     onSelected = {
                         when (it) {
-                            "t2v" -> mode = VideoMode.T2V
-                            "img2vid" -> mode = VideoMode.Img2Vid
-                            "extend" -> onExtend()
+                            "t2v" -> { videoFn = "gen"; mode = VideoMode.T2V }
+                            "img2vid" -> { videoFn = "gen"; mode = VideoMode.Img2Vid }
+                            "extend" -> videoFn = "extend"
+                            "edit" -> videoFn = "edit"
                         }
                     },
                 )
-                // 影片延長 (改長度) 與 影片編輯 (改內容) 是兩個不同功能，分開呈現
-                OutlinedActionButton(
-                    label = "影片編輯",
-                    icon = "edit",
-                    onClick = onOpenVideoEdit,
+            }
+
+            // 影片延長 / 影片編輯 → 內嵌 EditPane(自帶來源選取/執行/結果),其餘生成 UI 不渲染。
+            // 同頁同時只渲染一個 EditPane,故 worker observer 不會與生成流程衝突。
+            if (videoFn == "extend" || videoFn == "edit") {
+                com.za869765.imagine.ui.edit.EditPane(
+                    mode = if (videoFn == "extend")
+                        com.za869765.imagine.ui.edit.EditMode.VideoExtend
+                    else
+                        com.za869765.imagine.ui.edit.EditMode.VideoEdit,
                 )
+                return@Column
             }
 
             if (mode != VideoMode.T2V) {

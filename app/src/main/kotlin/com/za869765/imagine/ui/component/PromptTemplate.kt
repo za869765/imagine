@@ -340,9 +340,7 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         "主體對象",
         listOf(
             "一位女子", "一位少女", "一位輕熟女", "一位女學生", "一位 OL", "一位女神",
-            "一位孕婦", "一位青年男子", "一位女性", "一位男性", "一對情侶", "一群好友",
-            "一名孩童", "一位長者", "一隻橘貓", "一隻柴犬", "一名女戰士", "一名男劍客",
-            "一名機械少女",
+            "一位孕婦", "一位女性", "一名女戰士", "一名機械少女",
         ),
     ),
     BuilderField(
@@ -356,6 +354,13 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         listOf(
             "(不指定)", "配角在主角兩側", "配角在背景虛化", "主配角並肩同框",
             "主角在前、配角在後", "眾人圍繞主角",
+        ),
+    ),
+    BuilderField(
+        "配角類型",
+        listOf(
+            "(不指定)", "男性友人", "男伴", "青年男子", "成熟男士", "男學生", "男劍客",
+            "年長者", "孩童", "寵物貓", "寵物狗", "機械夥伴",
         ),
     ),
     BuilderField(
@@ -571,7 +576,7 @@ val VIDEO_ONLY_FIELDS = setOf("動作", "聲音")
 data class BuilderCategory(val emoji: String, val name: String, val fieldLabels: List<String>)
 
 val BUILDER_CATEGORIES: List<BuilderCategory> = listOf(
-    BuilderCategory("👤", "主體與人數", listOf("主體對象", "畫面人數", "配角安排", "職業", "偽裝身份")),
+    BuilderCategory("👤", "主體與人數", listOf("主體對象", "畫面人數", "配角安排", "配角類型", "職業", "偽裝身份")),
     BuilderCategory("🧬", "外貌特徵", listOf("種族風格", "年齡感", "氣質類型", "身形", "臉型五官", "膚色", "髮型髮色", "妝容")),
     BuilderCategory("👗", "服裝造型", listOf("服飾", "配件")),
     BuilderCategory("🎭", "姿勢情緒", listOf("姿勢", "情緒狀態")),
@@ -741,13 +746,17 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
     val disguise = v("偽裝身份")
     val crowd = v("畫面人數")
     val arrange = v("配角安排")
-    val people = buildString {
-        if (crowd.isNotEmpty() && crowd != "單人") {
-            append(crowd)
-            if (arrange.isNotEmpty()) append("，").append(arrange)
-            append("，配角與主角同風格")
-        }
-    }
+    val extra = v("配角類型")
+    val hasCrowd = crowd.isNotEmpty() && crowd != "單人"
+    // 有「多於單人」或挑了配角類型,才描述配角(主體一律為女性主角)
+    val people = if (hasCrowd || extra.isNotEmpty()) {
+        listOf(
+            if (hasCrowd) crowd else "",
+            arrange,
+            if (extra.isNotEmpty()) "配角為$extra" else "",
+            "配角與主角同風格",
+        ).filter { it.isNotEmpty() }.joinToString("，")
+    } else ""
     val scene = listOf(v("場景地點"), v("光線時辰")).filter { it.isNotEmpty() }.joinToString("，")
     val comp = listOf(v("構圖鏡頭"), v("鏡頭焦段"), v("視角")).filter { it.isNotEmpty() }.joinToString("，")
     val style = listOf(v("風格類型"), v("色調"), v("畫面質感")).filter { it.isNotEmpty() }.joinToString("，")

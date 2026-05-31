@@ -167,12 +167,7 @@ fun ImagineRoot() {
                         }
                         navController.navigate(Routes.EDIT)
                     },
-                    onOpenImageEdit = {
-                        // 直接進編輯工具的「圖片編輯」模式 (不帶 media，使用者在畫面內自選圖片)
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle?.set(KEY_INIT_EDIT_MODE, "image")
-                        navController.navigate(Routes.EDIT)
-                    },
+                    // 圖片編輯改為生成頁內切模式(EditPane),不再導頁進 EditScreen → 移除 onOpenImageEdit
                 )
             }
 
@@ -197,18 +192,8 @@ fun ImagineRoot() {
                             restoreState = true
                         }
                     },
-                    onExtend = {
-                        // 影片延長走獨立的編輯/延長工具 (它有完整的影片選取 + 延長流程)
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle?.set(KEY_INIT_EDIT_MODE, "extend")
-                        navController.navigate(Routes.EDIT)
-                    },
-                    onOpenVideoEdit = {
-                        // 直接進編輯工具的「影片編輯」模式 (不帶 media，使用者在畫面內自選影片)
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle?.set(KEY_INIT_EDIT_MODE, "video")
-                        navController.navigate(Routes.EDIT)
-                    },
+                    // 影片延長 / 影片編輯改為生成頁內切模式(EditPane),不再導頁進 EditScreen
+                    // → 移除 onExtend / onOpenVideoEdit
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     initialImageUri = initUrl?.let { Uri.parse(it) },

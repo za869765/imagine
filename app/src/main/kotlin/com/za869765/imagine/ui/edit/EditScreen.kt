@@ -78,13 +78,21 @@ import kotlinx.coroutines.launch
 
 enum class EditMode { ImageEdit, VideoEdit, VideoExtend }
 
+/**
+ * EditPane — 編輯/延長的「內容」本體：自帶 prompt/來源/loading/結果 等 state、
+ * pickMedia / encodeMedia / runExecute(含 editImage / editVideo / extendVideo API)、
+ * Worker observer，以及「來源選取 + PromptInput + 執行鈕 + 結果」UI。
+ *
+ * mode 由外部參數控制(EditPane 內不放模式 SegmentedTab)；不含 Scaffold/AppBar/BottomNav，
+ * 故可同時被 EditScreen wrapper 與 生成頁內嵌使用。同頁同時只應渲染一個 EditPane(模式互斥)，
+ * 否則多個 Worker observer 會搶同一 trackedRequestId。
+ */
 @Composable
-fun EditScreen(
-    onSettingsClick: () -> Unit,
-    onNavSelected: (NavTab) -> Unit,
+fun EditPane(
+    mode: EditMode,
     initialMediaUri: Uri? = null,
     initialPrompt: String? = null,
-    initialEditMode: String? = null,    // 從 HistoryDetail 帶 "image" / "video" / "extend"
+    modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -92,37 +100,13 @@ fun EditScreen(
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
     val focusManager = LocalFocusManager.current
 
-    // rememberSaveable 讓切走再回來 state 保留 — EditMode 用字串存
-    var modeStr by rememberSaveable {
-        mutableStateOf(
-            when (initialEditMode) {
-                "video" -> "vid"
-                "extend" -> "ext"
-                "image" -> "img"
-                else -> "img"
-            }
-        )
-    }
-    val mode = when (modeStr) {
-        "vid" -> EditMode.VideoEdit
-        "ext" -> EditMode.VideoExtend
-        else -> EditMode.ImageEdit
-    }
-    // 接收新的 mode hint (HistoryDetail 再次帶不同檔案進來時要切換)
-    LaunchedEffect(initialEditMode) {
-        when (initialEditMode) {
-            "video" -> modeStr = "vid"
-            "extend" -> modeStr = "ext"
-            "image" -> modeStr = "img"
-        }
-    }
     var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
     LaunchedEffect(initialPrompt) {
         if (!initialPrompt.isNullOrBlank() && initialPrompt != prompt) {
             prompt = initialPrompt
         }
     }
-    // Uri 非 Saveable，存字串 list
+    // Uri 非 Saveable，存字串
     var sourceUriStr by rememberSaveable {
         mutableStateOf<String?>(initialMediaUri?.toString())
     }
@@ -143,6 +127,19 @@ fun EditScreen(
     // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
     var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
     val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }
+
+    // mode 在圖片/影片間切換時,清掉來源與結果(舊 EditScreen SegmentedTab onSelected 的行為)。
+    // 用 isImage 旗標比對:只有「圖↔影」越界才清,影片編輯↔影片延長互切保留來源。
+    var lastIsImage by rememberSaveable { mutableStateOf(mode == EditMode.ImageEdit) }
+    LaunchedEffect(mode) {
+        val isImage = mode == EditMode.ImageEdit
+        if (isImage != lastIsImage) {
+            sourceUriStr = null
+            resultImageUrl = null
+            resultVideoUrl = null
+            lastIsImage = isImage
+        }
+    }
 
     // Worker 完成事件接收 — 同 GenerateVideoScreen 模式
     LaunchedEffect(trackedRequestId) {
@@ -284,6 +281,243 @@ fun EditScreen(
         }
     }
 
+    // 不在此硬寫 padding — 由外層(wrapper / 生成頁的 padded Column)提供 16dp,
+    // 內嵌時才不會與外層的 .padding(16.dp) 疊成雙倍邊距。需要邊距的 caller 自行從 modifier 帶。
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionHeader("來源")
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(
+                        if (sourceUri == null) 1.5.dp else 0.dp,
+                        MaterialTheme.colorScheme.outline,
+                        RoundedCornerShape(12.dp),
+                    )
+                    .background(MaterialTheme.colorScheme.surfaceDim)
+                    .clickable(onClick = launchPick),
+                contentAlignment = Alignment.Center,
+            ) {
+                val src = sourceUri
+                if (src != null) {
+                    if (mode == EditMode.ImageEdit) {
+                        AsyncImage(
+                            model = src,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                        )
+                    } else {
+                        VideoThumb(uri = src, modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .clickable {
+                                sourceUriStr = null
+                                resultImageUrl = null
+                                resultVideoUrl = null
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ImagineIcon(
+                            name = "close", size = 18.dp,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ImagineIcon(
+                                name = "add_photo_alternate", size = 24.dp, fill = 1,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                        Text(
+                            text = when (mode) {
+                                EditMode.ImageEdit -> "選擇圖片"
+                                else -> "選擇影片"
+                            },
+                            fontSize = 15.sp, fontWeight = FontWeight.W600,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "點此從相簿選取",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionHeader("編輯說明")
+            PromptInput(
+                value = prompt,
+                onValueChange = { prompt = it },
+                label = "",
+                placeholder = when (mode) {
+                    EditMode.ImageEdit -> "把背景換成夕陽，加上暖色調濾鏡..."
+                    EditMode.VideoEdit -> "把場景換成下雨夜晚..."
+                    EditMode.VideoExtend -> "讓主角繼續往街道走..."
+                },
+                minHeight = 104,
+                forVideo = mode != EditMode.ImageEdit,   // 影片編輯/延長要顯示 動作/聲音/字幕
+            )
+        }
+
+        if (loading) {
+            ImagineCard(pad = 20) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(40.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 4.dp,
+                    )
+                    Text(
+                        when (mode) {
+                            EditMode.ImageEdit -> "圖片編輯中…"
+                            EditMode.VideoEdit -> "影片編輯中…"
+                            EditMode.VideoExtend -> "影片延長中…"
+                        },
+                        fontSize = 14.sp, fontWeight = FontWeight.W600,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (mode != EditMode.ImageEdit) {
+                        Text(
+                            "%d:%02d".format(elapsed / 60, elapsed % 60),
+                            fontSize = 22.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+        } else {
+            // 空白 prompt 也可送 — 用 initialPrompt 兜底
+            val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
+            PrimaryButton(
+                label = "執 行",
+                icon = "edit",
+                enabled = hasPrompt && sourceUri != null && prefs.isApiKeySet,
+                onClick = {
+                    val term = firstHighRiskTerm(prompt)
+                    if (term != null) pendingRiskTerm = term else runExecute()
+                },
+            )
+        }
+
+        pendingRiskTerm?.let { term ->
+            ConfirmHighRiskDialog(
+                term = term,
+                onConfirm = { pendingRiskTerm = null; runExecute() },
+                onDismiss = { pendingRiskTerm = null },
+            )
+        }
+
+        resultImageUrl?.let { url ->
+            Text(
+                "結果",
+                fontSize = 11.sp, fontWeight = FontWeight.W600,
+                letterSpacing = 0.08.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            ImagineCard(pad = 0) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = lastPrompt,
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                )
+            }
+        }
+        resultVideoUrl?.let { url ->
+            Text(
+                "結果",
+                fontSize = 11.sp, fontWeight = FontWeight.W600,
+                letterSpacing = 0.08.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            ImagineCard(pad = 0) {
+                EditVideoPreview(
+                    url = url,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(12.dp)),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * EditScreen — 給 HistoryDetail「編輯這張/這段/延長影片」入口用的獨立頁。
+ * Scaffold + AppBar + BottomNav + 模式 SegmentedTab(圖片編輯/影片編輯/影片延長) + EditPane。
+ * route / 對外簽章 / 行為皆不變。
+ */
+@Composable
+fun EditScreen(
+    onSettingsClick: () -> Unit,
+    onNavSelected: (NavTab) -> Unit,
+    initialMediaUri: Uri? = null,
+    initialPrompt: String? = null,
+    initialEditMode: String? = null,    // 從 HistoryDetail 帶 "image" / "video" / "extend"
+) {
+    // rememberSaveable 讓切走再回來 state 保留 — EditMode 用字串存
+    var modeStr by rememberSaveable {
+        mutableStateOf(
+            when (initialEditMode) {
+                "video" -> "vid"
+                "extend" -> "ext"
+                "image" -> "img"
+                else -> "img"
+            }
+        )
+    }
+    val mode = when (modeStr) {
+        "vid" -> EditMode.VideoEdit
+        "ext" -> EditMode.VideoExtend
+        else -> EditMode.ImageEdit
+    }
+    // 接收新的 mode hint (HistoryDetail 再次帶不同檔案進來時要切換)
+    LaunchedEffect(initialEditMode) {
+        when (initialEditMode) {
+            "video" -> modeStr = "vid"
+            "extend" -> modeStr = "ext"
+            "image" -> modeStr = "img"
+        }
+    }
+
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
@@ -306,214 +540,19 @@ fun EditScreen(
                     EditMode.VideoExtend -> "ext"
                 },
                 onSelected = {
-                    val newMode = when (it) {
-                        "img" -> EditMode.ImageEdit
-                        "vid" -> EditMode.VideoEdit
-                        else -> EditMode.VideoExtend
-                    }
-                    if ((newMode == EditMode.ImageEdit) != (mode == EditMode.ImageEdit)) {
-                        sourceUriStr = null
-                        resultImageUrl = null
-                        resultVideoUrl = null
-                    }
-                    modeStr = when (newMode) {
-                        EditMode.ImageEdit -> "img"
-                        EditMode.VideoEdit -> "vid"
-                        EditMode.VideoExtend -> "ext"
+                    modeStr = when (it) {
+                        "img" -> "img"
+                        "vid" -> "vid"
+                        else -> "ext"
                     }
                 },
             )
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("來源")
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(
-                            if (sourceUri == null) 1.5.dp else 0.dp,
-                            MaterialTheme.colorScheme.outline,
-                            RoundedCornerShape(12.dp),
-                        )
-                        .background(MaterialTheme.colorScheme.surfaceDim)
-                        .clickable(onClick = launchPick),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val src = sourceUri
-                    if (src != null) {
-                        if (mode == EditMode.ImageEdit) {
-                            AsyncImage(
-                                model = src,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                            )
-                        } else {
-                            VideoThumb(uri = src, modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)))
-                        }
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(8.dp)
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable {
-                                    sourceUriStr = null
-                                    resultImageUrl = null
-                                    resultVideoUrl = null
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ImagineIcon(
-                                name = "close", size = 18.dp,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    } else {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                ImagineIcon(
-                                    name = "add_photo_alternate", size = 24.dp, fill = 1,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                            }
-                            Text(
-                                text = when (mode) {
-                                    EditMode.ImageEdit -> "選擇圖片"
-                                    else -> "選擇影片"
-                                },
-                                fontSize = 15.sp, fontWeight = FontWeight.W600,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                "點此從相簿選取",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("編輯說明")
-                PromptInput(
-                    value = prompt,
-                    onValueChange = { prompt = it },
-                    label = "",
-                    placeholder = when (mode) {
-                        EditMode.ImageEdit -> "把背景換成夕陽，加上暖色調濾鏡..."
-                        EditMode.VideoEdit -> "把場景換成下雨夜晚..."
-                        EditMode.VideoExtend -> "讓主角繼續往街道走..."
-                    },
-                    minHeight = 104,
-                    forVideo = mode != EditMode.ImageEdit,   // 影片編輯/延長要顯示 動作/聲音/字幕
-                )
-            }
-
-            if (loading) {
-                ImagineCard(pad = 20) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(40.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 4.dp,
-                        )
-                        Text(
-                            when (mode) {
-                                EditMode.ImageEdit -> "圖片編輯中…"
-                                EditMode.VideoEdit -> "影片編輯中…"
-                                EditMode.VideoExtend -> "影片延長中…"
-                            },
-                            fontSize = 14.sp, fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        if (mode != EditMode.ImageEdit) {
-                            Text(
-                                "%d:%02d".format(elapsed / 60, elapsed % 60),
-                                fontSize = 22.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-            } else {
-                // 空白 prompt 也可送 — 用 initialPrompt 兜底
-                val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
-                PrimaryButton(
-                    label = "執 行",
-                    icon = "edit",
-                    enabled = hasPrompt && sourceUri != null && prefs.isApiKeySet,
-                    onClick = {
-                        val term = firstHighRiskTerm(prompt)
-                        if (term != null) pendingRiskTerm = term else runExecute()
-                    },
-                )
-            }
-
-            pendingRiskTerm?.let { term ->
-                ConfirmHighRiskDialog(
-                    term = term,
-                    onConfirm = { pendingRiskTerm = null; runExecute() },
-                    onDismiss = { pendingRiskTerm = null },
-                )
-            }
-
-            resultImageUrl?.let { url ->
-                Text(
-                    "結果",
-                    fontSize = 11.sp, fontWeight = FontWeight.W600,
-                    letterSpacing = 0.08.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                ImagineCard(pad = 0) {
-                    AsyncImage(
-                        model = url,
-                        contentDescription = lastPrompt,
-                        contentScale = ContentScale.FillWidth,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp)),
-                    )
-                }
-            }
-            resultVideoUrl?.let { url ->
-                Text(
-                    "結果",
-                    fontSize = 11.sp, fontWeight = FontWeight.W600,
-                    letterSpacing = 0.08.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                ImagineCard(pad = 0) {
-                    EditVideoPreview(
-                        url = url,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(12.dp)),
-                    )
-                }
-            }
+            // EditPane 無自帶 padding,靠外層 Column 的 padding + spacedBy 提供節奏
+            EditPane(
+                mode = mode,
+                initialMediaUri = initialMediaUri,
+                initialPrompt = initialPrompt,
+            )
         }
     }
 }

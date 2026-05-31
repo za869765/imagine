@@ -51,7 +51,6 @@ import com.za869765.imagine.ui.component.ImagineChip
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
-import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
@@ -69,7 +68,6 @@ fun GenerateImageScreen(
     onNavSelected: (NavTab) -> Unit,
     onAnimateImage: (String, String) -> Unit = { _, _ -> },
     onEditImage: (String, String) -> Unit = { _, _ -> },
-    onOpenImageEdit: () -> Unit = {},
     initialPrompt: String? = null,
 ) {
     val ctx = LocalContext.current
@@ -90,6 +88,8 @@ fun GenerateImageScreen(
     var n by rememberSaveable { mutableStateOf(1) }
     var quality by rememberSaveable { mutableStateOf("rapid") }  // rapid (快) / quality (好)
     var loading by remember { mutableStateOf(false) }
+    // 圖片頁子模式：gen=生圖 / edit=圖片編輯(內嵌 EditPane)。原本只有生圖,無模式列。
+    var imageFn by rememberSaveable { mutableStateOf("gen") }
 
     var resultUrls by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
@@ -213,10 +213,14 @@ fun GenerateImageScreen(
                 onSelected = { if (it == "video") onSwitchToVideo() },
             )
 
-            OutlinedActionButton(
-                label = "圖片編輯",
-                icon = "edit",
-                onClick = onOpenImageEdit,
+            // 圖片頁模式列：生圖 / 圖片編輯(內嵌 EditPane)。取代 v1.0.86 的「圖片編輯」OutlinedActionButton
+            com.za869765.imagine.ui.component.SegmentedTab(
+                options = listOf(
+                    com.za869765.imagine.ui.component.SegmentedOption("gen", "生圖"),
+                    com.za869765.imagine.ui.component.SegmentedOption("edit", "圖片編輯"),
+                ),
+                activeId = imageFn,
+                onSelected = { imageFn = it },
             )
 
             if (!prefs.isApiKeySet) {
@@ -228,6 +232,15 @@ fun GenerateImageScreen(
                         lineHeight = 19.sp,
                     )
                 }
+            }
+
+            if (imageFn == "edit") {
+                // 圖片編輯內嵌 — EditPane 自帶來源選取 / 執行 / 結果，不帶 initial media(使用者自選)。
+                // EditPane 無自帶 padding,靠這個 padded Column 提供節奏。
+                com.za869765.imagine.ui.edit.EditPane(
+                    mode = com.za869765.imagine.ui.edit.EditMode.ImageEdit,
+                )
+                return@Column
             }
 
             com.za869765.imagine.ui.component.SegmentedTab(

@@ -86,22 +86,29 @@ private fun analyzeElements(prompt: String): List<ElementCheck> {
 // B2：給輸入框工具列「建議 n/5」徽章用 — 算目前涵蓋了幾個要素。
 fun promptElementCoverage(prompt: String): Int = analyzeElements(prompt).count { it.present }
 
-// B4：把現有描述(可空)擴寫成 5 要素骨架,缺的留【】佔位給使用者填。
-// 已寫的字當「主體」種子塞進去,其餘四項留空待補,搭配「跳格」鈕逐格填。
+// B4：把現有描述擴寫成 5 要素骨架。
+// 各要素對應的【】佔位文字 (與 analyzeElements 的 5 個要素同名、同順序)。
+private val ELEMENT_PLACEHOLDERS = mapOf(
+    "主體" to "【主體：誰/什麼，穿什麼，什麼情緒】",
+    "場景" to "【場景：在哪裡，什麼光線時辰】",
+    "構圖" to "【構圖：景別＋視角，例如中景平視】",
+    "動作" to "【動作：在做什麼，什麼神態】",
+    "風格" to "【風格：畫風＋色調，例如電影感暖橘】",
+)
+
+// 空白 prompt → 給整套 5 要素空白骨架;已有內容 → 只對「缺少的要素」補【】佔位,
+// 已具備的不重覆補 (沿用 analyzeElements 的涵蓋偵測,避免把整套【】倒在現有描述後面變殘骸)。
+// 若 5 要素都已涵蓋,原字不動 (沒有可補的就不動)。搭配「跳格」鈕逐格填。
 fun buildScaffold(seed: String): String {
     val s = seed.trim()
-    val subject = if (s.isEmpty()) "【主體：誰/什麼，穿什麼，什麼情緒】" else s
-    return buildString {
-        append(subject)
-        append("，")
-        append("【場景：在哪裡，什麼光線時辰】")
-        append("，")
-        append("【構圖：景別＋視角，例如中景平視】")
-        append("，")
-        append("【動作：在做什麼，什麼神態】")
-        append("，")
-        append("【風格：畫風＋色調，例如電影感暖橘】")
+    if (s.isEmpty()) {
+        return ELEMENT_PLACEHOLDERS.values.joinToString("，")
     }
+    val missing = analyzeElements(s)
+        .filterNot { it.present }
+        .mapNotNull { ELEMENT_PLACEHOLDERS[it.name] }
+    if (missing.isEmpty()) return s
+    return s + "，" + missing.joinToString("，")
 }
 
 // 「擇一」類別:同時出現多個多半互相打架(例:兩個色調 / 兩種風格)。只在這些類別偵測,
@@ -520,7 +527,11 @@ fun PromptAdvisorSheet(
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    text = if (currentPrompt.isBlank()) "產生 5 要素空白骨架" else "把現有描述擴寫成 5 要素骨架",
+                    text = when {
+                        currentPrompt.isBlank() -> "產生 5 要素空白骨架"
+                        coveredCount >= checks.size -> "5 要素已齊全，無需補骨架"
+                        else -> "只補缺少的要素（缺 ${checks.size - coveredCount} 項）"
+                    },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
