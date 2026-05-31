@@ -29,8 +29,11 @@ object MediaEncoder {
 
     enum class Kind { Image, Video }
 
-    // v1.0.54: 1024 → 1536，圖生影/編輯保留更多細節 (1536x1536 ARGB_8888 約 9MB 可承受)
-    private const val MAX_IMAGE_LONG_SIDE = 1536
+    // v1.0.91: 1536 → 1024 回退。v1.0.54 曾為「保留細節」把上限拉到 1536，但 xAI Imagine
+    // 圖生影/圖片編輯會以 HTTP 400「像素太大無法使用」拒收 1536 的輸入圖。1024 是先前穩定值,
+    // 且 xAI 自家「1k」生圖本就約 1024px → i2v 必收;480p/720p 影片與一般編輯用 1024 細節已足夠。
+    // ⚠️ 不要再往上調,會重現「像素太大」。
+    private const val MAX_IMAGE_LONG_SIDE = 1024
     private const val JPEG_QUALITY = 85
     private const val MAX_VIDEO_BYTES = 10L * 1024 * 1024  // 10 MB
     private const val MAX_TOTAL_PIXELS = 50_000_000        // ~50M 像素 (約 7000x7000) 上限
