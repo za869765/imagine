@@ -49,6 +49,49 @@ data class PromptExample(val tag: String, val text: String)
 // ── ① 現成完整範例 (無方括號,可直接送 xAI Imagine) ──
 val READY_PROMPTS: List<PromptExample> = listOf(
     PromptExample(
+        "電影級真實人像",
+        "主體：一位 28 歲女子，自然真實膚質、可見毛孔與細小絨毛，自信淺笑。" +
+            "場景：黃昏窗邊，暖陽從右側斜射。" +
+            "光線：林布蘭 45 度側光，受光側明亮、暗側壓深的明暗對照，暖主光配偏冷環境補光。" +
+            "構圖：85mm 人像奶油散景，胸上中景，主體置於三分線交點、左側留負空間。" +
+            "風格：電影感寫實，青橙電影調，柯達 Portra 暖調顆粒與高光柔暈 halation，自然不油膩。",
+    ),
+    PromptExample(
+        "情緒敘事肖像",
+        "主體：一位少女，剛哭過後的紅腫眼眶、濕睫毛與凌亂髮絲（重點在情緒後果而非動作）。" +
+            "場景：雨夜，隔著沾滿水珠的玻璃窗。" +
+            "光線：低調戲劇性布光，僅半邊臉受光，髮與輪廓融入深沉陰影。" +
+            "構圖：大特寫，焦點銳利鎖定雙眼、其餘柔和。" +
+            "風格：沈鬱電影感，低飽和，濃厚底片顆粒，孤獨內省氛圍。",
+    ),
+    PromptExample(
+        "大透視環境",
+        "主體：一個渺小人影佇立、仰望前方。" +
+            "場景：霓虹賽博街道向無限遠處延伸。" +
+            "構圖：16-24mm 廣角大透視，兩側招牌與地面引導線匯聚到遠方消失點，極低機位仰拍，巨大尺度壓迫。" +
+            "光線：頂部霓虹光帶與地面濕反光，冷藍主調撞暖橘招牌。" +
+            "風格：電影感寫實，遠景薄霧大氣縱深，高對比，自然顆粒不塑料。",
+    ),
+    PromptExample(
+        "室內自然光",
+        "主體：一位男子自然坐在窗邊讀書，自然真實膚質。" +
+            "場景：北歐木質客廳。" +
+            "光線：午後陽光從左側大窗射入，撞擊橙木地板後反射暖黃光填充暗部（色溫傳遞），光線向房間深處漸暗。" +
+            "構圖：標準 50mm 中立真實，人物位於右三分、左側留窗景負空間。" +
+            "風格：室內生活感攝影，柔和自然光，低飽和電影感，去油膩自然質感。",
+    ),
+    PromptExample(
+        "影片·做減法運鏡",
+        "鏡頭運動：緩慢推近。主體微動：髮絲隨風輕擺、緩緩眨眼、呼吸帶動肩膀起伏。" +
+            "環境氛圍：空氣中塵埃漂浮、光線微微閃動。全片保持自然微動，不做大幅度動作。",
+    ),
+    PromptExample(
+        "影片·時間線分鏡 8s",
+        "場景：黃昏古鎮街道，暖橘斜光。" +
+            "分鏡：①0-2s 特寫腳步與裙襬、環境微動鋪陳；②2-5s 中景、女子緩緩轉身（先轉頭、肩帶動、裙擺隨慣性擺動）；" +
+            "③5-8s 鏡頭緩緩拉遠、走向街道深處、定格收尾。運鏡：平穩跟拍，僅微幅呼吸感。",
+    ),
+    PromptExample(
         "古裝人物",
         "主體：一位二十出頭的宮中女子，穿月白色絲質襦裙、高髻配步搖，含笑垂眸。" +
             "場景：黃昏的古典庭院，暖橘色斜光灑落，石桌上一盞油燈。" +
@@ -408,7 +451,8 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         listOf(
             "黃昏暖橘光", "清晨薄霧光", "正午強光", "月夜冷藍光", "陰雨天散射光",
             "室內暖黃燈光", "霓虹夜光", "逆光剪影", "窗邊側光", "燭光", "棚燈柔光",
-            "金色魔幻時刻",
+            "金色魔幻時刻", "林布蘭光 45°側上", "明暗對照 low-key", "高對比硬光",
+            "柔和漫射光", "體積光/耶穌光", "頂光",
         ),
     ),
     BuilderField(
@@ -416,6 +460,16 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         listOf(
             "臉部特寫", "胸上中景", "半身像", "七分身", "膝上景", "全身遠景", "過肩鏡頭",
             "大特寫眼神", "特寫手部", "廣角環境人像", "俯拍全身", "對稱構圖", "三分法構圖",
+            "引導線構圖 leading lines", "負空間留白", "非對稱平衡", "主體置於三分線交點",
+            "前景框架 framing",
+        ),
+    ),
+    BuilderField(
+        "鏡頭焦段",
+        listOf(
+            "(不指定)", "廣角 24-35mm（人文電影感）", "標準 50mm（中立真實）",
+            "85mm（人像奶油散景）", "135-200mm（長焦壓縮·疏離）", "16-24mm（大透視張力）",
+            "微距 macro（質感放大）", "魚眼（強烈變形）",
         ),
     ),
     BuilderField(
@@ -430,7 +484,15 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
         listOf(
             "暖橘色調", "冷藍色調", "高對比", "柔和粉彩", "復古褪色", "黑白",
             "莫蘭迪低飽和", "青橙電影調", "暖金色調", "冷峻銀藍", "蒂芬妮藍", "奶油色調",
-            "賽博霓虹",
+            "賽博霓虹", "跳漂銀調 bleach bypass", "暗部青調 teal shadows", "低飽和電影感",
+            "琥珀單色調",
+        ),
+    ),
+    BuilderField(
+        "畫面質感",
+        listOf(
+            "(不指定)", "自然真實膚質（毛孔絨毛）", "膠片顆粒感", "高光柔暈 halation",
+            "柯達 Portra 暖調顆粒", "去油膩自然光感", "電影級微反差", "原始未修 RAW 質感",
         ),
     ),
     BuilderField(
@@ -470,7 +532,7 @@ val BUILDER_CATEGORIES: List<BuilderCategory> = listOf(
     BuilderCategory("👗", "服裝造型", listOf("服飾", "配件")),
     BuilderCategory("🎭", "姿勢情緒", listOf("姿勢", "情緒狀態")),
     BuilderCategory("🏞️", "場景光線", listOf("場景地點", "光線時辰")),
-    BuilderCategory("🎬", "構圖風格", listOf("構圖鏡頭", "視角", "色調", "風格類型")),
+    BuilderCategory("🎬", "構圖風格", listOf("構圖鏡頭", "鏡頭焦段", "視角", "色調", "畫面質感", "風格類型")),
     BuilderCategory("🎥", "動態·聲音·字幕", listOf("動作", "聲音", "字幕")),
 )
 
@@ -519,6 +581,22 @@ val BUILDER_THEMES: List<BuilderTheme> = listOf(
             "光線時辰" to "逆光剪影", "構圖鏡頭" to "全身遠景", "色調" to "暖金色調",
         ),
     ),
+    BuilderTheme(
+        "電影感真實人像",
+        mapOf(
+            "風格類型" to "電影感寫實", "鏡頭焦段" to "85mm（人像奶油散景）",
+            "光線時辰" to "林布蘭光 45°側上", "構圖鏡頭" to "三分法構圖",
+            "色調" to "青橙電影調", "畫面質感" to "自然真實膚質（毛孔絨毛）",
+        ),
+    ),
+    BuilderTheme(
+        "去油膩自然光",
+        mapOf(
+            "風格類型" to "自然光人像", "鏡頭焦段" to "標準 50mm（中立真實）",
+            "光線時辰" to "柔和漫射光", "畫面質感" to "去油膩自然光感",
+            "色調" to "低飽和電影感",
+        ),
+    ),
 )
 
 // 判斷 term 是否「獨立出現」在 prompt(不是被更長的選項字串包住,例如色調「黑白」其實是
@@ -541,6 +619,14 @@ val SHOT_FORMULAS: List<ShotFormula> = listOf(
     ShotFormula("動感節奏", listOf("主角疾走入鏡", "躍起的慢動作", "落地後回眸")),
     ShotFormula("氛圍鋪陳", listOf("空景帶到環境", "主角緩步入鏡", "鏡頭上搖望向天空")),
     ShotFormula("時尚走秀", listOf("正面走向鏡頭", "側身定格擺姿", "回頭一甩髮")),
+    ShotFormula(
+        "時間線敘事 8s",
+        listOf("0-2s 特寫鋪陳·環境微動", "2-5s 中景·主體核心動作", "5-8s 拉遠·收尾定格"),
+    ),
+    ShotFormula(
+        "做減法運鏡",
+        listOf("鏡頭緩慢推近", "主體僅微動：髮絲/眨眼/呼吸", "環境氛圍流動：塵埃/光斑"),
+    ),
 )
 
 private val STORYBOARD_NUM = listOf("①", "②", "③", "④", "⑤")
@@ -596,8 +682,8 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
         }
     }
     val scene = listOf(v("場景地點"), v("光線時辰")).filter { it.isNotEmpty() }.joinToString("，")
-    val comp = listOf(v("構圖鏡頭"), v("視角")).filter { it.isNotEmpty() }.joinToString("，")
-    val style = listOf(v("風格類型"), v("色調")).filter { it.isNotEmpty() }.joinToString("，")
+    val comp = listOf(v("構圖鏡頭"), v("鏡頭焦段"), v("視角")).filter { it.isNotEmpty() }.joinToString("，")
+    val style = listOf(v("風格類型"), v("色調"), v("畫面質感")).filter { it.isNotEmpty() }.joinToString("，")
     val motion = v("動作")
     val sound = v("聲音")
     val caption = v("字幕")

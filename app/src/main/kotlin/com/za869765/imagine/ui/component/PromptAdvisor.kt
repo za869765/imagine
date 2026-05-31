@@ -291,6 +291,75 @@ fun PromptAdvisorSheet(
                 }
             }
 
+            // ── 質感優化 (去油膩/去 AI 味) — 與審核風險分流 ──────────────
+            // 油膩/塑料/堆精度詞 → 正向質感詞替換 (xAI 無負向 prompt,改正向措辭)。
+            // 這些詞不會被審核擋,純粹讓成像更真實 — 點替代詞換掉。
+            val qualityHits = scanQualityHits(currentPrompt)
+            if (qualityHits.isNotEmpty()) {
+                Text(
+                    text = "質感優化",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W700,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+                )
+                qualityHits.forEach { hit ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(
+                                name = "auto_awesome",
+                                size = 16.dp,
+                                fill = 1,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = "「${hit.term}」偏油膩/堆精度 — 點換成正向質感詞",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            hit.alternatives.forEach { alt ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.primary,
+                                            RoundedCornerShape(20.dp),
+                                        )
+                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                        .clickable { onReplace(hit.term, alt) }
+                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                ) {
+                                    Text(
+                                        text = alt,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── 可能衝突的設定 (同一「擇一」類別出現多個 → 提醒,不自動改) ──
             val conflicts = detectConflicts(currentPrompt)
             if (conflicts.isNotEmpty()) {

@@ -294,11 +294,11 @@ fun PromptInput(
 
             // 審核風險 hint (僅參考,不阻擋使用) — 只在有 hint 時顯示
             // flagged=true (已被 400 擋下) 優先壓過所有 keyword hint,顯示「建議改寫」
-            val hint = remember(value, maxChars, flagged) {
+            val hint = remember(value, maxChars, flagged, forVideo) {
                 if (flagged) {
                     PromptHint("🚨", "已被審核擋下 — 建議改寫", HintColor.Red)
                 } else {
-                    evaluatePrompt(value, maxChars)
+                    evaluatePrompt(value, maxChars, forVideo)
                 }
             }
             hint?.let {
@@ -453,6 +453,31 @@ fun scanPromptRisks(prompt: String): Pair<List<String>, List<RiskHit>> {
     return blocked to artistic
 }
 
+// ── 「質感優化」字詞偵測 (去油膩/去 AI 味) ────────────────────────────────
+// xAI Imagine 沒有可用的負向 prompt → 這裡不擋詞,而是把常見「油膩/塑料/堆精度」詞
+// 對應到「正向質感詞」,沿用 ARTISTIC_ALTERNATIVES 的「詞 → 替代清單」結構與 onReplace 流程。
+// 與審核風險分流:這些詞不會被審核擋,只是讓成像更真實自然 (點一下換掉)。
+private val QUALITY_ALTERNATIVES: List<Pair<String, List<String>>> = listOf(
+    "完美皮膚" to listOf("自然真實膚質", "毛孔細節"),
+    "光滑皮膚" to listOf("自然真實膚質", "毛孔細節"),
+    "perfect skin" to listOf("natural realistic skin texture", "visible pores"),
+    "8k" to listOf("自然細節", "真實質感"),
+    "超高清" to listOf("自然細節", "真實質感"),
+    "ultra detailed" to listOf("natural detail", "authentic texture"),
+    "sharp focus" to listOf("soft optical focus", "natural depth of field"),
+    "銳利對焦" to listOf("柔和光學對焦", "自然景深"),
+    "golden hour 柔光大平光" to listOf("林布蘭側光", "明暗對照"),
+)
+
+// 掃描 prompt → 命中的質感優化詞+替代清單。給「建議」sheet 的「質感優化」區用。
+fun scanQualityHits(prompt: String): List<RiskHit> {
+    if (prompt.isBlank()) return emptyList()
+    val low = prompt.lowercase()
+    return QUALITY_ALTERNATIVES
+        .filter { matchesTerm(low, it.first) }
+        .map { RiskHit(it.first, it.second) }
+}
+
 // A2: 送出前的軟確認對話框。只是提醒+省錢,不是硬擋 (誤判頂多多按一下)。
 @Composable
 fun ConfirmHighRiskDialog(
@@ -478,7 +503,29 @@ fun ConfirmHighRiskDialog(
     )
 }
 
-private fun evaluatePrompt(p: String, maxChars: Int): PromptHint? {
+// 物理矛盾偵測 — 偵測幾組同時下達會互相抵消的指令,回第一個命中的提醒 (僅參考)。
+//   ① 遠景 + 淺景深/奶油散景 (遠景本來景深就深,要散景得近)
+//   ② 廣角 + 長焦/背景壓縮 (廣角是擴張透視,長焦才壓縮,焦段互斥)
+//   ③ 影片: 手持/晃動 + 平滑/穩定/滑軌 (運鏡穩定度互斥)
+// 用單純 contains (prompt 是自由中文);任一組左右皆命中才算衝突。
+private fun firstPhysicalConflict(text: String, forVideo: Boolean): PromptHint? {
+    fun anyIn(words: List<String>) = words.any { text.contains(it) }
+
+    if (anyIn(listOf("遠景", "全身遠景")) && anyIn(listOf("淺景深", "奶油散景"))) {
+        return PromptHint("⚠️", "遠景＋淺景深可能互斥 (僅參考)", HintColor.Yellow)
+    }
+    if (anyIn(listOf("廣角")) && anyIn(listOf("長焦", "背景壓縮"))) {
+        return PromptHint("⚠️", "廣角＋長焦/壓縮焦段互斥 (僅參考)", HintColor.Yellow)
+    }
+    if (forVideo &&
+        anyIn(listOf("手持", "晃動")) && anyIn(listOf("平滑", "穩定", "滑軌"))
+    ) {
+        return PromptHint("⚠️", "手持＋平滑/滑軌運鏡互斥 (僅參考)", HintColor.Yellow)
+    }
+    return null
+}
+
+private fun evaluatePrompt(p: String, maxChars: Int, forVideo: Boolean = false): PromptHint? {
     val s = p.trim()
     if (s.isEmpty()) return null
     val low = s.lowercase()
@@ -497,6 +544,9 @@ private fun evaluatePrompt(p: String, maxChars: Int): PromptHint? {
     if (medium.any { matchesTerm(low, it) }) {
         return PromptHint("⚠️", "可能審核較嚴 (僅參考)", HintColor.Yellow)
     }
+
+    // 物理矛盾偵測 (僅參考): 同時下兩個互相抵消的指令,成像會二選一或糊掉。
+    firstPhysicalConflict(s, forVideo)?.let { return it }
 
     // 太短: 描述不足模型發揮空間小
     if (s.length < 5) {
