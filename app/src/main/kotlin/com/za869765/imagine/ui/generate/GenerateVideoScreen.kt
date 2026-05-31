@@ -94,6 +94,7 @@ enum class VideoMode { T2V, Img2Vid }
 fun GenerateVideoScreen(
     onSwitchToImage: () -> Unit,
     onExtend: () -> Unit,
+    onOpenVideoEdit: () -> Unit = {},
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     initialImageUri: Uri? = null,    // 從圖片頁「動起來」帶過來
@@ -388,6 +389,14 @@ fun GenerateVideoScreen(
                             "extend" -> onExtend()
                         }
                     },
+                )
+                // 影片延長 (改長度) 與 影片編輯 (改內容) 是兩個不同功能，分開呈現
+                Text(
+                    text = "✏ 影片編輯（修改現有影片）",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onOpenVideoEdit),
                 )
             }
 

@@ -167,6 +167,12 @@ fun ImagineRoot() {
                         }
                         navController.navigate(Routes.EDIT)
                     },
+                    onOpenImageEdit = {
+                        // 直接進編輯工具的「圖片編輯」模式 (不帶 media，使用者在畫面內自選圖片)
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle?.set(KEY_INIT_EDIT_MODE, "image")
+                        navController.navigate(Routes.EDIT)
+                    },
                 )
             }
 
@@ -195,6 +201,12 @@ fun ImagineRoot() {
                         // 影片延長走獨立的編輯/延長工具 (它有完整的影片選取 + 延長流程)
                         navController.currentBackStackEntry
                             ?.savedStateHandle?.set(KEY_INIT_EDIT_MODE, "extend")
+                        navController.navigate(Routes.EDIT)
+                    },
+                    onOpenVideoEdit = {
+                        // 直接進編輯工具的「影片編輯」模式 (不帶 media，使用者在畫面內自選影片)
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle?.set(KEY_INIT_EDIT_MODE, "video")
                         navController.navigate(Routes.EDIT)
                     },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },

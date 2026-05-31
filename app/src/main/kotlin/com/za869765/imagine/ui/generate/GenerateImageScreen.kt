@@ -2,6 +2,7 @@ package com.za869765.imagine.ui.generate
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,7 @@ fun GenerateImageScreen(
     onNavSelected: (NavTab) -> Unit,
     onAnimateImage: (String, String) -> Unit = { _, _ -> },
     onEditImage: (String, String) -> Unit = { _, _ -> },
+    onOpenImageEdit: () -> Unit = {},
     initialPrompt: String? = null,
 ) {
     val ctx = LocalContext.current
@@ -199,6 +201,14 @@ fun GenerateImageScreen(
                 ),
                 activeId = "image",
                 onSelected = { if (it == "video") onSwitchToVideo() },
+            )
+
+            Text(
+                text = "✏ 圖片編輯（修改現有圖片）",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.W600,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(onClick = onOpenImageEdit),
             )
 
             if (!prefs.isApiKeySet) {
