@@ -13,17 +13,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +69,8 @@ import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
+import com.za869765.imagine.data.storage.MediaEntry
+import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ImagineBottomNav
@@ -89,6 +100,7 @@ import kotlinx.coroutines.launch
 
 enum class VideoMode { T2V, Img2Vid }
 
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun GenerateVideoScreen(
     onSwitchToImage: () -> Unit,
@@ -124,6 +136,8 @@ fun GenerateVideoScreen(
         mutableStateOf(initialImageUri?.let { listOf(it.toString()) } ?: emptyList())
     }
     val sourceImages = sourceImageStrings.map { Uri.parse(it) }
+    // 圖生影「從素材庫選」：true 時彈出素材庫圖片 grid sheet
+    var showLibraryPicker by remember { mutableStateOf(false) }
 
     // trackedRequestId 是 SSOT — process / Composable 重建後從 saveable 恢復,LaunchedEffect
     // 自動重新 observe Worker 並把 generating 設回 true。generating 維持 remember,避免
@@ -452,11 +466,22 @@ fun GenerateVideoScreen(
                             AddImageSlot(onClick = launchPick)
                         }
                     }
+                    // 加圖入口：系統相簿(上方 +) 之外，多一個「從素材庫選」(app 生成圖在
+                    // filesDir/media，PhotoPicker 看不到 → 走 MediaHistory)。
+                    if (sourceImages.size < maxImages) {
+                        ImagineChip(
+                            label = "從素材庫選",
+                            icon = "image",
+                            variant = ChipVariant.Outlined,
+                            onClick = { showLibraryPicker = true },
+                        )
+                    }
                     // 起始圖 / 參考圖常駐 chip — Grok 風格：原圖跟 prompt 永遠能拿走，
                     // 不論還沒生成 / 生成中 / 成功 / 400 失敗。
                     if (sourceImages.isNotEmpty()) {
-                        Row(
+                        FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.padding(top = 4.dp),
                         ) {
                             if (prompt.isNotBlank()) {
@@ -662,6 +687,82 @@ fun GenerateVideoScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            if (showLibraryPicker) {
+                LibraryImagePickerSheet(
+                    onDismiss = { showLibraryPicker = false },
+                    onPick = { entry ->
+                        // 圖生影一次一張 → 直接取代來源；用 app 生成的 file URI(xAI 可解析)
+                        sourceImageStrings = listOf(entry.uri.toString())
+                        showLibraryPicker = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+// 從素材庫(filesDir/media)挑圖片當圖生影來源。沿用 HistoryScreen 的 load 與
+// LazyVerticalGrid(3 欄)+AsyncImage 縮圖法；只列圖片(!isVideo)。
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LibraryImagePickerSheet(
+    onDismiss: () -> Unit,
+    onPick: (MediaEntry) -> Unit,
+) {
+    val ctx = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var images by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        images = MediaHistory.loadAll(ctx).filter { !it.isVideo }
+        loaded = true
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        ) {
+            SectionHeader("從素材庫選圖")
+            if (loaded && images.isEmpty()) {
+                Text(
+                    text = "素材庫還沒有圖片 — 先去生成幾張，或改用上方「+」從手機相簿選。",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 19.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(items = images, key = { it.uri.toString() }) { entry ->
+                        AsyncImage(
+                            model = entry.uri,
+                            contentDescription = entry.displayName,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .clickable { onPick(entry) },
+                        )
                     }
                 }
             }
