@@ -2,7 +2,6 @@ package com.za869765.imagine.ui.generate
 
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -51,6 +51,7 @@ import com.za869765.imagine.ui.component.ImagineChip
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
+import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
@@ -194,6 +195,15 @@ fun GenerateImageScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // 模式色彩暗示 — 圖片頁藍系細色條(對齊 Hub 圖片卡配色),一眼分辨在哪個模式
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                    .background(Color(0xFF23408A)),
+            )
+
             com.za869765.imagine.ui.component.SegmentedTab(
                 options = listOf(
                     com.za869765.imagine.ui.component.SegmentedOption("image", "圖片"),
@@ -203,12 +213,10 @@ fun GenerateImageScreen(
                 onSelected = { if (it == "video") onSwitchToVideo() },
             )
 
-            Text(
-                text = "✏ 圖片編輯（修改現有圖片）",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.W600,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable(onClick = onOpenImageEdit),
+            OutlinedActionButton(
+                label = "圖片編輯",
+                icon = "edit",
+                onClick = onOpenImageEdit,
             )
 
             if (!prefs.isApiKeySet) {

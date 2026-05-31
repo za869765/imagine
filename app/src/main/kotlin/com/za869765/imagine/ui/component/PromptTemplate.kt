@@ -65,7 +65,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：雨夜，隔著沾滿水珠的玻璃窗。" +
             "光線：低調戲劇性布光，僅半邊臉受光，髮與輪廓融入深沉陰影。" +
             "構圖：大特寫，焦點銳利鎖定雙眼、其餘柔和。" +
-            "風格：沈鬱電影感，低飽和，濃厚底片顆粒，孤獨內省氛圍。",
+            "風格：沈鬱電影感，莫蘭迪低飽和，濃厚底片顆粒，孤獨內省氛圍。",
         forVideo = false,
     ),
     PromptExample(
@@ -135,7 +135,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
             "場景：夜晚搖晃紅燈籠的古鎮街道，雨絲斜飄。" +
             "構圖：全身中景、低角度仰拍，跟拍後退。" +
             "動作：因追擊而疾奔，紅色裙襬與髮絲隨風翻飛。" +
-            "風格：武俠電影感，高對比冷藍調，自然動作感不僵硬。",
+            "風格：武俠電影感，高對比，冷藍色調，自然動作感不僵硬。",
     ),
     PromptExample(
         "室內人物",
@@ -654,6 +654,29 @@ fun isStandaloneOption(prompt: String, term: String): Boolean {
     }
 }
 
+// 詞界分隔符:字串邊界以外,只有兩側落在這些字元上才算「獨立成詞」。
+val TERM_SEPARATORS: Set<Char> = setOf(
+    ' ', '\t', '\n', '\r', '　', '、', '，', ',', '。', '．', '.', '；', ';',
+    '：', ':', '（', '）', '(', ')', '【', '】', '‧', '·',
+)
+
+// 判斷 term 在 text 中是否「至少有一次被分隔符/字串邊界包圍」。
+// 與 isStandaloneOption 互補:後者只擋「被更長的目錄選項包住」,這裡進一步擋
+// 「黏在更長的自由文字 CJK 串中間」(例如目錄詞『高對比』黏在自由詞『高對比冷藍調』裡)。
+// 智慧插入取代舊值前用它把關:只有獨立成詞的舊值才安全取代,否則寧可附加也別切壞長詞。
+fun isSeparatedTerm(text: String, term: String): Boolean {
+    if (term.isEmpty()) return false
+    var idx = text.indexOf(term)
+    while (idx >= 0) {
+        val beforeOk = idx == 0 || text[idx - 1] in TERM_SEPARATORS
+        val after = idx + term.length
+        val afterOk = after >= text.length || text[after] in TERM_SEPARATORS
+        if (beforeOk && afterOk) return true
+        idx = text.indexOf(term, idx + 1)
+    }
+    return false
+}
+
 // ── 影片分鏡 (storyboard) — 公式範本 + 分段選擇器,只在影片模式的範本顯示 ──
 data class ShotFormula(val name: String, val shots: List<String>)
 
@@ -933,7 +956,9 @@ fun PromptTemplateSheet(
                                     vv.isNotEmpty() && vv != "(不指定)"
                                 }
                                 Box(modifier = Modifier.weight(1f)) {
-                                    CategoryCard(cat.emoji, cat.name, setCount, labels.size) {
+                                    // 年齡拉桿藏在「年齡感」欄(外貌特徵第二層),卡片標一下讓使用者找得到
+                                    val hint = if (cat.fieldLabels.contains("年齡感")) "🎚 內含年齡拉桿" else null
+                                    CategoryCard(cat.emoji, cat.name, setCount, labels.size, hint) {
                                         expandedField = null
                                         openCategory = cat.name
                                     }
@@ -1083,13 +1108,14 @@ private fun ThemeChip(name: String, onClick: () -> Unit) {
     }
 }
 
-// 大類卡片: emoji + 名稱 + 「已設定 N/M」。
+// 大類卡片: emoji + 名稱 + 「已設定 N/M」。hint 非空時於底部加一行小提示(如「內含年齡拉桿」)。
 @Composable
 private fun CategoryCard(
     emoji: String,
     name: String,
     setCount: Int,
     total: Int,
+    hint: String? = null,
     onClick: () -> Unit,
 ) {
     Column(
@@ -1115,6 +1141,15 @@ private fun CategoryCard(
             else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp),
         )
+        if (hint != null) {
+            Text(
+                text = hint,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.W600,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
     }
 }
 

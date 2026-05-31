@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -361,6 +362,15 @@ fun GenerateVideoScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // 模式色彩暗示 — 影片頁青綠系細色條(對齊 Hub 影片卡配色),一眼分辨在哪個模式
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFF0F5E57)),
+            )
+
             SegmentedTab(
                 options = listOf(
                     SegmentedOption("image", "圖片"),
@@ -391,12 +401,10 @@ fun GenerateVideoScreen(
                     },
                 )
                 // 影片延長 (改長度) 與 影片編輯 (改內容) 是兩個不同功能，分開呈現
-                Text(
-                    text = "✏ 影片編輯（修改現有影片）",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable(onClick = onOpenVideoEdit),
+                OutlinedActionButton(
+                    label = "影片編輯",
+                    icon = "edit",
+                    onClick = onOpenVideoEdit,
                 )
             }
 

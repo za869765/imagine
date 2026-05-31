@@ -149,15 +149,18 @@ fun PromptInput(
 
     // 片語庫「智慧插入」: 若 prompt 內已有同一類型(同欄位)的詞 → 換掉它避免衝突
     //   (例如已有「暖橘色調」再點「冷藍色調」就替換,不會兩個並存);否則插入游標處。
-    // 取最長命中當作既有值 (避免「大波浪」誤判),並用 guard 排除「短詞是更長詞的子字串」
-    //   情況 (例如色調「黑白」其實是風格「黑白底片」的一部分 → 不替換、改插入,避免砍壞長詞)。
+    // 取最長命中當作既有值 (避免「大波浪」誤判),並用兩層 guard 防誤判砍壞長詞:
+    //   ① 排除「短詞是更長目錄選項的子字串」(例如色調「黑白」其實是風格「黑白底片」的一部分);
+    //   ② isSeparatedTerm: 命中的舊值必須在 prompt 裡「獨立成詞」(前後是分隔符/邊界),
+    //      否則它是黏在更長自由文字裡的目錄子字串 (例如「高對比」黏在「高對比冷藍調」中),
+    //      取代會把長詞切壞 → 此時不替換、改附加 (寧可重複也別損壞字串)。
     fun smartInsert(option: String, sameTypeOptions: List<String>) {
         val text = tfValue.text
         if (isStandaloneOption(text, option)) return  // 已「獨立」存在才算重複;被更長詞包住(子字串)不算
         val present = BUILDER_FIELDS.flatMap { it.options }
             .filter { it != "(不指定)" && text.contains(it) }
         val existing = sameTypeOptions
-            .filter { it != option && it != "(不指定)" && text.contains(it) }
+            .filter { it != option && it != "(不指定)" && isSeparatedTerm(text, it) }
             .maxByOrNull { it.length }
             ?.takeIf { ex -> present.none { it != ex && it.length > ex.length && it.contains(ex) } }
         if (existing != null) {
