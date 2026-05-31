@@ -71,10 +71,13 @@ object MediaEncoder {
 
     private fun encodeImage(ctx: Context, uri: Uri): String? {
         // 1. probe bounds (不真載入 pixel buffer)
+        // ⚠️ v1.0.92 修：inJustDecodeBounds 模式 decodeStream 一律回 null(只填 bounds,不回
+        // bitmap)。所以「開檔失敗」必須判 openInput 本身;絕不能把 use{} 的回傳值 ?: return null
+        // —— 那會讓「合法圖」也被當失敗,使下方尺寸檢查永遠到不了。這正是 v1.0.50 起所有本地圖
+        // (file://素材庫 / content://相簿)都「讀取起始圖失敗」的元兇。
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        openInput(ctx, uri)?.use {
-            BitmapFactory.decodeStream(it, null, bounds)
-        } ?: return null
+        val probe = openInput(ctx, uri) ?: return null
+        probe.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
         // 1.5 預檢總 pixel 數 — 太大直接拒絕，避免 native decode SIGABRT
