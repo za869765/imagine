@@ -35,6 +35,16 @@ object MediaEncoder {
     private const val MAX_VIDEO_BYTES = 10L * 1024 * 1024  // 10 MB
     private const val MAX_TOTAL_PIXELS = 50_000_000        // ~50M 像素 (約 7000x7000) 上限
 
+    // 素材庫圖 uri 是 file://(MediaHistory 用 file.toUri())，contentResolver.openInputStream
+    // 對 app 自家 filesDir 的 file:// 不可靠 → 回 null。file:// / 無 scheme 先走 java.io.File，
+    // 其餘(content:// 等)才走 contentResolver。
+    private fun openInput(ctx: Context, uri: Uri): java.io.InputStream? {
+        if (uri.scheme == "file" || uri.scheme == null) {
+            uri.path?.let { p -> val f = java.io.File(p); if (f.exists()) return f.inputStream() }
+        }
+        return runCatching { ctx.contentResolver.openInputStream(uri) }.getOrNull()
+    }
+
     suspend fun encodeForApi(ctx: Context, uri: Uri, kind: Kind): String? =
         withContext(Dispatchers.IO) {
             val scheme = uri.scheme?.lowercase()
@@ -59,7 +69,7 @@ object MediaEncoder {
     private fun encodeImage(ctx: Context, uri: Uri): String? {
         // 1. probe bounds (不真載入 pixel buffer)
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        ctx.contentResolver.openInputStream(uri)?.use {
+        openInput(ctx, uri)?.use {
             BitmapFactory.decodeStream(it, null, bounds)
         } ?: return null
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
@@ -83,7 +93,7 @@ object MediaEncoder {
             inPreferredConfig = Bitmap.Config.ARGB_8888
             inMutable = false
         }
-        val bitmap = ctx.contentResolver.openInputStream(uri)?.use {
+        val bitmap = openInput(ctx, uri)?.use {
             BitmapFactory.decodeStream(it, null, decodeOpts)
         } ?: return null
 
@@ -104,7 +114,12 @@ object MediaEncoder {
     private fun encodeVideo(ctx: Context, uri: Uri): String? {
         // 影片不好 transcode，先以「限大小」處理；超過 toast 提示使用者
         // (呼叫端看到 null 會跳「讀取來源失敗」)
-        val size = ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+        // file:// (素材庫) 走 File.length() 較穩；其餘走 contentResolver。
+        val localFile = if (uri.scheme == "file" || uri.scheme == null) {
+            uri.path?.let { java.io.File(it) }?.takeIf { it.exists() }
+        } else null
+        val size = localFile?.length()
+            ?: ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
         if (size <= 0L || size > MAX_VIDEO_BYTES) {
             Log.w(TAG, "video too large or unreadable: size=$size, max=$MAX_VIDEO_BYTES")
             return null
@@ -114,7 +129,7 @@ object MediaEncoder {
         // 序列化/upload buffer 仍可能在低記憶體手機 OOM。外層 encodeForApi 雖有 catch，
         // 顯式 catch + 明確 log 方便 diagnose
         return try {
-            val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            val bytes = (localFile?.inputStream() ?: openInput(ctx, uri))?.use { it.readBytes() }
                 ?: return null
             "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
         } catch (oom: OutOfMemoryError) {

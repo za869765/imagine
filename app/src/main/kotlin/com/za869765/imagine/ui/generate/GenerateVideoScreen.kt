@@ -79,6 +79,7 @@ import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
+import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.ChipVariant
@@ -273,21 +274,6 @@ fun GenerateVideoScreen(
             ).show()
             return
         }
-        // 本地圖警告: xAI REST 只接受 https URL，從手機相簿選的圖會被忽略，
-        // 結果跟純文生影一樣。建議走「動起來」/「當參考圖」入口帶 xAI 回傳的 URL。
-        if (mode != VideoMode.T2V) {
-            val localPicked = sourceImages.any { uri ->
-                val s = uri.scheme?.lowercase()
-                s != "http" && s != "https"
-            }
-            if (localPicked) {
-                Toast.makeText(
-                    ctx,
-                    "⚠️ 手機相簿選的圖 xAI 可能不會參考；建議從歷史頁/圖片頁「動起來」",
-                    Toast.LENGTH_LONG,
-                ).show()
-            }
-        }
         // 點生成 = 自動收鍵盤(避免 IME 佔走畫面看不到生成中/結果)
         focusManager.clearFocus()
         // 點生成 = 開新一輪,先清掉上一輪的錯誤訊息(包含 400 審核紅卡),
@@ -463,18 +449,9 @@ fun GenerateVideoScreen(
                             )
                         }
                         if (sourceImages.size < maxImages) {
-                            AddImageSlot(onClick = launchPick)
+                            // 點＋直接開素材庫 picker sheet(內含「從手機相簿選」入口 + 素材庫縮圖)
+                            AddImageSlot(onClick = { showLibraryPicker = true })
                         }
-                    }
-                    // 加圖入口：系統相簿(上方 +) 之外，多一個「從素材庫選」(app 生成圖在
-                    // filesDir/media，PhotoPicker 看不到 → 走 MediaHistory)。
-                    if (sourceImages.size < maxImages) {
-                        ImagineChip(
-                            label = "從素材庫選",
-                            icon = "image",
-                            variant = ChipVariant.Outlined,
-                            onClick = { showLibraryPicker = true },
-                        )
                     }
                     // 起始圖 / 參考圖常駐 chip — Grok 風格：原圖跟 prompt 永遠能拿走，
                     // 不論還沒生成 / 生成中 / 成功 / 400 失敗。
@@ -694,6 +671,10 @@ fun GenerateVideoScreen(
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(
                     onDismiss = { showLibraryPicker = false },
+                    onPickFromGallery = {
+                        showLibraryPicker = false
+                        launchPick()
+                    },
                     onPick = { entry ->
                         // 圖生影一次一張 → 直接取代來源；用 app 生成的 file URI(xAI 可解析)
                         sourceImageStrings = listOf(entry.uri.toString())
@@ -711,6 +692,7 @@ fun GenerateVideoScreen(
 @Composable
 private fun LibraryImagePickerSheet(
     onDismiss: () -> Unit,
+    onPickFromGallery: () -> Unit,
     onPick: (MediaEntry) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -734,6 +716,16 @@ private fun LibraryImagePickerSheet(
                 .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         ) {
             SectionHeader("從素材庫選圖")
+            // 手機相簿入口：app 生成圖在 filesDir/media(PhotoPicker 看不到)走下方縮圖；
+            // 要選手機相簿/外部圖則點此關閉 sheet 後叫系統 PhotoPicker。
+            OutlinedActionButton(
+                label = "從手機相簿選",
+                icon = "image",
+                onClick = onPickFromGallery,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            )
             if (loaded && images.isEmpty()) {
                 Text(
                     text = "素材庫還沒有圖片 — 先去生成幾張，或改用上方「+」從手機相簿選。",
