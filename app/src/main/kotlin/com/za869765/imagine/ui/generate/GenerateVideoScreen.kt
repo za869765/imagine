@@ -88,7 +88,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-enum class VideoMode { T2V, Img2Vid, Ref }
+enum class VideoMode { T2V, Img2Vid }
 
 @Composable
 fun GenerateVideoScreen(
@@ -253,7 +253,7 @@ fun GenerateVideoScreen(
         if (mode != VideoMode.T2V && sourceImages.isEmpty()) {
             Toast.makeText(
                 ctx,
-                if (mode == VideoMode.Img2Vid) "請先選擇起始圖" else "請先選擇至少 1 張參考圖",
+                "請先選擇起始圖",
                 Toast.LENGTH_SHORT,
             ).show()
             return
@@ -295,33 +295,19 @@ fun GenerateVideoScreen(
                 val starting = if (capturedMode == VideoMode.Img2Vid && firstSource != null) {
                     encodeImage(firstSource)
                 } else null
-                val refs = if (capturedMode == VideoMode.Ref) {
-                    val list = mutableListOf<String>()
-                    for (uri in sourceImages) {
-                        encodeImage(uri)?.let { list += it }
-                    }
-                    list.takeIf { it.isNotEmpty() }
-                } else null
-
-                // v1.0.50: 圖生影/參考圖模式 encode 失敗 → 不送 API，直接 toast
+                // v1.0.50: 圖生影模式 encode 失敗 → 不送 API，直接 toast
                 if (capturedMode == VideoMode.Img2Vid && starting == null) {
                     generating = false
                     Toast.makeText(ctx, "讀取起始圖失敗 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
                     return@launch
                 }
-                if (capturedMode == VideoMode.Ref && refs.isNullOrEmpty()) {
-                    generating = false
-                    Toast.makeText(ctx, "讀取參考圖失敗 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
-                    return@launch
-                }
-
                 val gen = repository.generateVideo(
                     prompt = capturedPrompt,
                     duration = capturedDuration,
                     resolution = resolution,
                     aspectRatio = aspect,
                     startingImageUrl = starting,
-                    referenceImageUrls = refs,
+                    referenceImageUrls = null,
                 )
                 when (gen) {
                     is ApiResult.Error -> {
@@ -389,42 +375,26 @@ fun GenerateVideoScreen(
                     options = listOf(
                         SegmentedOption("t2v", "文生影"),
                         SegmentedOption("img2vid", "圖生影"),
-                        SegmentedOption("ref", "參考圖"),
+                        SegmentedOption("extend", "影片延長"),
                     ),
                     activeId = when (mode) {
                         VideoMode.T2V -> "t2v"
                         VideoMode.Img2Vid -> "img2vid"
-                        VideoMode.Ref -> "ref"
                     },
                     onSelected = {
-                        mode = when (it) {
-                            "t2v" -> VideoMode.T2V
-                            "img2vid" -> VideoMode.Img2Vid
-                            else -> VideoMode.Ref
+                        when (it) {
+                            "t2v" -> mode = VideoMode.T2V
+                            "img2vid" -> mode = VideoMode.Img2Vid
+                            "extend" -> onExtend()
                         }
                     },
-                )
-            }
-
-            // 影片延長入口 — 放在模式列旁(原本「參考圖」附近);走獨立的延長工具,不重複邏輯。
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable(onClick = onExtend)
-                    .padding(vertical = 4.dp, horizontal = 2.dp),
-            ) {
-                Text(
-                    text = "↗ 延長現有影片（把一段影片接長）",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.primary,
                 )
             }
 
             if (mode != VideoMode.T2V) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionHeader(
-                        if (mode == VideoMode.Img2Vid) "起始圖" else "參考圖（最多 3 張）",
+                        "起始圖",
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         sourceImages.forEachIndexed { index, uri ->
