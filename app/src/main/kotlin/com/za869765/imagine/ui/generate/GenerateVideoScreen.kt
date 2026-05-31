@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -362,14 +361,20 @@ fun GenerateVideoScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 模式色彩暗示 — 影片頁青綠系細色條(對齊 Hub 影片卡配色),一眼分辨在哪個模式
+            // 模式色彩標頭 — 影片頁青綠系圓角彩條,內含「🎬 影片模式」一眼分辨在哪個模式
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFF0F5E57)),
-            )
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF0F5E57))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = "🎬  影片模式",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.White,
+                )
+            }
 
             SegmentedTab(
                 options = listOf(
@@ -378,35 +383,40 @@ fun GenerateVideoScreen(
                 ),
                 activeId = "video",
                 onSelected = { if (it == "image") onSwitchToImage() },
+                activeColor = Color(0xFF0F5E57),
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("模式")
-                // 4 等寬分頁:生成(文生影/圖生影) + 影片延長 + 影片編輯。延長/編輯內嵌 EditPane,
-                // 取代 v1.0.86 的獨立「影片編輯」OutlinedActionButton 與導頁式「影片延長」。
+                // 手機寬度下 4 段會吃字 → 拆成兩排各 2 段(皆全寬,字完整)。邏輯不變:
+                // 第一排=生成(文生影/圖生影,videoFn=gen 時高亮),第二排=編輯影片(延長/編輯)。
+                // 兩排只會有一排高亮,另一排 activeId="" 不匹配→無高亮,表示目前不在那組。
+                // 第一排(生成)
                 SegmentedTab(
                     options = listOf(
                         SegmentedOption("t2v", "文生影"),
                         SegmentedOption("img2vid", "圖生影"),
+                    ),
+                    activeId = if (videoFn == "gen") {
+                        if (mode == VideoMode.T2V) "t2v" else "img2vid"
+                    } else "",
+                    onSelected = {
+                        videoFn = "gen"
+                        mode = if (it == "t2v") VideoMode.T2V else VideoMode.Img2Vid
+                    },
+                )
+                // 第二排(編輯影片)
+                SegmentedTab(
+                    options = listOf(
                         SegmentedOption("extend", "影片延長"),
                         SegmentedOption("edit", "影片編輯"),
                     ),
                     activeId = when (videoFn) {
                         "extend" -> "extend"
                         "edit" -> "edit"
-                        else -> when (mode) {
-                            VideoMode.T2V -> "t2v"
-                            VideoMode.Img2Vid -> "img2vid"
-                        }
+                        else -> ""
                     },
-                    onSelected = {
-                        when (it) {
-                            "t2v" -> { videoFn = "gen"; mode = VideoMode.T2V }
-                            "img2vid" -> { videoFn = "gen"; mode = VideoMode.Img2Vid }
-                            "extend" -> videoFn = "extend"
-                            "edit" -> videoFn = "edit"
-                        }
-                    },
+                    onSelected = { videoFn = it },
                 )
             }
 

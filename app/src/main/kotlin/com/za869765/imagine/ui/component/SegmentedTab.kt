@@ -32,7 +32,12 @@ fun SegmentedTab(
     activeId: String,
     onSelected: (String) -> Unit = {},
     modifier: Modifier = Modifier,
+    // activeColor 非 null 時，選中段背景用此模式色、文字/icon 用對比白；null 沿用 secondaryContainer
+    activeColor: Color? = null,
 ) {
+    val activeBg = activeColor ?: MaterialTheme.colorScheme.secondaryContainer
+    val activeFg = if (activeColor != null) Color.White
+    else MaterialTheme.colorScheme.onSecondaryContainer
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -48,7 +53,7 @@ fun SegmentedTab(
                     .weight(1f)
                     .fillMaxHeight()
                     .background(
-                        if (isActive) MaterialTheme.colorScheme.secondaryContainer
+                        if (isActive) activeBg
                         else Color.Transparent
                     )
                     .clickable { onSelected(option.id) }
@@ -60,7 +65,7 @@ fun SegmentedTab(
                     ImagineIcon(
                         name = "check",
                         size = 16.dp,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        tint = activeFg,
                     )
                     Box(modifier = Modifier.padding(start = 6.dp))
                 }
@@ -68,7 +73,7 @@ fun SegmentedTab(
                     text = option.label,
                     fontSize = 14.sp,
                     fontWeight = if (isActive) FontWeight.W600 else FontWeight.W500,
-                    color = if (isActive) MaterialTheme.colorScheme.onSecondaryContainer
+                    color = if (isActive) activeFg
                     else MaterialTheme.colorScheme.onSurface,
                 )
             }

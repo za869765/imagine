@@ -195,14 +195,20 @@ fun GenerateImageScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 模式色彩暗示 — 圖片頁藍系細色條(對齊 Hub 圖片卡配色),一眼分辨在哪個模式
+            // 模式色彩標頭 — 圖片頁藍系圓角彩條,內含「🖼 圖片模式」一眼分辨在哪個模式
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
-                    .background(Color(0xFF23408A)),
-            )
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                    .background(Color(0xFF23408A))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = "🖼  圖片模式",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.White,
+                )
+            }
 
             com.za869765.imagine.ui.component.SegmentedTab(
                 options = listOf(
@@ -211,6 +217,7 @@ fun GenerateImageScreen(
                 ),
                 activeId = "image",
                 onSelected = { if (it == "video") onSwitchToVideo() },
+                activeColor = Color(0xFF23408A),
             )
 
             // 圖片頁模式列：生圖 / 圖片編輯(內嵌 EditPane)。取代 v1.0.86 的「圖片編輯」OutlinedActionButton
