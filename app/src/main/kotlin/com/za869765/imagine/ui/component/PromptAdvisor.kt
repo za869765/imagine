@@ -160,6 +160,13 @@ private fun detectVideoConflicts(prompt: String): List<VideoConflict> {
             "「大幅度動作」與「微動/做減法」對成片動態量是相反要求，留一種強度更不容易糊。",
         )
     }
+    // ④ 動作人工感:僵硬/機械感/滑步/浮動/平移 (來自 super-i 第59節影片反向詞)
+    if (anyIn(listOf("僵硬", "機械感", "滑步", "滑行", "浮動", "漂浮", "方向飄移", "身體平移", "四肢變形", "面部閃爍", "stiff", "robotic", "sliding feet", "floating"))) {
+        hits += VideoConflict(
+            "動作人工感",
+            "偵測到「僵硬/滑步/浮動/平移」等動作人工感詞。建議改成有重力、有起承的自然動作（如「腳步踩實、重心前傾、衣物隨慣性擺動」），別讓人物像被推著走。",
+        )
+    }
     return hits
 }
 

@@ -114,6 +114,26 @@ fun LongVideoScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            // 長片銜接技巧 (來自 super-i 第58節「AI 長影片」四銜接法) — 生成階段先把銜接設計好，比硬接更順。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+            ) {
+                Text(
+                    text = "銜接技巧（生成階段先設計，比硬接更順）\n" +
+                        "①拆段：60s 劇本拆成每 15s 一段（開場→推進→衝突→收束），逐段生再串。\n" +
+                        "②影片延續影片：截上段尾 2–3s 當下段生成參考，動作慣性才接得上。\n" +
+                        "③重疊銜接：下段開頭重複上段結尾情節，多一個可切點、挑最順處接。\n" +
+                        "④藏卡頓：卡頓常只在一兩幀就剪掉，必要時加疊化轉場或反應鏡頭蓋過。",
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             if (!loaded) {
                 Text(
                     text = "載入中…",
