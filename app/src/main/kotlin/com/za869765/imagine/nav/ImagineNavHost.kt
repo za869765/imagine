@@ -32,6 +32,7 @@ import com.za869765.imagine.ui.longvideo.LongVideoScreen
 import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
 import com.za869765.imagine.ui.settings.SettingsScreen
+import com.za869765.imagine.ui.tutorial.TutorialScreen
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
@@ -123,6 +124,22 @@ fun ImagineRoot() {
 
             composable(Routes.LONG_VIDEO) {
                 LongVideoScreen(
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                )
+            }
+
+            composable(Routes.TUTORIAL) {
+                TutorialScreen(
+                    // 沿用 History「use_prompt」既有預填機制:在目前 entry 設 KEY_INIT_PROMPT,
+                    // 導到生成頁後由 previousBackStackEntry 取出消費。
+                    onUsePrompt = { text, isVideo ->
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle?.set(KEY_INIT_PROMPT, text)
+                        navController.navigate(
+                            if (isVideo) Routes.GENERATE_VIDEO else Routes.GENERATE_IMAGE,
+                        )
+                    },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                 )
@@ -356,6 +373,7 @@ private fun handleTabNav(
     val target = when (tab) {
         NavTab.MATERIAL -> Routes.MATERIAL_HUB
         NavTab.LONG_VIDEO -> Routes.LONG_VIDEO
+        NavTab.TUTORIAL -> Routes.TUTORIAL
     }
     // popUpTo 用 MATERIAL_HUB(BottomNav 主舞台,啟動後永遠在 stack 底);saveState/restoreState
     // 讓兩頁切換保留各自狀態。

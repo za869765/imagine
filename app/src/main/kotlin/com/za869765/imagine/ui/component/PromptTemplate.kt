@@ -834,6 +834,67 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
     }.trim()
 }
 
+// 單一現成範例卡 (標題 + prompt + 複製/使用)。底部範本面板與「教學範本」頁共用。
+// 不含外距,間距由呼叫端負責 (面板用 Box padding、教學頁用 LazyColumn spacedBy)。
+@Composable
+fun ReadyPromptCard(
+    ex: PromptExample,
+    onCopy: () -> Unit,
+    onUse: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ImagineIcon(
+                name = "auto_awesome",
+                size = 15.dp,
+                fill = 1,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = ex.tag,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W700,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        Text(
+            text = ex.text,
+            fontSize = 13.sp,
+            lineHeight = 19.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextActionButton(
+                label = "複製",
+                icon = "content_copy",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = onCopy,
+            )
+            TextActionButton(
+                label = "使用",
+                icon = "check",
+                onClick = onUse,
+            )
+        }
+    }
+}
+
 // 底部彈出範本面板。tab 切換「現成範例 / 自己組」,點「使用/填入」→ onUse(prompt) 並關閉。
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -910,57 +971,12 @@ fun PromptTemplateSheet(
                 // ── ① 現成範例 ──
                 RandomBar(label = "🎲  隨機一條") { pick(readyPrompts.random().text) }
                 readyPrompts.forEach { ex ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            ImagineIcon(
-                                name = "auto_awesome",
-                                size = 15.dp,
-                                fill = 1,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                text = ex.tag,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.W700,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                        Text(
-                            text = ex.text,
-                            fontSize = 13.sp,
-                            lineHeight = 19.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 6.dp),
+                    Box(modifier = Modifier.padding(top = 10.dp)) {
+                        ReadyPromptCard(
+                            ex = ex,
+                            onCopy = { Clipboard.copy(ctx, ex.text, toastMsg = "已複製範例") },
+                            onUse = { pick(ex.text) },
                         )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            TextActionButton(
-                                label = "複製",
-                                icon = "content_copy",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                onClick = { Clipboard.copy(ctx, ex.text, toastMsg = "已複製範例") },
-                            )
-                            TextActionButton(
-                                label = "使用",
-                                icon = "check",
-                                onClick = { pick(ex.text) },
-                            )
-                        }
                     }
                 }
             } else if (tab == "storyboard") {
