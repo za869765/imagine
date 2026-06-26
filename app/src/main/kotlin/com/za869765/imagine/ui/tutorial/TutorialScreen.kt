@@ -70,7 +70,7 @@ private fun categoryOf(ex: PromptExample): String = when {
     else -> "主題"
 }
 
-private val CATEGORIES = listOf("全部", "★ 收藏", "人物", "場景", "主題", "影片")
+private val CATEGORIES = listOf("全部", "★ 收藏", "古裝", "現代")
 
 // 教學範本頁 (底部第3分頁):搜尋 + 精選範本(分類/收藏/複製/使用→生成) + 課程圖庫(圖→生成、影片範例、prompt 複製)。
 // onUsePrompt(prompt, isVideo) / onUseImage(url, asVideo) 由 NavHost 接,沿用既有預填機制。
@@ -154,20 +154,31 @@ private fun ReadyList(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
+    var mode by rememberSaveable { mutableStateOf("img") } // 圖片 / 影片 分開選
     var cat by rememberSaveable { mutableStateOf("全部") }
     val q = query.trim()
-    val filtered = remember(q, cat, favorites) {
+    val filtered = remember(q, cat, favorites, mode) {
         READY_PROMPTS.filter { ex ->
+            val matchMode = if (mode == "img") ex.forVideo != true else ex.forVideo == true
             val matchQ = q.isEmpty() || ex.tag.contains(q, true) || ex.text.contains(q, true)
             val matchCat = when (cat) {
                 "全部" -> true
                 "★ 收藏" -> ex.tag in favorites
                 else -> categoryOf(ex) == cat
             }
-            matchQ && matchCat
+            matchMode && matchQ && matchCat
         }
     }
     Column(modifier = modifier.fillMaxWidth()) {
+        SegmentedTab(
+            options = listOf(
+                SegmentedOption("img", "圖片"),
+                SegmentedOption("vid", "影片"),
+            ),
+            activeId = mode,
+            onSelected = { mode = it },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
