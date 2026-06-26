@@ -63,6 +63,7 @@ private val SCENE_TAGS = setOf(
 )
 
 private fun categoryOf(ex: PromptExample): String = when {
+    ex.category.isNotEmpty() -> ex.category
     ex.forVideo == true || ex.tag.contains("影片") -> "影片"
     ex.tag in PEOPLE_TAGS -> "人物"
     ex.tag in SCENE_TAGS -> "場景"
