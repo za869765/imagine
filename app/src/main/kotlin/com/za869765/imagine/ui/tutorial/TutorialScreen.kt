@@ -51,6 +51,7 @@ import com.za869765.imagine.ui.component.ReadyPromptCard
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
+import com.za869765.imagine.ui.component.usageOf
 import com.za869765.imagine.ui.util.Clipboard
 
 // 範本分類 (依 tag 歸類,不動 PromptExample 資料)。
@@ -154,12 +155,12 @@ private fun ReadyList(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
-    var mode by rememberSaveable { mutableStateOf("img") } // 圖片 / 影片 分開選
+    var mode by rememberSaveable { mutableStateOf("t2i") } // 文生圖 t2i / 文生影 t2v / 圖生影 i2v 分開選
     var cat by rememberSaveable { mutableStateOf("全部") }
     val q = query.trim()
     val filtered = remember(q, cat, favorites, mode) {
         READY_PROMPTS.filter { ex ->
-            val matchMode = if (mode == "img") ex.forVideo != true else ex.forVideo == true
+            val matchMode = usageOf(ex) == mode
             val matchQ = q.isEmpty() || ex.tag.contains(q, true) || ex.text.contains(q, true)
             val matchCat = when (cat) {
                 "全部" -> true
@@ -172,8 +173,9 @@ private fun ReadyList(
     Column(modifier = modifier.fillMaxWidth()) {
         SegmentedTab(
             options = listOf(
-                SegmentedOption("img", "圖片"),
-                SegmentedOption("vid", "影片"),
+                SegmentedOption("t2i", "文生圖"),
+                SegmentedOption("t2v", "文生影"),
+                SegmentedOption("i2v", "圖生影"),
             ),
             activeId = mode,
             onSelected = { mode = it },

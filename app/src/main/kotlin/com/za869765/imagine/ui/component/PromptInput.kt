@@ -65,6 +65,10 @@ fun PromptInput(
     flagged: Boolean = false,
     // 影片頁傳 true → 範本/建議才顯示影片限定欄位 (動作/聲音/字幕);圖片頁 false 隱藏
     forVideo: Boolean = false,
+    // 影片頁:已選來源圖(=圖生影)→「套用範本」改出圖生影動作範本;否則文生影
+    videoHasImage: Boolean = false,
+    // 來源圖原 prompt(半智能排序圖生影範本用)
+    videoSourcePrompt: String? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -336,6 +340,8 @@ fun PromptInput(
                 forVideo = forVideo,
                 onDismiss = { showApplyTemplate = false },
                 onApply = { template -> applyTemplate(template) },
+                videoHasImage = videoHasImage,
+                videoSourcePrompt = videoSourcePrompt,
             )
         }
 

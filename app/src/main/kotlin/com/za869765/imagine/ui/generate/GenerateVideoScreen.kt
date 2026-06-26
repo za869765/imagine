@@ -489,6 +489,9 @@ fun GenerateVideoScreen(
                 minHeight = 88,
                 flagged = lastErrorIsPolicy,
                 forVideo = true,
+                // 圖生影模式 → 「套用範本」改出純動作範本;傳來源圖原 prompt 供半智能排序
+                videoHasImage = mode == VideoMode.Img2Vid,
+                videoSourcePrompt = initialPrompt,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

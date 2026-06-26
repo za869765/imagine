@@ -50,8 +50,27 @@ data class PromptExample(
     val tag: String,
     val text: String,
     val forVideo: Boolean? = null,
-    val category: String = "", // 人物/場景/主題/影片;空=由 tag 推斷(教學分頁分類用)
+    val category: String = "", // 古裝/現代…;空=由 tag 推斷(教學分頁分類用)
+    val usage: String = "", // t2i 文生圖 / t2v 文生影 / i2v 圖生影;空=由 forVideo 推斷
 )
+
+// 應用分類:t2i 文生圖、t2v 文生影、i2v 圖生影。空 usage 依 forVideo 推斷(圖→t2i、影→t2v)。
+fun usageOf(ex: PromptExample): String = when {
+    ex.usage.isNotEmpty() -> ex.usage
+    ex.forVideo == true -> "t2v"
+    else -> "t2i"
+}
+
+// 半智能:由來源圖的原 prompt 粗判主題(古裝/現代),用來排序圖生影動作範本。
+private val GUZHUANG_KW = listOf(
+    "古裝", "古風", "襦裙", "漢服", "宮廷", "宮裝", "俠", "仙", "古典", "旗袍",
+    "古鎮", "書香", "鳳冠", "披帛", "水袖", "簪", "燈籠", "宮燈", "唐", "宋", "明",
+)
+
+fun guessTheme(prompt: String?): String {
+    if (prompt.isNullOrBlank()) return ""
+    return if (GUZHUANG_KW.any { prompt.contains(it) }) "古裝" else "現代"
+}
 
 // ── ① 現成完整範例 (無方括號,可直接送 xAI Imagine) ──
 val READY_PROMPTS: List<PromptExample> = listOf(
@@ -721,6 +740,321 @@ val READY_PROMPTS: List<PromptExample> = listOf(
         forVideo = true,
         category = "現代",
     ),
+    PromptExample(
+        "回眸淺笑",
+        "鏡頭與肩同高緩緩橫移半圈,自微微低首處輕輕轉身回眸,視線越過肩頭與鏡頭相接,眼波流轉,唇角極淡地揚起一抹笑意,呼吸帶動肩線輕起。轉身時髮絲與耳際碎髮隨慣性掠過頰邊。輕聲一句:「公子,可是尋我?」背景隱約環珮叮咚。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "理鬢拂髮",
+        "鏡頭緩緩推近至胸上特寫並輕微停穩,抬起一手,指尖自鬢角輕輕將一縷垂落的髮絲撥至耳後,動作含蓄而緩,順勢微微側首,睫毛低垂後再抬眼望向鏡頭,呼吸平緩使肩頭起伏。手落下時衣袖隨之滑落少許,髮尾輕顫。低語:「風又亂了鬢角。」",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "水袖輕揚",
+        "鏡頭固定,由下而上極緩仰起。緩緩抬臂,長長水袖隨手勢自然甩出又柔柔垂落,袖口在空中劃出弧線後因重力回擺,餘波輕盪兩下方止。同時頭微仰,眼神隨袖梢飄移,氣息悠長。垂落瞬間髮梢與裙裾一同微擺。背景似有絲竹隱隱。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "披帛隨風",
+        "鏡頭極緩地環繞四分之一周。一陣風起,肩上披帛被輕輕掀動,自肩後緩緩飄揚再順勢落回,邊緣翻捲後因重力沉定。微微闔眼又睜開,迎風的神情恬靜,胸口隨深吸氣輕抬,鬢髮與披帛同向飄拂。輕嘆:「這風,倒有幾分涼意。」",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "團扇半遮",
+        "鏡頭緩緩推近至面部特寫。緩緩抬起團扇,自下而上半遮面頰,僅露一雙眼,眼波在扇緣上方流轉,望向鏡頭後又含羞微微垂下。扇面輕輕擺動帶起細微氣流,鬢邊碎髮隨之輕顫,呼吸使肩線微起。扇後低語:「看甚麼呢?」",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "燭前凝視",
+        "鏡頭極緩地橫向滑移。靜坐不動,唯眼神自燭火方向緩緩轉向鏡頭,睫毛眨動一兩下,唇微啟又閉,似有所思。燭光的微弱搖曳使面上光影輕輕浮動,呼吸帶動肩頭極細起伏,一縷鬢髮在暖風中輕擺。低聲呢喃:「夜深了。」背景燭花偶爾爆響。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "提燈夜行",
+        "鏡頭緩緩低角度跟隨並輕微晃動。緩步前行,手中燈籠隨步伐輕輕搖晃,光暈在面上明滅遊移。每一步落下重心微沉,肩頭隨之起伏,回頭望向鏡頭一眼,眼神溫柔又帶探詢。裙裾與燈穗隨步擺動,髮絲微飄。輕問:「跟上來罷?」遠處更鼓隱隱。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "低首再抬眼",
+        "鏡頭緩緩推近並穩住。先緩緩垂首,睫毛覆下,似有心事,胸口隨一聲輕嘆微微起伏,而後極慢地抬起眼眸正視鏡頭,目光由黯轉亮,唇角幾不可察地一動。垂首時鬢髮滑落,抬頭時又輕輕回擺。低語:「妾身,等了許久。」",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "撫琴抬眸",
+        "鏡頭自手部緩緩上搖至面部。指尖在弦上輕輕一撥,手腕順勢提起又柔柔落下,餘音裊裊間緩緩抬眸望向鏡頭,神情專注中透出一絲倦意,呼吸悠長。撥弦時垂袖微晃,鬢髮隨抬頭輕擺。低聲:「此曲,只為知音。」背景一縷琴音迴盪。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "倚欄遠眺",
+        "鏡頭緩緩自側方橫移至正面。輕倚欄畔,身形微微前傾遠望,目光自遠處緩緩收回落於鏡頭,眼神帶幾分悵惘,胸口隨深長呼吸起伏。一陣風來,鬢髮與衣帶向同一側輕輕飄起又落回。輕嘆一句:「不知歸期是何年。」遠處風聲簌簌。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "執卷垂眸",
+        "鏡頭極緩地推近至胸上景。手執書卷,目光沿著卷面自上而下緩緩移動,睫毛輕眨,似讀至動情處唇角微揚,而後緩緩抬眼望向鏡頭。翻動書頁時指腕輕轉,垂袖微晃,鬢髮隨低首滑落頰邊。低聲念道:「原來如此。」窗外似有鳥鳴一兩聲。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "風起掩袖",
+        "鏡頭固定,輕微手持般微晃。忽起一陣風,下意識抬袖至面前半掩,眼神在袖緣上方微微眯起避風,而後風止,緩緩放下手臂,舒一口氣,唇角鬆開。掩袖時長袖翻飛兩下,鬢髮與披帛被吹得向後揚起再徐徐落定。輕語:「好大的風。」背景風聲漸歇。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "緩推含淚",
+        "鏡頭極緩慢向前推近,微微抬眼,睫毛輕顫,眼眶漸漸盈滿淚光卻倔強不落;呼吸輕緩起伏,鬢邊碎髮被氣流帶動極輕飄動。環境僅餘細微風聲。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "環繞淺笑",
+        "鏡頭以中心緩緩水平環繞半圈,唇角極輕揚起一抹淺笑,目光隨鏡頭微微流轉;垂落的長髮與衣袂隨轉動方向柔順擺動,層次分明。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "拉遠回眸",
+        "鏡頭平穩緩緩向後拉遠,先是低首,而後輕輕回眸望向鏡頭,眼神由淡轉柔;肩頭隨一次深呼吸微微起落,衣帶末端隨身形轉動緩緩晃動。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "執卷低吟",
+        "鏡頭固定微微緩推,執卷的手指輕輕翻動一頁,目光沿字句緩緩橫移;唇瓣極輕翕動似在低聲誦讀,胸口隨呼吸柔和起伏,額前髮絲隨動作微顫。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "淚將墜落",
+        "鏡頭緩緩推近至眼部,強忍的一滴淚終於沿頰邊緩緩滑落,睫毛濕重眨動一次;喉頭輕輕一動似哽咽,呼吸略顯急促,碎髮隨輕顫的肩頭微動。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "側顏環繞",
+        "鏡頭自側臉緩緩環繞至正面,目光由遠處收回落向前方,神情漸明;一縷垂髮隨轉動輕拂過頰,衣領處布料隨呼吸與轉身細微起伏。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "拈花淺笑",
+        "鏡頭輕緩下移再抬起,指尖輕拈一物緩緩轉動端詳,唇角漾開一抹清淺笑意;眼波隨指尖移動微微流轉,袖口布料隨手腕轉動柔順垂落。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "推近凝望",
+        "鏡頭極緩向前推近,目光定定凝望前方漸漸聚焦,瞳中似有情緒湧動;一次深長呼吸令肩頭緩緩起落,鬢髮隨微風輕輕飄揚,神情由靜轉動。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "拭淚拉遠",
+        "鏡頭平穩緩緩拉遠,抬手以指背輕輕拭去眼角將落的淚,睫毛濕潤眨動;肩頭隨壓抑的呼吸輕輕顫動,長髮隨俯身的微動作緩緩垂墜向前。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "環繞撫琴",
+        "鏡頭以中心為軸極緩環繞,俯身撫琴的雙手在弦上輕緩起落,指尖時按時挑;眼瞼低垂神情沉靜,呼吸綿長,垂髮與衣袂隨環繞角度層層柔順擺動。餘音裊裊。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "舉杯輕嗅",
+        "鏡頭由下緩緩上抬,雙手緩緩舉起酒盞至唇邊輕嗅,眼瞼半垂沉醉,隨即抬眼斜睨鏡頭;舉盞時垂袖滑落露出腕線,鬢髮隨低頭輕墜。低吟:「來,共飲一杯。」",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "撐傘回首",
+        "鏡頭緩緩自背後推近,一手撐傘緩步而行,腳步一頓後回首望來,眼神溫婉含意;回首時傘沿微傾,髮絲與裙裾隨轉身向外揚起再落定。傘上似有雨聲淅瀝。",
+        forVideo = true,
+        category = "古裝",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "撥瀏海回眸",
+        "鏡頭微微推近,抬手將垂落的瀏海輕輕撥到耳後,指尖滑過髮絲後自然垂下;同時頭部緩緩轉向鏡頭,眼神由側方收回對上鏡頭,嘴角漾起一抹淺笑。髮尾隨動作輕擺。輕聲說:「欸,你來啦。」背景光斑隨呼吸節奏微微浮動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "眨眼淺笑",
+        "鏡頭定住不動,先垂眸再緩緩抬眼,輕眨一下眼睛,睫毛落下又揚起,隨即嘴角上揚露出淺淺笑意,胸口隨一次自然呼吸微微起伏。臉頰肌肉放鬆,眼神溫柔。背景虛化光點緩慢游移。環境是低聲的室內白噪音。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "自然轉頭",
+        "鏡頭保持平穩,原本望向側邊,被什麼吸引似地緩緩轉過頭來,下巴微抬,視線最後停在鏡頭上;轉動時脖頸線條自然延展,髮絲因慣性輕輕甩動後落定。眉梢一挑,輕笑出聲。輕聲說:「怎麼了?」背景光斑隨之輕飄。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "手持自拍",
+        "模擬手持自拍的輕微晃動,鏡頭隨呼吸前後微幅搖擺,帶一點點不規則的抖動感;對著鏡頭眨眼,嘴角揚起,身體跟著鏡頭節奏自然微傾。髮絲隨晃動細碎飄動。日常口吻說:「今天天氣超好的。」背景光點隨晃動忽明忽暗。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "光斑凝視",
+        "鏡頭緩慢橫向平移,視線始終跟著鏡頭移動,眼神專注而柔和,中途輕眨一次眼;肩膀隨一次深呼吸微微下沉放鬆,嘴角不自覺帶笑。前景散景光斑緩緩漂浮、忽聚忽散,在臉龐前流動。環境是窗外隱約的車流聲。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "托腮歪頭",
+        "鏡頭微微下沉再回正,抬起一隻手托住臉頰,頭順勢往同側輕輕一歪,眼神俏皮地看向鏡頭,眨了下眼後綻開笑容;托腮時肩膀放鬆下垂,髮絲滑落臉側。輕聲說:「在想你呀。」背景光斑慢慢浮升。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "低頭抬眼",
+        "鏡頭固定,先微微低下頭,睫毛半垂,停頓一拍後緩緩抬眼向上看向鏡頭,眼神由含蓄轉為帶笑,嘴角隨之上揚;抬頭時髮絲輕輕滑過肩膀。一次平緩的呼吸讓畫面有了生氣。背景虛化光點輕輕閃爍。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "撩髮轉身",
+        "鏡頭緩緩拉遠半步,單手將一側長髮往後一撩,順勢半轉身又回頭看向鏡頭,動作流暢帶起髮尾飄揚後落定;回眸時眼神明亮,輕輕一笑。肩線隨轉身自然起伏。日常口吻說:「走吧,出發囉。」背景光斑隨之拖曳浮動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "掩嘴輕笑",
+        "鏡頭微微推近,像聽到有趣的事,先睜大眼,接著抬手半掩住嘴輕笑,肩膀隨笑意微微抖動,眼睛彎成月牙;笑完緩緩放下手,呼吸平復。髮絲隨肩膀晃動細微擺盪。輕聲說:「真的假的啦。」背景光點隨笑聲輕快跳動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "深呼吸放鬆",
+        "鏡頭幾乎靜止,緩緩做一次深呼吸,胸口與肩膀隨吸氣微抬、吐氣下沉,眼睛輕輕闔上再睜開,嘴角浮現一抹安然的淺笑;睫毛在睜眼瞬間微顫。髮絲幾不可察地隨氣流飄動。背景散景光斑如塵埃般緩慢漂浮。環境是輕柔的呼吸聲。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "回頭招手",
+        "鏡頭平穩跟隨,原本側對鏡頭,聞聲般回過頭來,眼神一亮,抬手對著鏡頭輕輕招了兩下,手腕自然擺動;回頭時髮絲甩動後落定,笑容綻開。身體微微朝鏡頭傾近。日常口吻說:「這邊這邊!」背景光斑隨手勢輕輕晃動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "撥髮對視",
+        "鏡頭極緩慢推近,用指尖將額前碎髮輕輕往側邊一撥,動作收尾時手自然垂落;眼神始終鎖定鏡頭,先是平靜,而後眼底漾開笑意,輕眨一下眼。一次自然呼吸讓肩膀微微起伏,髮絲落定後仍輕顫。背景光點柔和地緩緩浮動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "橫移推近",
+        "鏡頭先平穩橫移,再緩緩推近至半身。保持站姿,肩膀隨呼吸極輕起伏,目光由側面自然轉回鏡頭,嘴角微微鬆開。髮絲與衣領在推近時隨氣流輕飄。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "風吹髮絲",
+        "一陣風自側面拂來,髮絲與衣襬同向飄起再緩緩落定。微微瞇眼,抬手將碎髮撥到耳後,呼吸帶動肩線輕起伏。鏡頭保持靜止,僅微微呼吸感晃動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "呼吸起伏",
+        "鏡頭靜止定格在半身。靜立,胸口與肩膀隨深呼吸自然起伏,一次吸氣一次緩吐,眼神放空又聚焦。零碎髮絲隨氣息微微浮動,整體克制安靜。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "側臉轉正",
+        "鏡頭從側臉緩緩弧線環繞至正面。目光隨鏡頭移動,最後與鏡頭對視,輕輕眨眼後嘴角上揚。轉動間髮絲與耳畔碎髮自然滑移。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "垂眸淺笑",
+        "望向鏡頭,先抿唇,再緩緩垂下眼簾,綻出一抹含蓄淺笑,雙頰微鬆。呼吸帶動肩膀極輕起伏,髮尾隨之微晃。鏡頭定住不動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "轉身回望",
+        "緩步轉身欲離開,走兩步後停住,回頭望向鏡頭,眼神留戀。轉身時衣襬與髮絲隨慣性擺動再落定。鏡頭緩緩跟隨推近,收在回望的瞬間。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "抬眸對視",
+        "本垂眼看向下方,鏡頭緩緩推近時,眼眸隨之抬起與鏡頭對視,目光由含蓄轉為專注,唇角極輕揚起。抬眸瞬間呼吸一頓,髮絲靜靜垂落兩頰。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "咬唇微笑",
+        "鏡頭微微推近並穩住,先輕咬一下下唇,眼神略帶羞赧地飄開又轉回鏡頭,隨即鬆開唇瓣綻出笑意;肩膀放鬆,一縷髮絲滑落臉側。背景散景光斑緩緩流動。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "仰頭閉眼",
+        "鏡頭由正面極緩上仰,緩緩抬頭仰面,雙眼輕輕閉上沉浸片刻,胸口隨一次深長呼吸抬起,而後睜眼低回視線望向鏡頭;仰頭時髮絲自肩後滑落,頸線延展。環境是悠遠的環境音。",
+        forVideo = true,
+        category = "現代",
+        usage = "i2v",
+    ),
 )
 
 // ── ② 條件選擇器欄位 (單一通用人物/場景 builder,每欄可搜尋下拉) ──
@@ -1301,11 +1635,23 @@ fun ApplyTemplateSheet(
     forVideo: Boolean,
     onDismiss: () -> Unit,
     onApply: (String) -> Unit,
+    videoHasImage: Boolean = false, // 影片頁:是否已選來源圖(圖生影)
+    videoSourcePrompt: String? = null, // 來源圖的原 prompt,用於半智能排序
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val ready = READY_PROMPTS.filter { if (forVideo) it.forVideo != false else it.forVideo != true }
+    // 三類分流:文生圖頁→t2i;影片頁未選圖→t2v(文生影);影片頁已選圖→i2v(圖生影)。
+    val want = if (!forVideo) "t2i" else if (videoHasImage) "i2v" else "t2v"
+    val ready = run {
+        val list = READY_PROMPTS.filter { usageOf(it) == want }
+        if (want == "i2v") {
+            val theme = guessTheme(videoSourcePrompt)
+            if (theme.isNotEmpty()) list.sortedByDescending { it.category == theme } else list
+        } else {
+            list
+        }
+    }
     fun pick(t: String) {
         onApply(t)
         scope.launch {
@@ -1324,15 +1670,24 @@ fun ApplyTemplateSheet(
                 .verticalScroll(rememberScrollState()),
         ) {
             Text(
-                text = "套用範本",
+                text = when (want) {
+                    "i2v" -> "套用範本 · 圖生影（動作）"
+                    "t2v" -> "套用範本 · 文生影"
+                    else -> "套用範本 · 文生圖"
+                },
                 fontSize = 16.sp,
                 fontWeight = FontWeight.W700,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
             )
             Text(
-                text = "挑一條現成的填進輸入框，再自己改字、生成。更多分類/收藏在底部「教學範本」分頁。",
+                text = when (want) {
+                    "i2v" -> "你已選來源圖,這些是「只描述動作/運鏡/表情」的圖生影範本(不會重描述人物)。已依來源圖主題排序。"
+                    "t2v" -> "未選來源圖=文生影:完整描述人物+場景+動作,憑文字直接生影片。"
+                    else -> "挑一條填進輸入框再自己改、生成。更多分類/收藏在底部「教學範本」分頁。"
+                },
                 fontSize = 12.sp,
+                lineHeight = 17.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
