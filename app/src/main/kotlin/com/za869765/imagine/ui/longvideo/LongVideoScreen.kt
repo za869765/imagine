@@ -53,12 +53,14 @@ import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.video.VideoMerger
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineIcon
+import com.za869765.imagine.ui.component.ImagineIconButton
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,6 +75,7 @@ private const val MERGED_PREFIX = "長片組合"
 fun LongVideoScreen(
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
+    onUsePrompt: (String) -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -295,6 +298,7 @@ fun LongVideoScreen(
                                         entry = entry,
                                         onAdd = { sequence.add(entry) },
                                         onPreview = { previewUri = entry.uri },
+                                        onUsePrompt = onUsePrompt,
                                     )
                                 }
                             }
@@ -310,6 +314,7 @@ fun LongVideoScreen(
                                     entry = entry,
                                     onAdd = { sequence.add(entry) },
                                     onPreview = { previewUri = entry.uri },
+                                    onUsePrompt = onUsePrompt,
                                 )
                             }
                         }
@@ -345,6 +350,7 @@ fun LongVideoScreen(
                                 entry = entry,
                                 onAdd = { sequence.add(entry) },
                                 onPreview = { previewUri = entry.uri },
+                                onUsePrompt = onUsePrompt,
                             )
                         }
                     }
@@ -412,7 +418,14 @@ private fun SeqRow(
 
 // 片段一列:首楨縮圖(點播放) + 名稱/時長 + 加入。
 @Composable
-private fun AvailRow(entry: MediaEntry, onAdd: () -> Unit, onPreview: () -> Unit) {
+private fun AvailRow(
+    entry: MediaEntry,
+    onAdd: () -> Unit,
+    onPreview: () -> Unit,
+    onUsePrompt: (String) -> Unit = {},
+) {
+    val ctx = LocalContext.current
+    val p = entry.prompt?.trim().orEmpty()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -438,6 +451,22 @@ private fun AvailRow(entry: MediaEntry, onAdd: () -> Unit, onPreview: () -> Unit
             if (d.isNotEmpty()) {
                 Text(text = d, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        if (p.isNotEmpty()) {
+            // 複製此片段的提示詞
+            ImagineIconButton(
+                name = "content_copy",
+                size = 18.dp,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = { Clipboard.copy(ctx, p, toastMsg = "已複製提示詞") },
+            )
+            // 一鍵帶此 prompt 去生成影片頁
+            ImagineIconButton(
+                name = "movie",
+                size = 18.dp,
+                tint = MaterialTheme.colorScheme.primary,
+                onClick = { onUsePrompt(p) },
+            )
         }
         Box(
             modifier = Modifier

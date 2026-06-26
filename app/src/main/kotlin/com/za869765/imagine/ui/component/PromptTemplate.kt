@@ -909,6 +909,63 @@ fun ReadyPromptCard(
     }
 }
 
+// 「套用範本」底部面板 — 生成頁起手用:挑一條現成範例填進輸入框,再自己改。
+// (現成範例本身在「教學範本」分頁也看得到;這裡是生成頁就地快選的捷徑。)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ApplyTemplateSheet(
+    forVideo: Boolean,
+    onDismiss: () -> Unit,
+    onApply: (String) -> Unit,
+) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val ready = READY_PROMPTS.filter { if (forVideo) it.forVideo != false else it.forVideo != true }
+    fun pick(t: String) {
+        onApply(t)
+        scope.launch {
+            sheetState.hide()
+            onDismiss()
+        }
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                text = "套用範本",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.W700,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+            )
+            Text(
+                text = "挑一條現成的填進輸入框，再自己改字、生成。更多分類/收藏在底部「教學範本」分頁。",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+            RandomBar(label = "🎲  隨機一條") { pick(ready.random().text) }
+            ready.forEach { ex ->
+                Box(modifier = Modifier.padding(top = 10.dp)) {
+                    ReadyPromptCard(
+                        ex = ex,
+                        onCopy = { Clipboard.copy(ctx, ex.text, toastMsg = "已複製範例") },
+                        onUse = { pick(ex.text) },
+                    )
+                }
+            }
+        }
+    }
+}
+
 // 底部彈出範本面板。tab 切換「現成範例 / 自己組」,點「使用/填入」→ onUse(prompt) 並關閉。
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

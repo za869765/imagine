@@ -11,17 +11,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.tutorial.TutorialData
@@ -78,6 +77,7 @@ private val CATEGORIES = listOf("全部", "★ 收藏", "人物", "場景", "主
 fun TutorialScreen(
     onUsePrompt: (String, Boolean) -> Unit,
     onUseImage: (String, Boolean) -> Unit,
+    onUseVideo: (String, String) -> Unit,
     onNavSelected: (NavTab) -> Unit,
     onSettingsClick: () -> Unit,
 ) {
@@ -136,6 +136,7 @@ fun TutorialScreen(
                     query = query,
                     onUsePrompt = onUsePrompt,
                     onUseImage = onUseImage,
+                    onUseVideo = onUseVideo,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -206,12 +207,12 @@ private fun ReadyList(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GalleryList(
     query: String,
     onUsePrompt: (String, Boolean) -> Unit,
     onUseImage: (String, Boolean) -> Unit,
+    onUseVideo: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
@@ -263,35 +264,60 @@ private fun GalleryList(
                 },
                 onImageTap = { pendingImage = it },
                 onPlayVideo = { playingVideo = it },
+                onUseVideo = onUseVideo,
                 onCopyPrompt = { p -> Clipboard.copy(ctx, p, toastMsg = "已複製提示詞") },
                 onUsePrompt = { p -> onUsePrompt(p, false) },
             )
         }
     }
 
+    // 圖片：先進預覽 (放大看圖) → 再選 重繪 / 動起來。
     val img = pendingImage
     if (img != null) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = { pendingImage = null },
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ImagePreviewDialog(
+            url = img,
+            onAnimate = { onUseImage(img, true); pendingImage = null },
+            onEdit = { onUseImage(img, false); pendingImage = null },
+            onDismiss = { pendingImage = null },
+        )
+    }
+}
+
+// 範例圖預覽 — 放大看圖,下方選「重繪/編輯」或「動起來(圖生影)」。
+@Composable
+private fun ImagePreviewDialog(
+    url: String,
+    onAnimate: () -> Unit,
+    onEdit: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .padding(16.dp),
         ) {
-            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
-                Text(
-                    text = "用這張範例圖…",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.W700,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-                ActionRow(icon = "play_arrow", label = "動起來（以此圖生成影片）") {
-                    onUseImage(img, true); pendingImage = null
-                }
-                ActionRow(icon = "edit", label = "重繪／編輯（以此圖為來源）") {
-                    onUseImage(img, false); pendingImage = null
-                }
-            }
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 180.dp, max = 420.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface),
+            )
+            Text(
+                text = "用這張範例圖做什麼？",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W700,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
+            )
+            ActionRow(icon = "edit", label = "重繪／編輯（以此圖為來源）", onClick = onEdit)
+            ActionRow(icon = "play_arrow", label = "動起來（以此圖生成影片）", onClick = onAnimate)
         }
     }
 }
@@ -349,6 +375,7 @@ private fun LessonCard(
     onToggle: () -> Unit,
     onImageTap: (String) -> Unit,
     onPlayVideo: (String) -> Unit,
+    onUseVideo: (String, String) -> Unit,
     onCopyPrompt: (String) -> Unit,
     onUsePrompt: (String) -> Unit,
 ) {
@@ -428,15 +455,22 @@ private fun LessonCard(
                 )
                 lesson.videos.forEach { url ->
                     if (playingVideo == url) {
-                        InlineVideoPlayer(
-                            url = url,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .padding(top = 6.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface),
-                        )
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                            InlineVideoPlayer(
+                                url = url,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(220.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surface),
+                            )
+                            ActionRow(icon = "edit", label = "影片修改（以此影片重繪／影生影）") {
+                                onUseVideo(url, "video")
+                            }
+                            ActionRow(icon = "play_arrow", label = "影片延長（接續這支影片）") {
+                                onUseVideo(url, "extend")
+                            }
+                        }
                     } else {
                         Row(
                             modifier = Modifier

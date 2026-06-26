@@ -126,6 +126,12 @@ fun ImagineRoot() {
                 LongVideoScreen(
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
+                    // 片段 prompt 一鍵套用 → 帶到文/圖生影頁 (沿用 KEY_INIT_PROMPT 預填)。
+                    onUsePrompt = { prompt ->
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle?.set(KEY_INIT_PROMPT, prompt)
+                        navController.navigate(Routes.GENERATE_VIDEO)
+                    },
                 )
             }
 
@@ -148,6 +154,14 @@ fun ImagineRoot() {
                             if (!asVideo) set(KEY_INIT_EDIT_MODE, "image")
                         }
                         navController.navigate(if (asVideo) Routes.GENERATE_VIDEO else Routes.EDIT)
+                    },
+                    // 課程示範影片 → 影片修改(影生影,mode=video) 或 影片延長(mode=extend),走 EDIT。
+                    onUseVideo = { url, mode ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            set(KEY_INIT_EDIT_MODE, mode)
+                        }
+                        navController.navigate(Routes.EDIT)
                     },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },

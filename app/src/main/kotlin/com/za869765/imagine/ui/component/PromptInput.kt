@@ -72,6 +72,7 @@ fun PromptInput(
     val coverage = remember(value) { promptElementCoverage(value) }
     var focused by remember { mutableStateOf(false) }
     var showTemplateSheet by remember { mutableStateOf(false) }
+    var showApplyTemplate by remember { mutableStateOf(false) }
     var showAdvisorSheet by remember { mutableStateOf(false) }
     // 使用範本/插入片語後，下一次獲焦時略過「自動全選」，讓使用者能就地編輯方括號
     var suppressSelectAllOnce by remember { mutableStateOf(false) }
@@ -217,9 +218,9 @@ fun PromptInput(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 自己組 與 建議 互斥:空白 → 只出「自己組」;有內容 → 只出「複製 + 建議」。
-                // (現成範例已移到底部「教學範本」分頁;此 chip 開啟的是 自己組 builder + 分鏡)
+                // 空白 → 出「套用範本(填現成的再改)」+「自己組(從零組)」;有內容 → 出「複製 + 建議」。
                 if (value.isBlank()) {
+                    PromptToolChip(icon = "content_paste", label = "套用範本") { showApplyTemplate = true }
                     PromptToolChip(icon = "auto_awesome", label = "自己組") { showTemplateSheet = true }
                 } else {
                     PromptToolChip(icon = "content_copy", label = "複製") {
@@ -327,6 +328,14 @@ fun PromptInput(
                 onDismiss = { showTemplateSheet = false },
                 onUse = { template -> applyTemplate(template) },
                 forVideo = forVideo,
+            )
+        }
+
+        if (showApplyTemplate) {
+            ApplyTemplateSheet(
+                forVideo = forVideo,
+                onDismiss = { showApplyTemplate = false },
+                onApply = { template -> applyTemplate(template) },
             )
         }
 
