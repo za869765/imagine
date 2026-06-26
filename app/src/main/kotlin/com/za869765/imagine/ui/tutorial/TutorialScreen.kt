@@ -10,13 +10,18 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,13 +37,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.tutorial.TutorialData
 import com.za869765.imagine.data.tutorial.TutorialLesson
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
+import com.za869765.imagine.ui.component.InlineVideoPlayer
 import com.za869765.imagine.ui.component.NavTab
+import com.za869765.imagine.ui.component.PromptExample
 import com.za869765.imagine.ui.component.READY_PROMPTS
 import com.za869765.imagine.ui.component.ReadyPromptCard
 import com.za869765.imagine.ui.component.SegmentedOption
@@ -46,23 +54,57 @@ import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.util.Clipboard
 
-// 教學範本頁 (底部第3分頁):
-//   ① 精選範本 — App 內建乾淨可用 prompt,每條「複製」+「使用→生成」(圖/影分流)。
-//   ② 課程圖庫 — super-i 各節範例圖 (Coil 由 CDN 即時載入,不打包) + 該節原始提示詞片段可逐條複製。
-// onUsePrompt(prompt, isVideo): 由 NavHost 接,沿用既有 KEY_INIT_PROMPT 預填機制導到生成頁。
+// 範本分類 (依 tag 歸類,不動 PromptExample 資料)。
+private val PEOPLE_TAGS = setOf(
+    "電影級真實人像", "情緒敘事肖像", "古裝人物", "現代人像", "室內人物", "多人物",
+    "優雅長者", "親子日常", "黑白人像", "時尚雜誌", "職場專業", "校園青春", "情侶雙人", "音樂現場",
+)
+private val SCENE_TAGS = setOf(
+    "大透視環境", "室內自然光", "風景", "雪景", "夜市煙火", "旅遊風情", "海島度假", "雨天街景",
+)
+
+private fun categoryOf(ex: PromptExample): String = when {
+    ex.forVideo == true || ex.tag.contains("影片") -> "影片"
+    ex.tag in PEOPLE_TAGS -> "人物"
+    ex.tag in SCENE_TAGS -> "場景"
+    else -> "主題"
+}
+
+private val CATEGORIES = listOf("全部", "★ 收藏", "人物", "場景", "主題", "影片")
+
+// 教學範本頁 (底部第3分頁):搜尋 + 精選範本(分類/收藏/複製/使用→生成) + 課程圖庫(圖→生成、影片範例、prompt 複製)。
+// onUsePrompt(prompt, isVideo) / onUseImage(url, asVideo) 由 NavHost 接,沿用既有預填機制。
 @Composable
 fun TutorialScreen(
     onUsePrompt: (String, Boolean) -> Unit,
+    onUseImage: (String, Boolean) -> Unit,
     onNavSelected: (NavTab) -> Unit,
     onSettingsClick: () -> Unit,
 ) {
+    val ctx = LocalContext.current
+    val prefs = remember { SecurePrefs.get(ctx) }
     var tab by rememberSaveable { mutableStateOf("ready") }
+    var query by rememberSaveable { mutableStateOf("") }
+    var favorites by remember { mutableStateOf(prefs.favoriteTemplates.toSet()) }
+
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "教學範本", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.TUTORIAL, onTabSelected = onNavSelected) },
         scroll = false,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = { Text("搜尋範本 / 課程 / 提示詞") },
+                leadingIcon = {
+                    ImagineIcon(name = "search", size = 20.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
             SegmentedTab(
                 options = listOf(
                     SegmentedOption("ready", "精選範本"),
@@ -70,55 +112,31 @@ fun TutorialScreen(
                 ),
                 activeId = tab,
                 onSelected = { tab = it },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            )
+            Text(
+                text = "點「複製」或「使用→生成」直接開始;課程圖庫點圖可動起來/重繪。",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
             if (tab == "ready") {
-                ReadyList(onUsePrompt, modifier = Modifier.weight(1f))
+                ReadyList(
+                    query = query,
+                    favorites = favorites,
+                    onToggleFavorite = { t ->
+                        favorites = if (t in favorites) favorites - t else favorites + t
+                        prefs.favoriteTemplates = favorites.toList()
+                    },
+                    onUsePrompt = onUsePrompt,
+                    modifier = Modifier.weight(1f),
+                )
             } else {
-                GalleryList(onUsePrompt, modifier = Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReadyList(
-    onUsePrompt: (String, Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val ctx = LocalContext.current
-    var filter by rememberSaveable { mutableStateOf("all") }
-    val ready = remember(filter) {
-        READY_PROMPTS.filter {
-            when (filter) {
-                "image" -> it.forVideo != true
-                "video" -> it.forVideo != false
-                else -> true
-            }
-        }
-    }
-    Column(modifier = modifier.fillMaxWidth()) {
-        SegmentedTab(
-            options = listOf(
-                SegmentedOption("all", "全部"),
-                SegmentedOption("image", "圖片"),
-                SegmentedOption("video", "影片"),
-            ),
-            activeId = filter,
-            onSelected = { filter = it },
-            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp),
-        )
-        LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(ready.size) { i ->
-                val ex = ready[i]
-                ReadyPromptCard(
-                    ex = ex,
-                    onCopy = { Clipboard.copy(ctx, ex.text, toastMsg = "已複製提示詞") },
-                    onUse = { onUsePrompt(ex.text, ex.forVideo == true) },
+                GalleryList(
+                    query = query,
+                    onUsePrompt = onUsePrompt,
+                    onUseImage = onUseImage,
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -126,13 +144,86 @@ private fun ReadyList(
 }
 
 @Composable
-private fun GalleryList(
+private fun ReadyList(
+    query: String,
+    favorites: Set<String>,
+    onToggleFavorite: (String) -> Unit,
     onUsePrompt: (String, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
+    var cat by rememberSaveable { mutableStateOf("全部") }
+    val q = query.trim()
+    val filtered = remember(q, cat, favorites) {
+        READY_PROMPTS.filter { ex ->
+            val matchQ = q.isEmpty() || ex.tag.contains(q, true) || ex.text.contains(q, true)
+            val matchCat = when (cat) {
+                "全部" -> true
+                "★ 收藏" -> ex.tag in favorites
+                else -> categoryOf(ex) == cat
+            }
+            matchQ && matchCat
+        }
+    }
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CATEGORIES.forEach { c ->
+                CatChip(label = c, selected = cat == c) { cat = c }
+            }
+        }
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (filtered.isEmpty()) {
+                item {
+                    Text(
+                        text = "沒有符合的範本，換個關鍵字或分類試試。",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp),
+                    )
+                }
+            }
+            items(filtered.size) { i ->
+                val ex = filtered[i]
+                ReadyPromptCard(
+                    ex = ex,
+                    onCopy = { Clipboard.copy(ctx, ex.text, toastMsg = "已複製提示詞") },
+                    onUse = { onUsePrompt(ex.text, ex.forVideo == true) },
+                    isFavorite = ex.tag in favorites,
+                    onToggleFavorite = { onToggleFavorite(ex.tag) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GalleryList(
+    query: String,
+    onUsePrompt: (String, Boolean) -> Unit,
+    onUseImage: (String, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ctx = LocalContext.current
     val lessons = remember { TutorialData.load(ctx) }
+    val q = query.trim()
+    val filtered = remember(q) {
+        if (q.isEmpty()) lessons else lessons.filter { it.title.contains(q, true) }
+    }
     var expanded by remember { mutableStateOf<Int?>(null) }
+    var playingVideo by remember { mutableStateOf<String?>(null) }
+    var pendingImage by remember { mutableStateOf<String?>(null) }
+
     if (lessons.isEmpty()) {
         Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(
@@ -144,21 +235,109 @@ private fun GalleryList(
         }
         return
     }
+
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(lessons.size) { i ->
-            val lesson = lessons[i]
+        if (filtered.isEmpty()) {
+            item {
+                Text(
+                    text = "沒有符合的課程，換個關鍵字試試。",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 24.dp),
+                )
+            }
+        }
+        items(filtered.size) { i ->
+            val lesson = filtered[i]
             LessonCard(
                 lesson = lesson,
                 isOpen = expanded == lesson.sec,
-                onToggle = { expanded = if (expanded == lesson.sec) null else lesson.sec },
+                playingVideo = playingVideo,
+                onToggle = {
+                    expanded = if (expanded == lesson.sec) null else lesson.sec
+                    playingVideo = null
+                },
+                onImageTap = { pendingImage = it },
+                onPlayVideo = { playingVideo = it },
                 onCopyPrompt = { p -> Clipboard.copy(ctx, p, toastMsg = "已複製提示詞") },
                 onUsePrompt = { p -> onUsePrompt(p, false) },
             )
         }
+    }
+
+    val img = pendingImage
+    if (img != null) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { pendingImage = null },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ) {
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
+                Text(
+                    text = "用這張範例圖…",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W700,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
+                ActionRow(icon = "play_arrow", label = "動起來（以此圖生成影片）") {
+                    onUseImage(img, true); pendingImage = null
+                }
+                ActionRow(icon = "edit", label = "重繪／編輯（以此圖為來源）") {
+                    onUseImage(img, false); pendingImage = null
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CatChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.secondaryContainer
+                else MaterialTheme.colorScheme.surface,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ActionRow(icon: String, label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        ImagineIcon(name = icon, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W600,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -166,7 +345,10 @@ private fun GalleryList(
 private fun LessonCard(
     lesson: TutorialLesson,
     isOpen: Boolean,
+    playingVideo: String?,
     onToggle: () -> Unit,
+    onImageTap: (String) -> Unit,
+    onPlayVideo: (String) -> Unit,
     onCopyPrompt: (String) -> Unit,
     onUsePrompt: (String) -> Unit,
 ) {
@@ -194,7 +376,7 @@ private fun LessonCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "${lesson.images.size} 範例圖 · ${lesson.prompts.size} 提示詞",
+                    text = "${lesson.images.size} 圖 · ${lesson.videos.size} 影片 · ${lesson.prompts.size} 提示詞",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
@@ -209,11 +391,17 @@ private fun LessonCard(
 
         if (isOpen) {
             if (lesson.images.isNotEmpty()) {
+                Text(
+                    text = "範例圖（點圖→動起來/重繪）",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(top = 10.dp),
+                        .padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     lesson.images.forEach { url ->
@@ -224,8 +412,50 @@ private fun LessonCard(
                             modifier = Modifier
                                 .size(150.dp)
                                 .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { onImageTap(url) },
+                        )
+                    }
+                }
+            }
+
+            if (lesson.videos.isNotEmpty()) {
+                Text(
+                    text = "示範影片",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
+                )
+                lesson.videos.forEach { url ->
+                    if (playingVideo == url) {
+                        InlineVideoPlayer(
+                            url = url,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .padding(top = 6.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surface),
                         )
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { onPlayVideo(url) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(name = "play_arrow", size = 20.dp, fill = 1, tint = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = "播放範例影片",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                 }
             }

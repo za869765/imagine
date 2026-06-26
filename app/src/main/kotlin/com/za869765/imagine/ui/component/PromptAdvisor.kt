@@ -170,6 +170,47 @@ private fun detectVideoConflicts(prompt: String): List<VideoConflict> {
     return hits
 }
 
+// ── 教學建議 (依目前 prompt 動態挑、活用 super-i 教學重點,不是死板規則) ──
+// 每條:標題 + 為什麼 + 一鍵可插入的片語(對應真實選項則智慧替換,否則附加) + 節次參考。
+data class TeachTip(val title: String, val why: String, val insert: String, val lesson: String)
+
+private val LIGHT_KW = listOf(
+    "光", "逆光", "側光", "林布蘭", "黃昏", "晨光", "夜光", "頂光", "柔光", "硬光",
+    "體積光", "耶穌光", "明暗", "lighting", "rembrandt",
+)
+private val TEXTURE_KW = listOf(
+    "膚質", "毛孔", "顆粒", "質感", "halation", "底片", "膠片", "grain", "texture",
+)
+private val CAMERA_MOVE_KW = listOf(
+    "推近", "拉遠", "運鏡", "橫移", "跟拍", "推軌", "環繞", "上搖", "下搖", "鏡頭運動",
+    "zoom", "pan", "dolly", "tracking",
+)
+private val ACT_BEAT_KW = listOf("起承", "蓄力", "發力", "收勢", "慣性", "重心", "三層動態")
+
+private val TIP_LIGHT = TeachTip("先決定光線", "光線決定真實感與情緒,比堆細節更有效。", "黃昏暖橘光", "第3·20節")
+private val TIP_COMP = TeachTip("鏡頭怎麼擺", "先想景別＋視角,畫面才有重點、不像隨手拍。", "胸上中景", "第1·26節")
+private val TIP_TEXTURE = TeachTip("去 AI 油味", "用真實質感詞,膚感更自然、不塑膠。", "自然真實膚質（毛孔絨毛）", "第18節")
+private val TIP_STYLE = TeachTip("風格即選擇", "明確畫風＋色調,AI 才不會給你平庸預設。", "電影感寫實", "第17節")
+private val TIP_CAMERA = TeachTip("先想運鏡", "影片先決定鏡頭怎麼動,別只寫靜態描述。", "鏡頭緩慢推近，主體僅微動", "第21·58節")
+private val TIP_BEAT = TeachTip("動作要有起承", "蓄力→發力→收勢,動作才不僵硬、不滑步。", "動作有起承：蓄力→發力→收勢", "第59節")
+
+private fun hasAnyKw(p: String, kw: List<String>) = kw.any { p.contains(it, ignoreCase = true) }
+
+// 依目前 prompt 缺什麼,挑最有感的幾招 (最多 4 條)。
+fun relevantTeachTips(prompt: String, forVideo: Boolean): List<TeachTip> {
+    if (prompt.isBlank()) return emptyList()
+    val el = analyzeElements(prompt)
+    fun present(name: String) = el.firstOrNull { it.name == name }?.present == true
+    val tips = mutableListOf<TeachTip>()
+    if (!hasAnyKw(prompt, LIGHT_KW)) tips += TIP_LIGHT
+    if (!present("構圖")) tips += TIP_COMP
+    if (!hasAnyKw(prompt, TEXTURE_KW)) tips += TIP_TEXTURE
+    if (!present("風格")) tips += TIP_STYLE
+    if (forVideo && !hasAnyKw(prompt, CAMERA_MOVE_KW)) tips += TIP_CAMERA
+    if (forVideo && present("動作") && !hasAnyKw(prompt, ACT_BEAT_KW)) tips += TIP_BEAT
+    return tips.take(4)
+}
+
 // 片語庫已改為衍生自 BUILDER_FIELDS (與「自己組」同步、單一真相源)，渲染見 PromptAdvisorSheet。
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -210,11 +251,94 @@ fun PromptAdvisorSheet(
                 modifier = Modifier.padding(top = 4.dp),
             )
             Text(
-                text = "先處理高風險字詞與衝突，再用 5 要素補強（$coveredCount / 5）",
+                text = "看教學建議活用幾招，順手避開風險字詞，再用 5 要素補強（$coveredCount / 5）",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp, bottom = 12.dp),
             )
+
+            // ── 教學建議 (依目前 prompt 動態挑、活用 super-i 教學重點) ──────────
+            val teachTips = relevantTeachTips(currentPrompt, forVideo)
+            if (teachTips.isNotEmpty()) {
+                Text(
+                    text = "教學建議 — 依你目前的描述，挑這幾招最有感",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W700,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 2.dp),
+                )
+                teachTips.forEach { tip ->
+                    val sameType = BUILDER_FIELDS.firstOrNull { tip.insert in it.options }?.options
+                        ?: emptyList()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(
+                                name = "lightbulb",
+                                size = 16.dp,
+                                fill = 1,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = tip.title,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W700,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = tip.lesson,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            text = tip.why,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.primary,
+                                    RoundedCornerShape(20.dp),
+                                )
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .clickable { onInsert(tip.insert, sameType) }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                text = "＋ 套用「${tip.insert}」",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 14.dp)
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant),
+                )
+            }
 
             // ── 審核風險字詞 (置頂) ──────────────────────────────
             // blocked = 裸露/性/未成年/性暗示: 只標紅+說明,不給替代 (不做規避審核)。

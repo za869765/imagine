@@ -841,6 +841,8 @@ fun ReadyPromptCard(
     ex: PromptExample,
     onCopy: () -> Unit,
     onUse: () -> Unit,
+    isFavorite: Boolean = false,
+    onToggleFavorite: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
@@ -850,6 +852,7 @@ fun ReadyPromptCard(
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -864,7 +867,18 @@ fun ReadyPromptCard(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W700,
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
             )
+            if (onToggleFavorite != null) {
+                ImagineIconButton(
+                    name = "star",
+                    fill = if (isFavorite) 1 else 0,
+                    size = 20.dp,
+                    tint = if (isFavorite) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onToggleFavorite,
+                )
+            }
         }
         Text(
             text = ex.text,
@@ -906,7 +920,7 @@ fun PromptTemplateSheet(
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    var tab by remember { mutableStateOf("ready") }
+    var tab by remember { mutableStateOf("build") }
 
     // 條件選擇器狀態: 每欄預設選第一個選項 (modifier 欄第一個是「(不指定)」)
     val selected = remember {
@@ -920,8 +934,7 @@ fun PromptTemplateSheet(
     var openCategory by remember { mutableStateOf<String?>(null) }
     // 圖片模式隱藏影片限定欄位 (動作/聲音/字幕);selected 仍含全部 key(隱藏的維持「(不指定)」不入 prompt)
     val fields = if (forVideo) BUILDER_FIELDS else BUILDER_FIELDS.filter { it.label !in VIDEO_ONLY_FIELDS }
-    // 現成範例依模式分流:圖片模式留 forVideo==false||null,影片模式留 forVideo==true||null (null=通用兩者皆顯示)
-    val readyPrompts = READY_PROMPTS.filter { if (forVideo) it.forVideo != false else it.forVideo != true }
+    // 現成範例已移至「教學範本」分頁 (READY_PROMPTS),此處只留 自己組 + 分鏡。
 
     fun pick(prompt: String) {
         onUse(prompt)
@@ -942,14 +955,14 @@ fun PromptTemplateSheet(
                 .verticalScroll(rememberScrollState()),
         ) {
             Text(
-                text = "Prompt 範本",
+                text = "自己組 prompt",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.W700,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
             )
             Text(
-                text = "直接挑一條現成的，或用條件自己組一條；填入後都能再打字改。",
+                text = "用條件自己組一條，或用分鏡規劃；現成範例改看底部「教學範本」分頁。",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp),
@@ -957,7 +970,6 @@ fun PromptTemplateSheet(
 
             SegmentedTab(
                 options = buildList {
-                    add(SegmentedOption("ready", "現成範例"))
                     add(SegmentedOption("build", "自己組"))
                     if (forVideo) add(SegmentedOption("storyboard", "分鏡"))
                 },
@@ -967,19 +979,7 @@ fun PromptTemplateSheet(
 
             Box(modifier = Modifier.padding(top = 14.dp))
 
-            if (tab == "ready") {
-                // ── ① 現成範例 ──
-                RandomBar(label = "🎲  隨機一條") { pick(readyPrompts.random().text) }
-                readyPrompts.forEach { ex ->
-                    Box(modifier = Modifier.padding(top = 10.dp)) {
-                        ReadyPromptCard(
-                            ex = ex,
-                            onCopy = { Clipboard.copy(ctx, ex.text, toastMsg = "已複製範例") },
-                            onUse = { pick(ex.text) },
-                        )
-                    }
-                }
-            } else if (tab == "storyboard") {
+            if (tab == "storyboard") {
                 StoryboardTab(onPick = { pick(it) })
             } else {
                 // ── ② 範本精靈: 一鍵起手式 + 大類卡片導覽(進入後逐欄挑,每欄可跳過) ──

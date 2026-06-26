@@ -140,6 +140,15 @@ fun ImagineRoot() {
                             if (isVideo) Routes.GENERATE_VIDEO else Routes.GENERATE_IMAGE,
                         )
                     },
+                    // 課程範例圖 → 動起來(圖生影,GENERATE_VIDEO) 或 重繪/編輯(EDIT image 模式)。
+                    // 沿用 KEY_INIT_MEDIA;圖為 super-i CDN https URL,由生成端 http(s) 直通。
+                    onUseImage = { url, asVideo ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            if (!asVideo) set(KEY_INIT_EDIT_MODE, "image")
+                        }
+                        navController.navigate(if (asVideo) Routes.GENERATE_VIDEO else Routes.EDIT)
+                    },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                 )

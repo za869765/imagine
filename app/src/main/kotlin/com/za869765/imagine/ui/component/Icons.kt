@@ -34,7 +34,10 @@ import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material.icons.outlined.Warning
@@ -100,6 +103,10 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "warning" to true -> Icons.Filled.Warning
     "refresh" to false -> Icons.Outlined.Refresh
     "refresh" to true -> Icons.Filled.Refresh
+    "search" to false -> Icons.Outlined.Search
+    "search" to true -> Icons.Outlined.Search
+    "star" to false -> Icons.Outlined.StarBorder
+    "star" to true -> Icons.Filled.Star
     else -> Icons.Outlined.AutoAwesome
 }
 

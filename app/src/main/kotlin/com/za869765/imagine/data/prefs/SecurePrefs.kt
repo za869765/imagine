@@ -75,6 +75,12 @@ class SecurePrefs private constructor(ctx: Context) {
             ?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
         set(v) = prefs.edit().putString(K_RECENT_SNIPPETS, v.joinToString("\n")).apply()
 
+    // ── 教學範本「收藏」(以 PromptExample.tag 標識,\n 串接,同 recentSnippets) ──
+    var favoriteTemplates: List<String>
+        get() = prefs.getString(K_FAVORITE_TEMPLATES, null)
+            ?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
+        set(v) = prefs.edit().putString(K_FAVORITE_TEMPLATES, v.joinToString("\n")).apply()
+
     // ── Bulk reset (clears everything) ──────────────────────────
     fun clearAll() = prefs.edit().clear().apply()
 
@@ -89,6 +95,7 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_FLAG_SECURE = "prevent_screenshots"
         private const val K_THEME = "theme_mode"
         private const val K_RECENT_SNIPPETS = "recent_snippets"
+        private const val K_FAVORITE_TEMPLATES = "favorite_templates"
 
         @Volatile private var instance: SecurePrefs? = null
         fun get(ctx: Context): SecurePrefs = instance ?: synchronized(this) {

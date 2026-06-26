@@ -217,9 +217,10 @@ fun PromptInput(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 範本 與 建議 互斥:空白 → 只出「範本」;有內容 → 只出「複製 + 建議」。
+                // 自己組 與 建議 互斥:空白 → 只出「自己組」;有內容 → 只出「複製 + 建議」。
+                // (現成範例已移到底部「教學範本」分頁;此 chip 開啟的是 自己組 builder + 分鏡)
                 if (value.isBlank()) {
-                    PromptToolChip(icon = "auto_awesome", label = "範本") { showTemplateSheet = true }
+                    PromptToolChip(icon = "auto_awesome", label = "自己組") { showTemplateSheet = true }
                 } else {
                     PromptToolChip(icon = "content_copy", label = "複製") {
                         Clipboard.copy(ctx, value, toastMsg = "已複製提示詞")

@@ -12,6 +12,7 @@ data class TutorialLesson(
     val id: Int,
     val title: String,
     val images: List<String> = emptyList(),
+    val videos: List<String> = emptyList(),
     val prompts: List<String> = emptyList(),
 )
 
