@@ -102,6 +102,8 @@ fun GenerateImageScreen(
     var resultUrls by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     // 點結果圖開全螢幕看圖器的起始索引(null=未開);動作作用在當頁那張,修掉「永遠只動第 1 張」
     var viewerIndex by remember { mutableStateOf<Int?>(null) }
+    // 每次成功生成 +1,讓結果圖 Coil 快取 key 變動 → 避免 xAI 重用同一 URL 時看到上一張舊圖。
+    var resultGen by remember { mutableStateOf(0) }
     // 這批生成存檔後的本機檔名(依序對齊 resultUrls);給「設為素材庫」整批標分類用。
     var savedNames by remember { mutableStateOf<List<String?>>(emptyList()) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
@@ -171,6 +173,7 @@ fun GenerateImageScreen(
                         lastError = ""
                         lastErrorIsPolicy = false
                         pendingScrollToResult = true  // bug#3: 捲到結果區讓新圖主動出現
+                        resultGen++                   // A1: 換快取 key,強制顯示這次的新圖
                         // v1.0.54 B3: 改用 ImagineApp.appScope (process-lifecycle) — user
                         // 切走/鎖屏時 Composable scope 會 cancel，下載到一半被砍 → History 看不到
                         savedNames = List(result.value.size) { null }
@@ -376,7 +379,11 @@ fun GenerateImageScreen(
                     Column {
                         resultUrls.forEachIndexed { i, url ->
                             AsyncImage(
-                                model = url,
+                                model = coil3.request.ImageRequest.Builder(ctx)
+                                    .data(url)
+                                    .memoryCacheKey("$url@$resultGen")
+                                    .diskCacheKey("$url@$resultGen")
+                                    .build(),
                                 contentDescription = lastPrompt,
                                 contentScale = ContentScale.FillWidth,
                                 modifier = Modifier

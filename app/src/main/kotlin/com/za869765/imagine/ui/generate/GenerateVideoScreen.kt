@@ -152,6 +152,8 @@ fun GenerateVideoScreen(
     var trackedRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     var elapsed by remember { mutableStateOf(0) }
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    // 每次新結果 +1,讓 VideoPreview 重建播放器 → 避免 xAI 重用同一 URL 時看到上一支舊片。
+    var resultVideoGen by remember { mutableStateOf(0) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
@@ -186,6 +188,7 @@ fun GenerateVideoScreen(
                         val url = info.outputData.getString(VideoPollWorker.KEY_VIDEO_URL)
                         if (url != null) {
                             resultVideoUrl = url
+                            resultVideoGen++   // A1: 重建播放器顯示這次的新片
                             pendingScrollToResult = true  // bug#3: 捲到結果區讓新影片主動出現
                         }
                         generating = false
@@ -642,6 +645,7 @@ fun GenerateVideoScreen(
                     Column {
                         VideoPreview(
                             url = url,
+                            gen = resultVideoGen,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 280.dp, max = 480.dp)
@@ -796,9 +800,9 @@ private fun LibraryImagePickerSheet(
 }
 
 @Composable
-private fun VideoPreview(url: String, modifier: Modifier = Modifier) {
+private fun VideoPreview(url: String, gen: Int = 0, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    val player = remember(url) {
+    val player = remember(url, gen) {
         ExoPlayer.Builder(ctx).build().apply {
             setMediaItem(MediaItem.fromUri(url))
             prepare()

@@ -19,8 +19,11 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +71,8 @@ fun MaterialLibraryScreen(
     var loaded by remember { mutableStateOf(false) }
     var previewIndex by remember { mutableStateOf<Int?>(null) }   // 我的素材
     var seedIndex by remember { mutableStateOf<Int?>(null) }      // 內建素材
+    var recatName by remember { mutableStateOf<String?>(null) }   // B4: 改分類目標(讓使用者選)
+    var removeName by remember { mutableStateOf<String?>(null) }  // B4: 移出前確認
     var reloadKey by remember { mutableStateOf(0) }
 
     LaunchedEffect(reloadKey) {
@@ -194,21 +199,11 @@ fun MaterialLibraryScreen(
                 ViewerAction("image", "生圖") { url -> onUseImage(url, false); previewIndex = null },
                 ViewerAction("movie", "生影") { url -> onUseImage(url, true); previewIndex = null },
                 ViewerAction("refresh", "改分類") { url ->
-                    shown.firstOrNull { it.uri.toString() == url }?.let { en ->
-                        val cats = MaterialLibrary.CATEGORIES
-                        val next = cats[(cats.indexOf(cat) + 1) % cats.size]
-                        MaterialLibrary.setCategory(ctx, en.displayName, next)
-                        Toast.makeText(ctx, "已改分類到「$next」", Toast.LENGTH_SHORT).show()
-                        reloadKey++
-                    }
+                    recatName = shown.firstOrNull { it.uri.toString() == url }?.displayName
                     previewIndex = null
                 },
-                ViewerAction("close", "移出") { url ->
-                    shown.firstOrNull { it.uri.toString() == url }?.let { en ->
-                        MaterialLibrary.remove(ctx, en.displayName)
-                        Toast.makeText(ctx, "已移出素材庫", Toast.LENGTH_SHORT).show()
-                        reloadKey++
-                    }
+                ViewerAction("close", "移出素材庫") { url ->
+                    removeName = shown.firstOrNull { it.uri.toString() == url }?.displayName
                     previewIndex = null
                 },
             ),
@@ -226,6 +221,57 @@ fun MaterialLibraryScreen(
                 ViewerAction("image", "生圖") { url -> onUseImage(url, false); seedIndex = null },
                 ViewerAction("movie", "生影") { url -> onUseImage(url, true); seedIndex = null },
             ),
+        )
+    }
+
+    // B4: 改分類 — 讓使用者選要改去哪一類(不再自動跳下一個)
+    recatName?.let { name ->
+        Dialog(onDismissRequest = { recatName = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .padding(16.dp),
+            ) {
+                Text("改分類到", fontSize = 15.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
+                MaterialLibrary.CATEGORIES.forEach { c ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .clickable {
+                                MaterialLibrary.setCategory(ctx, name, c)
+                                Toast.makeText(ctx, "已改分類到「$c」", Toast.LENGTH_SHORT).show()
+                                reloadKey++
+                                recatName = null
+                            }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(c, fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
+    }
+    // B4: 移出前先確認(只移出素材庫,不刪圖檔)
+    removeName?.let { name ->
+        AlertDialog(
+            onDismissRequest = { removeName = null },
+            title = { Text("移出素材庫？") },
+            text = { Text("只會把這張從素材庫移出，不會刪除圖片（歷史仍在）。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    MaterialLibrary.remove(ctx, name)
+                    Toast.makeText(ctx, "已移出素材庫", Toast.LENGTH_SHORT).show()
+                    reloadKey++
+                    removeName = null
+                }) { Text("移出") }
+            },
+            dismissButton = { TextButton(onClick = { removeName = null }) { Text("取消") } },
         )
     }
 }
