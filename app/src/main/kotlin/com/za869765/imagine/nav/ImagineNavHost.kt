@@ -48,6 +48,7 @@ private const val KEY_INIT_MEDIA = "init_media_uri"
 private const val KEY_INIT_PROMPT = "init_media_prompt"
 private const val KEY_INIT_EDIT_MODE = "init_edit_mode"   // "image" / "video" / "extend"
 private const val KEY_INIT_VIDEO_MODE = "init_video_mode" // "i2v" → 影片頁開在圖生影模式(教學 i2v 範本用)
+private const val KEY_INIT_EXTEND_BASE = "init_extend_base" // 組合延長:原片 file:// uri
 private const val KEY_HISTORY_URI = "history_entry_uri"
 
 @Composable
@@ -158,6 +159,15 @@ fun ImagineRoot() {
                         }
                         navController.navigate(Routes.GENERATE_VIDEO)
                     },
+                    // 組合延長:此片某格當圖生影來源 + 帶原片 → 生成成功後 Worker 自動串接原片+新片
+                    onCombineExtend = { frameUri, baseVideoUri ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, frameUri)
+                            set(KEY_INIT_VIDEO_MODE, "i2v")
+                            set(KEY_INIT_EXTEND_BASE, baseVideoUri)
+                        }
+                        navController.navigate(Routes.GENERATE_VIDEO)
+                    },
                 )
             }
 
@@ -247,14 +257,16 @@ fun ImagineRoot() {
                     ?.savedStateHandle?.get<String>(KEY_INIT_PROMPT)
                 val initVideoMode = navController.previousBackStackEntry
                     ?.savedStateHandle?.get<String>(KEY_INIT_VIDEO_MODE)
-                // 清除 gate 涵蓋三種來源(只帶 prompt 的 t2v/LongVideo、只帶 mode 的 i2v、帶 media 的動起來),
-                // 否則 prompt-only 流程的 KEY_INIT_PROMPT 會殘留在來源頁、汙染下一次 image-only 進場。
-                LaunchedEffect(initUrl, initPrompt, initVideoMode) {
-                    if (initUrl != null || initPrompt != null || initVideoMode != null) {
+                val initExtendBase = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_EXTEND_BASE)
+                // 清除 gate 涵蓋各種來源,否則殘留會汙染下一次進場。
+                LaunchedEffect(initUrl, initPrompt, initVideoMode, initExtendBase) {
+                    if (initUrl != null || initPrompt != null || initVideoMode != null || initExtendBase != null) {
                         navController.previousBackStackEntry?.savedStateHandle?.apply {
                             remove<String>(KEY_INIT_MEDIA)
                             remove<String>(KEY_INIT_PROMPT)
                             remove<String>(KEY_INIT_VIDEO_MODE)
+                            remove<String>(KEY_INIT_EXTEND_BASE)
                         }
                     }
                 }
@@ -273,6 +285,7 @@ fun ImagineRoot() {
                     initialImageUri = initUrl?.let { Uri.parse(it) },
                     initialPrompt = initPrompt,
                     initialVideoMode = initVideoMode,
+                    initialExtendBase = initExtendBase,
                 )
             }
 

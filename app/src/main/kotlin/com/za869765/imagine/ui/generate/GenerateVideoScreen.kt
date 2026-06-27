@@ -111,6 +111,7 @@ fun GenerateVideoScreen(
     initialImageUri: Uri? = null,    // 從圖片頁「動起來」帶過來
     initialPrompt: String? = null,    // 「動起來」時順帶把圖片的 prompt 預填 (對齊 grok-imagine console 行為)
     initialVideoMode: String? = null, // "i2v" → 即使沒帶圖也開在圖生影模式(教學 i2v 範本:純動作,需使用者再選來源圖)
+    initialExtendBase: String? = null, // 組合延長:原片 file:// uri,生成成功後 Worker 自動把原片+新片串接
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -330,7 +331,7 @@ fun GenerateVideoScreen(
                         // Worker 跑前景服務,Composable 被 dispose / process 死也能完成。
                         val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
                             .addTag(VideoPollWorker.TAG_VIDEO_POLL)  // v1.0.51: 給 crash-loop recovery 用
-                            .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt))
+                            .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt, initialExtendBase))
                             .build()
                         workManager.enqueueUniqueWork(
                             VideoPollWorker.uniqueName(requestId),

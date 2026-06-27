@@ -53,6 +53,7 @@ fun VideoFramePicker(
     uri: Uri,
     prompt: String,
     onUseFrameForVideo: (String, String) -> Unit,
+    onCombineExtend: (String, String) -> Unit = { _, _ -> },
     onDismiss: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -151,6 +152,25 @@ fun VideoFramePicker(
                     onDismiss()
                 }
             }
+            PickerAction(icon = "add", label = "組合延長：接此片後（新片自動串接）", enabled = !working) {
+                scope.launch {
+                    working = true
+                    val u = saveCurrentFrame()
+                    working = false
+                    if (u != null) {
+                        onCombineExtend(u, uri.toString())
+                        onDismiss()
+                    } else {
+                        Toast.makeText(ctx, "擷取失敗，換個秒數試試", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            Text(
+                text = "組合延長：拉到接近尾端的畫格最順；到影片頁輸入新 prompt 生成，完成會自動把原片＋新片串成長片。",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
 }

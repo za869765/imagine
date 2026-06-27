@@ -16,6 +16,7 @@ import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.data.storage.MediaSaver
+import com.za869765.imagine.data.video.VideoMerger
 import kotlinx.coroutines.delay
 
 /**
@@ -100,16 +101,34 @@ class VideoPollWorker(
                             val url = poll.value.video?.url
                             return if (url != null) {
                                 val saved = MediaSaver.saveVideoFromUrl(applicationContext, url, prompt)
+                                // 組合延長:帶了 extendBase 就把原片＋新片自動串成長片(MediaMuxer,需同解析度/編碼)
+                                val extendBase = inputData.getString(KEY_EXTEND_BASE)
+                                var mergedUri: String? = null
+                                var doneMsg = "影片完成,已存到 App 內,打開 Imagine 看歷史"
+                                if (!extendBase.isNullOrBlank() && saved != null) {
+                                    mergedUri = runCatching {
+                                        VideoMerger.merge(
+                                            applicationContext,
+                                            listOf(android.net.Uri.parse(extendBase), android.net.Uri.parse(saved)),
+                                            "長片組合 組合延長",
+                                        )
+                                    }.getOrNull()
+                                    doneMsg = if (mergedUri != null) {
+                                        "組合延長完成:原片＋新片已串成長片(看歷史)"
+                                    } else {
+                                        "新片已生成;自動串接失敗(片段需同解析度/編碼)— 可到長片組合手動接"
+                                    }
+                                }
                                 Notifications.cancelProgress(applicationContext, requestId)
                                 Notifications.postComplete(
                                     applicationContext, requestId,
                                     success = true,
-                                    message = "影片完成,已存到 App 內,打開 Imagine 看歷史",
+                                    message = doneMsg,
                                 )
                                 Result.success(
                                     workDataOf(
                                         KEY_VIDEO_URL to url,
-                                        KEY_SAVED_URI to saved,
+                                        KEY_SAVED_URI to (mergedUri ?: saved),
                                     ),
                                 )
                             } else {
@@ -178,6 +197,8 @@ class VideoPollWorker(
         const val KEY_VIDEO_URL = "video_url"
         const val KEY_SAVED_URI = "saved_uri"
         const val KEY_ERROR = "error"
+        // 組合延長:原片 file:// uri;完成後 worker 把原片+新片串接
+        const val KEY_EXTEND_BASE = "extend_base"
 
         const val POLL_INTERVAL_SEC = 5
         // v1.0.54 O7: 60 → 120，總 timeout 從 5 分鐘拉到 10 分鐘
@@ -190,7 +211,11 @@ class VideoPollWorker(
         const val UNIQUE_WORK_PREFIX = "video-poll-"
         fun uniqueName(requestId: String) = UNIQUE_WORK_PREFIX + requestId
 
-        fun inputDataOf(requestId: String, prompt: String): Data =
-            workDataOf(KEY_REQUEST_ID to requestId, KEY_PROMPT to prompt)
+        fun inputDataOf(requestId: String, prompt: String, extendBase: String? = null): Data =
+            if (extendBase.isNullOrBlank()) {
+                workDataOf(KEY_REQUEST_ID to requestId, KEY_PROMPT to prompt)
+            } else {
+                workDataOf(KEY_REQUEST_ID to requestId, KEY_PROMPT to prompt, KEY_EXTEND_BASE to extendBase)
+            }
     }
 }

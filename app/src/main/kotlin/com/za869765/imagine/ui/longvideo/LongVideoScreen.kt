@@ -93,6 +93,8 @@ fun LongVideoScreen(
     onUsePrompt: (String) -> Unit = {},
     // 用影片某一格(file:// 圖)當圖生影來源 + 帶 prompt 去影片頁
     onUseFrameForVideo: (String, String) -> Unit = { _, _ -> },
+    // 組合延長:某格當圖生影來源(frameUri)+ 原片 uri(baseVideoUri)
+    onCombineExtend: (String, String) -> Unit = { _, _ -> },
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -387,6 +389,7 @@ fun LongVideoScreen(
                 uri = e.uri,
                 prompt = e.prompt.orEmpty(),
                 onUseFrameForVideo = onUseFrameForVideo,
+                onCombineExtend = onCombineExtend,
                 onDismiss = { framePickerEntry = null },
             )
         }
