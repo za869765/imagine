@@ -4,6 +4,7 @@ object Routes {
     const val SPLASH = "splash"
 
     const val MATERIAL_HUB = "material_hub"
+    const val MATERIAL_LIBRARY = "material_library"
     const val LONG_VIDEO = "long_video"
     const val TUTORIAL = "tutorial"
 

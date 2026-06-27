@@ -28,6 +28,7 @@ import com.za869765.imagine.ui.generate.GenerateVideoScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
 import com.za869765.imagine.ui.history.HistoryScreen
 import com.za869765.imagine.ui.hub.MaterialHubScreen
+import com.za869765.imagine.ui.hub.MaterialLibraryScreen
 import com.za869765.imagine.ui.longvideo.LongVideoScreen
 import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
@@ -118,8 +119,23 @@ fun ImagineRoot() {
                 MaterialHubScreen(
                     onPickImage = { navController.navigate(Routes.GENERATE_IMAGE) },
                     onPickVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
+                    onOpenLibrary = { navController.navigate(Routes.MATERIAL_LIBRARY) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
+                )
+            }
+
+            composable(Routes.MATERIAL_LIBRARY) {
+                MaterialLibraryScreen(
+                    onBack = { navController.popBackStack() },
+                    // 沿用 KEY_INIT_MEDIA:false → 編輯/圖生圖(EDIT image),true → 圖生影(GENERATE_VIDEO)。
+                    onUseImage = { url, asVideo ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            if (!asVideo) set(KEY_INIT_EDIT_MODE, "image")
+                        }
+                        navController.navigate(if (asVideo) Routes.GENERATE_VIDEO else Routes.EDIT)
+                    },
                 )
             }
 
@@ -311,7 +327,7 @@ fun ImagineRoot() {
                                     val path = e.uri.path
                                     if (path != null) java.io.File(path).delete()
                                     com.za869765.imagine.data.storage.PromptIndex.remove(ctx, e.displayName)
-                                    com.za869765.imagine.data.storage.CharacterStore.remove(ctx, e.displayName)
+                                    com.za869765.imagine.data.storage.MaterialLibrary.remove(ctx, e.displayName)
                                 }
                             }
                         }

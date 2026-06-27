@@ -230,7 +230,8 @@ private fun GalleryList(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
-    val lessons = remember { TutorialData.load(ctx) }
+    // 由最新節次排到最舊(sec 大→小),新課程排前面。
+    val lessons = remember { TutorialData.load(ctx).sortedByDescending { it.sec } }
     val q = query.trim()
     val filtered = remember(q) {
         if (q.isEmpty()) lessons else lessons.filter { it.title.contains(q, true) }

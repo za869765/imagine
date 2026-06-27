@@ -4,6 +4,8 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,7 +42,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
-import com.za869765.imagine.data.storage.CharacterStore
+import com.za869765.imagine.data.storage.MaterialLibrary
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaExporter
 import kotlinx.coroutines.launch
@@ -192,9 +194,9 @@ fun HistoryDetailScreen(
 
             ImagineCard(pad = 0, variant = CardVariant.Filled) {
                 Column {
-                    // 角色庫:圖片可標記為「角色參考圖」(影片不可當圖生圖輸入)
+                    // 素材庫:圖片可歸到 角色/環境/物件/風格 分類(影片不可當圖生圖輸入)
                     if (!entry.isVideo) {
-                        CharacterToggleRow(ctx = ctx, name = entry.displayName)
+                        CategoryPickerRow(ctx = ctx, name = entry.displayName)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -294,37 +296,68 @@ private fun DetailRow(label: String, value: String, mono: Boolean = false) {
 }
 
 @Composable
-private fun CharacterToggleRow(ctx: Context, name: String) {
-    var isChar by remember(name) { mutableStateOf(CharacterStore.isCharacter(ctx, name)) }
-    Row(
+private fun CategoryPickerRow(ctx: Context, name: String) {
+    var current by remember(name) { mutableStateOf(MaterialLibrary.categoryOf(ctx, name)) }
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                isChar = CharacterStore.toggle(ctx, name)
-                Toast.makeText(
-                    ctx,
-                    if (isChar) "已設為角色參考圖 ⭐（素材庫「角色」分頁可找到）" else "已從角色庫移除",
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(text = if (isChar) "⭐" else "☆", fontSize = 20.sp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = if (isChar) "已是角色參考圖（點擊取消）" else "設為角色參考圖",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.W500,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = "標記後可在素材庫「角色」分頁快速找到，當圖生圖/圖生影的輸入。",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Text(
+            text = if (current != null) "素材庫分類：$current（再點同一個取消）" else "加入素材庫（當圖生圖／圖生影的參考）",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.W500,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "標記後可在首頁「素材庫」對應分頁快速找到取用。",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp, bottom = 10.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MaterialLibrary.CATEGORIES.forEach { c ->
+                val selected = current == c
+                CategoryChip(label = c, selected = selected) {
+                    if (selected) {
+                        MaterialLibrary.remove(ctx, name)
+                        current = null
+                        Toast.makeText(ctx, "已移出素材庫", Toast.LENGTH_SHORT).show()
+                    } else {
+                        MaterialLibrary.setCategory(ctx, name, c)
+                        current = c
+                        Toast.makeText(ctx, "已設為「$c」素材 ⭐（素材庫可找到）", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.secondaryContainer
+                else MaterialTheme.colorScheme.surface,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

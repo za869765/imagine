@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +47,12 @@ fun ImagineScreen(
                 .fillMaxWidth()
                 .weight(1f)
                 .background(bg)
+                // 鍵盤(IME)跳出時把內容區上推,避免遮住提示詞輸入框。
+                // 因為 MainActivity 用 enableEdgeToEdge()(decorFitsSystemWindows=false),
+                // manifest 的 adjustResize 不會自動縮版面 → 必須自己吃 ime inset。
+                // 放在 verticalScroll 之前:捲動視窗高度=扣掉鍵盤後的可視區,
+                // PromptInput 的 bringIntoView 才能把輸入框帶到鍵盤上方。
+                .imePadding()
                 .let { if (scroll) it.verticalScroll(scrollState) else it },
         ) {
             content()

@@ -39,7 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.za869765.imagine.data.storage.CharacterStore
+import com.za869765.imagine.data.storage.MaterialLibrary
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -72,10 +72,11 @@ fun HistoryScreen(
     var characters by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     // LaunchedEffect(Unit) 在每次回到本頁時重跑(導覽返回會 dispose→recompose)，
-    // 所以在 detail 標記角色後回來，characters 會是最新的。
+    // 所以在 detail 標記素材分類後回來，characters 會是最新的。
+    // characters = 所有「已收進素材庫」的圖檔名(不分分類),⭐ 角標 + ⭐ 分頁用。
     LaunchedEffect(Unit) {
         entries = MediaHistory.loadAll(ctx)
-        characters = CharacterStore.all(ctx)
+        characters = MaterialLibrary.all(ctx).keys.toSet()
         loaded = true
     }
 
