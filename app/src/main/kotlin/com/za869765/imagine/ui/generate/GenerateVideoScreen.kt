@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -134,9 +135,9 @@ fun GenerateVideoScreen(
     // 影片頁子功能：gen=生成(文生影/圖生影,用 mode 細分) / extend=影片延長 / edit=影片編輯。
     // extend / edit 內嵌 EditPane;VideoMode 僅在 gen 時有意義。
     var videoFn by rememberSaveable { mutableStateOf("gen") }
-    var duration by rememberSaveable { mutableStateOf(5) }
-    var aspect by rememberSaveable { mutableStateOf("1:1") }
-    var resolution by rememberSaveable { mutableStateOf("480p") }
+    var duration by rememberSaveable { mutableStateOf(prefs.defVideoDuration) }
+    var aspect by rememberSaveable { mutableStateOf(prefs.defVideoAspect) }
+    var resolution by rememberSaveable { mutableStateOf(prefs.defVideoResolution) }
     // sourceImages 是 List<Uri> — Uri 本身可序列化,但 List<Uri> 沒 Saver,改存字串 list
     var sourceImageStrings by rememberSaveable {
         mutableStateOf(initialImageUri?.let { listOf(it.toString()) } ?: emptyList())
@@ -551,8 +552,14 @@ fun GenerateVideoScreen(
                             fontWeight = FontWeight.W600,
                             color = MaterialTheme.colorScheme.primary,
                         )
+                        // B3: 估算進度條 — 依秒數粗估總時長,非 xAI 真實完成率;封頂 97% 等實際完成。
+                        val estSec = (30 + duration * 8).coerceIn(30, 180)
+                        LinearProgressIndicator(
+                            progress = { (elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) },
+                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                        )
                         Text(
-                            "預計 30–90 秒；可切背景或鎖屏，完成會發系統通知",
+                            "預估約 $estSec 秒（估算,非真實完成率）；可切背景或鎖屏,完成會發系統通知",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

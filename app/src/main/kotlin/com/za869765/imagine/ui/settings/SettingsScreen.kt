@@ -66,6 +66,7 @@ import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.SectionHeader
+import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.theme.LocalBudgetColors
 
@@ -93,6 +94,15 @@ fun SettingsScreen(
     // 的全域 UpdateBanner (它監聽 Installer.state)。這裡只負責「主動觸發查詢」+ 結果對話框。
     var checkingUpdate by remember { mutableStateOf(false) }
     var manualUpdateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+
+    // ── 生成預設參數 (C1) ── 改了即時寫 prefs;生成頁進場讀這些當初始值
+    var defImgRes by remember { mutableStateOf(prefs.defImageResolution) }
+    var defImgAspect by remember { mutableStateOf(prefs.defImageAspect) }
+    var defImgCount by remember { mutableStateOf(prefs.defImageCount) }
+    var defImgQuality by remember { mutableStateOf(prefs.defImageQuality) }
+    var defVidDur by remember { mutableStateOf(prefs.defVideoDuration) }
+    var defVidAspect by remember { mutableStateOf(prefs.defVideoAspect) }
+    var defVidRes by remember { mutableStateOf(prefs.defVideoResolution) }
 
     // v1.0.46: 從相簿批次匯入歷史 (PhotoPicker，不需 READ_MEDIA_* permission)
     // v1.0.48: importAll 回傳 List<String>，用 .size 拿 count
@@ -228,6 +238,82 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            // ── 生成預設 (C1) ── 圖片/影片每次進生成頁的初始參數
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("生成預設")
+                Text(
+                    "圖片",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ParamPicker(
+                        label = "解析度",
+                        value = defImgRes,
+                        options = listOf("1k", "2k"),
+                        onSelect = { defImgRes = it; prefs.defImageResolution = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ParamPicker(
+                        label = "長寬比",
+                        value = defImgAspect,
+                        options = listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3", "auto"),
+                        onSelect = { defImgAspect = it; prefs.defImageAspect = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ParamPicker(
+                        label = "數量",
+                        value = defImgCount.toString(),
+                        options = (1..4).map { it.toString() },
+                        onSelect = { defImgCount = it.toIntOrNull() ?: 1; prefs.defImageCount = defImgCount },
+                        displayName = { "$it 張" },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ParamPicker(
+                        label = "品質",
+                        value = defImgQuality,
+                        options = listOf("rapid", "quality"),
+                        onSelect = { defImgQuality = it; prefs.defImageQuality = it },
+                        displayName = { if (it == "quality") "高品質" else "快速" },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Text(
+                    "影片",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ParamPicker(
+                        label = "秒數",
+                        value = defVidDur.toString(),
+                        options = (1..15).map { it.toString() },
+                        onSelect = { defVidDur = it.toIntOrNull() ?: 5; prefs.defVideoDuration = defVidDur },
+                        displayName = { "$it 秒" },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ParamPicker(
+                        label = "長寬比",
+                        value = defVidAspect,
+                        options = listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3"),
+                        onSelect = { defVidAspect = it; prefs.defVideoAspect = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ParamPicker(
+                        label = "解析度",
+                        value = defVidRes,
+                        options = listOf("480p", "720p"),
+                        onSelect = { defVidRes = it; prefs.defVideoResolution = it },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
 

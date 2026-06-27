@@ -81,6 +81,29 @@ class SecurePrefs private constructor(ctx: Context) {
             ?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
         set(v) = prefs.edit().putString(K_FAVORITE_TEMPLATES, v.joinToString("\n")).apply()
 
+    // ── 生成預設參數 (C1) ──────────────────────────────────────
+    var defImageResolution: String
+        get() = prefs.getString(K_DEF_IMG_RES, "1k")!!
+        set(v) = prefs.edit().putString(K_DEF_IMG_RES, v).apply()
+    var defImageAspect: String
+        get() = prefs.getString(K_DEF_IMG_ASPECT, "1:1")!!
+        set(v) = prefs.edit().putString(K_DEF_IMG_ASPECT, v).apply()
+    var defImageCount: Int
+        get() = prefs.getInt(K_DEF_IMG_COUNT, 1)
+        set(v) = prefs.edit().putInt(K_DEF_IMG_COUNT, v).apply()
+    var defImageQuality: String
+        get() = prefs.getString(K_DEF_IMG_QUALITY, "rapid")!!
+        set(v) = prefs.edit().putString(K_DEF_IMG_QUALITY, v).apply()
+    var defVideoDuration: Int
+        get() = prefs.getInt(K_DEF_VID_DUR, 5)
+        set(v) = prefs.edit().putInt(K_DEF_VID_DUR, v).apply()
+    var defVideoAspect: String
+        get() = prefs.getString(K_DEF_VID_ASPECT, "1:1")!!
+        set(v) = prefs.edit().putString(K_DEF_VID_ASPECT, v).apply()
+    var defVideoResolution: String
+        get() = prefs.getString(K_DEF_VID_RES, "480p")!!
+        set(v) = prefs.edit().putString(K_DEF_VID_RES, v).apply()
+
     // ── Bulk reset (clears everything) ──────────────────────────
     fun clearAll() = prefs.edit().clear().apply()
 
@@ -96,6 +119,13 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_THEME = "theme_mode"
         private const val K_RECENT_SNIPPETS = "recent_snippets"
         private const val K_FAVORITE_TEMPLATES = "favorite_templates"
+        private const val K_DEF_IMG_RES = "def_img_res"
+        private const val K_DEF_IMG_ASPECT = "def_img_aspect"
+        private const val K_DEF_IMG_COUNT = "def_img_count"
+        private const val K_DEF_IMG_QUALITY = "def_img_quality"
+        private const val K_DEF_VID_DUR = "def_vid_dur"
+        private const val K_DEF_VID_ASPECT = "def_vid_aspect"
+        private const val K_DEF_VID_RES = "def_vid_res"
 
         @Volatile private var instance: SecurePrefs? = null
         fun get(ctx: Context): SecurePrefs = instance ?: synchronized(this) {

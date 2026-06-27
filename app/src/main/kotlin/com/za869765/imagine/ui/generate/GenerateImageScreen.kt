@@ -91,10 +91,10 @@ fun GenerateImageScreen(
             prompt = initialPrompt
         }
     }
-    var resolution by rememberSaveable { mutableStateOf("1k") }
-    var aspectRatio by rememberSaveable { mutableStateOf("1:1") }
-    var n by rememberSaveable { mutableStateOf(1) }
-    var quality by rememberSaveable { mutableStateOf("rapid") }  // rapid (快) / quality (好)
+    var resolution by rememberSaveable { mutableStateOf(prefs.defImageResolution) }
+    var aspectRatio by rememberSaveable { mutableStateOf(prefs.defImageAspect) }
+    var n by rememberSaveable { mutableStateOf(prefs.defImageCount) }
+    var quality by rememberSaveable { mutableStateOf(prefs.defImageQuality) }  // rapid (快) / quality (好)
     var loading by remember { mutableStateOf(false) }
     // 圖片頁子模式：gen=生圖 / edit=圖片編輯(內嵌 EditPane)。原本只有生圖,無模式列。
     var imageFn by rememberSaveable { mutableStateOf("gen") }
