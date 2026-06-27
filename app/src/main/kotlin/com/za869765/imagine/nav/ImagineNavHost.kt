@@ -129,6 +129,7 @@ fun ImagineRoot() {
             composable(Routes.MATERIAL_LIBRARY) {
                 MaterialLibraryScreen(
                     onBack = { navController.popBackStack() },
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     // 沿用 KEY_INIT_MEDIA:false → 編輯/圖生圖(EDIT image),true → 圖生影(GENERATE_VIDEO)。
                     onUseImage = { url, asVideo ->
                         navController.currentBackStackEntry?.savedStateHandle?.apply {

@@ -77,7 +77,7 @@ fun FullscreenImageViewer(
         val actionsBottomPad = run {
             val px = ViewCompat.getRootWindowInsets(view)
                 ?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
-            (with(density) { px.toDp() } + 24.dp).coerceAtLeast(56.dp)
+            (with(density) { px.toDp() } + 40.dp).coerceAtLeast(80.dp)
         }
 
         Box(

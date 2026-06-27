@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 fun MaterialLibraryScreen(
     onUseImage: (String, Boolean) -> Unit,
     onBack: () -> Unit,
+    onSettingsClick: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -107,7 +108,7 @@ fun MaterialLibraryScreen(
     val seedUrls = remember(cat, seedAll) { seedAll.filter { it.category == cat }.map { it.url } }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "素材庫", showBack = true, onBackClick = onBack) },
+        appBar = { ImagineTopAppBar(title = "素材庫", showBack = true, onBackClick = onBack, onSettingsClick = onSettingsClick) },
         showBalanceBar = false,
         bottomNav = null,
         scroll = false,
