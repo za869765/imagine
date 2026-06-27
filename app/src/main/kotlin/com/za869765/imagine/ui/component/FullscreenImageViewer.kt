@@ -34,11 +34,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import coil3.compose.AsyncImage
 
 // 看圖器底部動作 — onClick 帶入「目前顯示中那張」的 url。
@@ -64,6 +68,17 @@ fun FullscreenImageViewer(
         // 每頁的縮放倍率,用來決定 pager 是否可橫滑(縮放中=不可滑)。
         val scales = remember { mutableStateMapOf<Int, Float>() }
         val currentScale = scales[pagerState.currentPage] ?: 1f
+
+        // 底部動作鈕離底距離 — 直接從 dialog 視窗 root insets 取真實導覽列高
+        // (Compose 的 navigationBarsPadding 在 Dialog 內常回 0,三鍵導覽 48dp 會擋到鈕),
+        // 再加 24dp 餘裕、保底 56dp,確保三鍵/手勢列都點得到。
+        val view = LocalView.current
+        val density = LocalDensity.current
+        val actionsBottomPad = run {
+            val px = ViewCompat.getRootWindowInsets(view)
+                ?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
+            (with(density) { px.toDp() } + 24.dp).coerceAtLeast(56.dp)
+        }
 
         Box(
             modifier = Modifier
@@ -115,10 +130,7 @@ fun FullscreenImageViewer(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.5f))
-                        // navigationBarsPadding 只清視覺導覽列;S22U 手勢列底部還有「上滑回主畫面」
-                        // 手勢區會攔截點擊 → 再加 36dp 固定 bottom 把按鈕抬出手勢區才點得到。
-                        .navigationBarsPadding()
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 36.dp),
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = actionsBottomPad),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
