@@ -115,8 +115,10 @@ fun FullscreenImageViewer(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.5f))
+                        // navigationBarsPadding 只清視覺導覽列;S22U 手勢列底部還有「上滑回主畫面」
+                        // 手勢區會攔截點擊 → 再加 36dp 固定 bottom 把按鈕抬出手勢區才點得到。
                         .navigationBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 36.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
