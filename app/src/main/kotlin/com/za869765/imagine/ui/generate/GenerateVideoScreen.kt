@@ -360,7 +360,12 @@ fun GenerateVideoScreen(
     }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
+        appBar = {
+            ImagineTopAppBar(
+                title = if (initialExtendBase != null) "🔗 組合延長" else "Imagine",
+                onSettingsClick = onSettingsClick,
+            )
+        },
         bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
         scrollState = scrollState,
     ) {
@@ -370,6 +375,152 @@ fun GenerateVideoScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // A2: 組合延長專屬精簡流程 — 不進完整圖生影頁,只露尾格+新提示詞+一鍵生成。
+            // 尾格已由 VideoFramePicker 帶入為來源圖;成功後 VideoPollWorker 依 initialExtendBase
+            // 自動把「原片+續集」串成一支長片存進歷史(組合延長)。
+            if (initialExtendBase != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF0F5E57))
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = "🔗  組合延長",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.W700,
+                        color = Color.White,
+                    )
+                }
+                ImagineCard(pad = 14) {
+                    Text(
+                        "用原片尾格當起點,輸入新提示詞生成「續集」。完成後會自動把『原片 + 續集』接成一支長片,存到歷史的「組合延長」,不必再手動拼接。",
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                sourceImages.firstOrNull()?.let { uri ->
+                    SectionHeader("尾格（續接起點）")
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SelectedImageSlot(uri = uri, onRemove = { sourceImageStrings = emptyList() })
+                    }
+                }
+                PromptInput(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    placeholder = "描述續集要怎麼動…(例:轉身拔劍、鏡頭拉遠)",
+                    minHeight = 88,
+                    flagged = lastErrorIsPolicy,
+                    forVideo = true,
+                    videoHasImage = true,
+                    videoSourcePrompt = initialPrompt,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ParamPicker(
+                        label = "秒數",
+                        value = duration.toString(),
+                        options = (1..15).map { it.toString() },
+                        onSelect = { duration = it.toIntOrNull() ?: 5 },
+                        displayName = { "$it 秒" },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ParamPicker(
+                        label = "解析度",
+                        value = resolution,
+                        options = listOf("480p", "720p"),
+                        onSelect = { resolution = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (generating) {
+                    ImagineCard(pad = 24) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 4.dp,
+                            )
+                            Text(
+                                "續集生成中…完成會自動接成長片",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "%d:%02d".format(elapsed / 60, elapsed % 60),
+                                fontSize = 28.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            val estSec = (30 + duration * 8).coerceIn(30, 180)
+                            LinearProgressIndicator(
+                                progress = { (elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                "⚠️ 請勿從「最近應用程式」滑掉 Imagine,否則背景生成與串接會中斷",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
+                    }
+                } else {
+                    val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
+                    PrimaryButton(
+                        label = "生成續集 → 自動接成長片",
+                        icon = "movie",
+                        enabled = hasPrompt && sourceImages.isNotEmpty() && prefs.isApiKeySet,
+                        onClick = {
+                            val term = firstHighRiskTerm(prompt)
+                            if (term != null) pendingRiskTerm = term else runGenerate()
+                        },
+                    )
+                }
+                pendingRiskTerm?.let { term ->
+                    ConfirmHighRiskDialog(
+                        term = term,
+                        onConfirm = { pendingRiskTerm = null; runGenerate() },
+                        onDismiss = { pendingRiskTerm = null },
+                    )
+                }
+                if (lastError.isNotBlank()) {
+                    ImagineCard(pad = 12) {
+                        Text(
+                            lastError,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.W600,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                resultVideoUrl?.let { url ->
+                    Text(
+                        text = "✅ 續集已生成 — 長片已自動接好,去歷史找「組合延長」",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    ImagineCard(pad = 0) {
+                        VideoPreview(
+                            url = url,
+                            gen = resultVideoGen,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 280.dp, max = 480.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                        )
+                    }
+                }
+                return@Column
+            }
+
             // 模式色彩標頭 — 影片頁青綠系圓角彩條,內含「🎬 影片模式」一眼分辨在哪個模式
             Box(
                 modifier = Modifier
