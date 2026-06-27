@@ -25,7 +25,7 @@ import androidx.media3.ui.PlayerView
 fun FullscreenVideoPlayer(url: String, onDismiss: () -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val ctx = LocalContext.current
         val player = remember(url) {

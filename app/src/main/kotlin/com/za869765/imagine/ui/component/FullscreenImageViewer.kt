@@ -56,7 +56,9 @@ fun FullscreenImageViewer(
     if (urls.isEmpty()) return
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        // decorFitsSystemWindows = false → 對話框 edge-to-edge,statusBarsPadding/
+        // navigationBarsPadding 才會回正確 inset,把底部動作鈕推到手勢列上方(否則被擋住)。
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val pagerState = rememberPagerState(initialPage = startIndex.coerceIn(0, urls.size - 1)) { urls.size }
         // 每頁的縮放倍率,用來決定 pager 是否可橫滑(縮放中=不可滑)。
