@@ -72,6 +72,7 @@ import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.ui.component.VideoFramePicker
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.util.Clipboard
@@ -90,6 +91,8 @@ fun LongVideoScreen(
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     onUsePrompt: (String) -> Unit = {},
+    // 用影片某一格(file:// 圖)當圖生影來源 + 帶 prompt 去影片頁
+    onUseFrameForVideo: (String, String) -> Unit = { _, _ -> },
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -102,6 +105,7 @@ fun LongVideoScreen(
     var sortMode by remember { mutableStateOf("sim") }
     var showMerged by remember { mutableStateOf(false) }
     var assemblyPreview by remember { mutableStateOf(false) }
+    var framePickerEntry by remember { mutableStateOf<MediaEntry?>(null) }
     val sequence = remember { mutableStateListOf<MediaEntry>() }
 
     LaunchedEffect(reloadKey) {
@@ -306,7 +310,7 @@ fun LongVideoScreen(
                                         entry = entry,
                                         onAdd = { sequence.add(entry) },
                                         onPreview = { previewUri = entry.uri },
-                                        onUsePrompt = onUsePrompt,
+                                        onRedo = { framePickerEntry = entry },
                                     )
                                 }
                             }
@@ -322,7 +326,7 @@ fun LongVideoScreen(
                                     entry = entry,
                                     onAdd = { sequence.add(entry) },
                                     onPreview = { previewUri = entry.uri },
-                                    onUsePrompt = onUsePrompt,
+                                    onRedo = { framePickerEntry = entry },
                                 )
                             }
                         }
@@ -375,6 +379,15 @@ fun LongVideoScreen(
             AssemblyPreviewDialog(
                 uris = sequence.map { it.uri },
                 onDismiss = { assemblyPreview = false },
+            )
+        }
+        // 影片畫格擷取器 — 選一格生影(重做)或存為角色(數字人)
+        framePickerEntry?.let { e ->
+            VideoFramePicker(
+                uri = e.uri,
+                prompt = e.prompt.orEmpty(),
+                onUseFrameForVideo = onUseFrameForVideo,
+                onDismiss = { framePickerEntry = null },
             )
         }
     }
@@ -562,7 +575,7 @@ private fun AvailRow(
     entry: MediaEntry,
     onAdd: () -> Unit,
     onPreview: () -> Unit,
-    onUsePrompt: (String) -> Unit = {},
+    onRedo: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val p = entry.prompt?.trim().orEmpty()
@@ -600,14 +613,14 @@ private fun AvailRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = { Clipboard.copy(ctx, p, toastMsg = "已複製提示詞") },
             )
-            // 一鍵帶此 prompt 去生成影片頁
-            ImagineIconButton(
-                name = "movie",
-                size = 18.dp,
-                tint = MaterialTheme.colorScheme.primary,
-                onClick = { onUsePrompt(p) },
-            )
         }
+        // 擷取此片某一格 → 圖生影重做 / 存為角色(數字人)
+        ImagineIconButton(
+            name = "movie",
+            size = 18.dp,
+            tint = MaterialTheme.colorScheme.primary,
+            onClick = { onRedo() },
+        )
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))

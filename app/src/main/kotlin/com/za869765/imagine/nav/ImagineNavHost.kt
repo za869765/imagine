@@ -149,6 +149,15 @@ fun ImagineRoot() {
                             ?.savedStateHandle?.set(KEY_INIT_PROMPT, prompt)
                         navController.navigate(Routes.GENERATE_VIDEO)
                     },
+                    // 影片擷取一格(file:// 圖)→ 圖生影頁開在圖生影模式、預填 prompt
+                    onUseFrameForVideo = { frameUri, prompt ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, frameUri)
+                            set(KEY_INIT_PROMPT, prompt)
+                            set(KEY_INIT_VIDEO_MODE, "i2v")
+                        }
+                        navController.navigate(Routes.GENERATE_VIDEO)
+                    },
                 )
             }
 
