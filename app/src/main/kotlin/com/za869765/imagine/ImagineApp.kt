@@ -6,6 +6,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
+import okio.Path.Companion.toOkioPath
 import com.za869765.imagine.data.notify.Notifications
 import com.za869765.imagine.data.storage.CrashLogger
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +27,7 @@ class ImagineApp : Application(), SingletonImageLoader.Factory {
             }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(this.cacheDir.resolve("image_cache"))
+                    .directory(cacheDir.resolve("image_cache").toOkioPath())
                     .maxSizePercent(0.10)
                     .build()
             }
