@@ -46,6 +46,7 @@ import kotlinx.coroutines.launch
 private const val KEY_INIT_MEDIA = "init_media_uri"
 private const val KEY_INIT_PROMPT = "init_media_prompt"
 private const val KEY_INIT_EDIT_MODE = "init_edit_mode"   // "image" / "video" / "extend"
+private const val KEY_INIT_VIDEO_MODE = "init_video_mode" // "i2v" → 影片頁開在圖生影模式(教學 i2v 範本用)
 private const val KEY_HISTORY_URI = "history_entry_uri"
 
 @Composable
@@ -139,11 +140,14 @@ fun ImagineRoot() {
                 TutorialScreen(
                     // 沿用 History「use_prompt」既有預填機制:在目前 entry 設 KEY_INIT_PROMPT,
                     // 導到生成頁後由 previousBackStackEntry 取出消費。
-                    onUsePrompt = { text, isVideo ->
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle?.set(KEY_INIT_PROMPT, text)
+                    // usage: t2i→文生圖頁;t2v→影片頁(文生影);i2v→影片頁並開在圖生影模式(範本是純動作,需使用者再選來源圖)。
+                    onUsePrompt = { text, usage ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_PROMPT, text)
+                            if (usage == "i2v") set(KEY_INIT_VIDEO_MODE, "i2v")
+                        }
                         navController.navigate(
-                            if (isVideo) Routes.GENERATE_VIDEO else Routes.GENERATE_IMAGE,
+                            if (usage == "t2i") Routes.GENERATE_IMAGE else Routes.GENERATE_VIDEO,
                         )
                     },
                     // 課程範例圖 → 動起來(圖生影,GENERATE_VIDEO) 或 重繪/編輯(EDIT image 模式)。
@@ -216,11 +220,16 @@ fun ImagineRoot() {
                     ?.savedStateHandle?.get<String>(KEY_INIT_MEDIA)
                 val initPrompt = navController.previousBackStackEntry
                     ?.savedStateHandle?.get<String>(KEY_INIT_PROMPT)
-                LaunchedEffect(initUrl) {
-                    if (initUrl != null) {
+                val initVideoMode = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_VIDEO_MODE)
+                // 清除 gate 涵蓋三種來源(只帶 prompt 的 t2v/LongVideo、只帶 mode 的 i2v、帶 media 的動起來),
+                // 否則 prompt-only 流程的 KEY_INIT_PROMPT 會殘留在來源頁、汙染下一次 image-only 進場。
+                LaunchedEffect(initUrl, initPrompt, initVideoMode) {
+                    if (initUrl != null || initPrompt != null || initVideoMode != null) {
                         navController.previousBackStackEntry?.savedStateHandle?.apply {
                             remove<String>(KEY_INIT_MEDIA)
                             remove<String>(KEY_INIT_PROMPT)
+                            remove<String>(KEY_INIT_VIDEO_MODE)
                         }
                     }
                 }
@@ -238,6 +247,7 @@ fun ImagineRoot() {
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     initialImageUri = initUrl?.let { Uri.parse(it) },
                     initialPrompt = initPrompt,
+                    initialVideoMode = initVideoMode,
                 )
             }
 

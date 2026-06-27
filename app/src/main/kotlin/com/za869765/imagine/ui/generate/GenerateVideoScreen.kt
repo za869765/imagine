@@ -109,6 +109,7 @@ fun GenerateVideoScreen(
     onNavSelected: (NavTab) -> Unit,
     initialImageUri: Uri? = null,    // 從圖片頁「動起來」帶過來
     initialPrompt: String? = null,    // 「動起來」時順帶把圖片的 prompt 預填 (對齊 grok-imagine console 行為)
+    initialVideoMode: String? = null, // "i2v" → 即使沒帶圖也開在圖生影模式(教學 i2v 範本:純動作,需使用者再選來源圖)
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -124,7 +125,9 @@ fun GenerateVideoScreen(
         }
     }
     var mode by rememberSaveable {
-        mutableStateOf(if (initialImageUri != null) VideoMode.Img2Vid else VideoMode.T2V)
+        mutableStateOf(
+            if (initialImageUri != null || initialVideoMode == "i2v") VideoMode.Img2Vid else VideoMode.T2V,
+        )
     }
     // 影片頁子功能：gen=生成(文生影/圖生影,用 mode 細分) / extend=影片延長 / edit=影片編輯。
     // extend / edit 內嵌 EditPane;VideoMode 僅在 gen 時有意義。

@@ -74,10 +74,10 @@ private fun categoryOf(ex: PromptExample): String = when {
 private val CATEGORIES = listOf("全部", "★ 收藏", "古裝", "現代")
 
 // 教學範本頁 (底部第3分頁):搜尋 + 精選範本(分類/收藏/複製/使用→生成) + 課程圖庫(圖→生成、影片範例、prompt 複製)。
-// onUsePrompt(prompt, isVideo) / onUseImage(url, asVideo) 由 NavHost 接,沿用既有預填機制。
+// onUsePrompt(prompt, usage) usage=t2i/t2v/i2v;i2v 會讓影片頁進圖生影模式。onUseImage(url, asVideo) 由 NavHost 接。
 @Composable
 fun TutorialScreen(
-    onUsePrompt: (String, Boolean) -> Unit,
+    onUsePrompt: (String, String) -> Unit,
     onUseImage: (String, Boolean) -> Unit,
     onUseVideo: (String, String) -> Unit,
     onNavSelected: (NavTab) -> Unit,
@@ -151,7 +151,7 @@ private fun ReadyList(
     query: String,
     favorites: Set<String>,
     onToggleFavorite: (String) -> Unit,
-    onUsePrompt: (String, Boolean) -> Unit,
+    onUsePrompt: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
@@ -212,7 +212,7 @@ private fun ReadyList(
                 ReadyPromptCard(
                     ex = ex,
                     onCopy = { Clipboard.copy(ctx, ex.text, toastMsg = "已複製提示詞") },
-                    onUse = { onUsePrompt(ex.text, ex.forVideo == true) },
+                    onUse = { onUsePrompt(ex.text, usageOf(ex)) },
                     isFavorite = ex.tag in favorites,
                     onToggleFavorite = { onToggleFavorite(ex.tag) },
                 )
@@ -224,7 +224,7 @@ private fun ReadyList(
 @Composable
 private fun GalleryList(
     query: String,
-    onUsePrompt: (String, Boolean) -> Unit,
+    onUsePrompt: (String, String) -> Unit,
     onUseImage: (String, Boolean) -> Unit,
     onUseVideo: (String, String) -> Unit,
     modifier: Modifier = Modifier,
@@ -280,7 +280,7 @@ private fun GalleryList(
                 onPlayVideo = { playingVideo = it },
                 onUseVideo = onUseVideo,
                 onCopyPrompt = { p -> Clipboard.copy(ctx, p, toastMsg = "已複製提示詞") },
-                onUsePrompt = { p -> onUsePrompt(p, false) },
+                onUsePrompt = { p -> onUsePrompt(p, "t2i") },
             )
         }
     }
