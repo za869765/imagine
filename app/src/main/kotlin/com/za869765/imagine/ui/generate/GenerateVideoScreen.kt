@@ -379,6 +379,22 @@ fun GenerateVideoScreen(
             // 尾格已由 VideoFramePicker 帶入為來源圖;成功後 VideoPollWorker 依 initialExtendBase
             // 自動把「原片+續集」串成一支長片存進歷史(組合延長)。
             if (initialExtendBase != null) {
+                // 解析度自動沿用原片高度(自動串接需同解析度,否則 MediaMuxer 合成失敗→只剩兩段)
+                LaunchedEffect(initialExtendBase) {
+                    val h = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val r = android.media.MediaMetadataRetriever()
+                        try {
+                            r.setDataSource(ctx, android.net.Uri.parse(initialExtendBase))
+                            r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                                ?.toIntOrNull()
+                        } catch (_: Throwable) {
+                            null
+                        } finally {
+                            runCatching { r.release() }
+                        }
+                    }
+                    if (h != null) resolution = if (h >= 720) "720p" else "480p"
+                }
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
@@ -403,7 +419,7 @@ fun GenerateVideoScreen(
                 sourceImages.firstOrNull()?.let { uri ->
                     SectionHeader("尾格（續接起點）")
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SelectedImageSlot(uri = uri, onRemove = { sourceImageStrings = emptyList() })
+                        SelectedImageSlot(uri = uri)
                     }
                 }
                 PromptInput(
@@ -416,23 +432,19 @@ fun GenerateVideoScreen(
                     videoHasImage = true,
                     videoSourcePrompt = initialPrompt,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ParamPicker(
-                        label = "秒數",
-                        value = duration.toString(),
-                        options = (1..15).map { it.toString() },
-                        onSelect = { duration = it.toIntOrNull() ?: 5 },
-                        displayName = { "$it 秒" },
-                        modifier = Modifier.weight(1f),
-                    )
-                    ParamPicker(
-                        label = "解析度",
-                        value = resolution,
-                        options = listOf("480p", "720p"),
-                        onSelect = { resolution = it },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                ParamPicker(
+                    label = "秒數",
+                    value = duration.toString(),
+                    options = (1..15).map { it.toString() },
+                    onSelect = { duration = it.toIntOrNull() ?: 5 },
+                    displayName = { "$it 秒" },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "解析度自動沿用原片（$resolution）— 自動串接需與原片同解析度才能接成一支",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (generating) {
                     ImagineCard(pad = 24) {
                         Column(
@@ -967,7 +979,8 @@ private fun VideoPreview(url: String, gen: Int = 0, modifier: Modifier = Modifie
             playWhenReady = false
         }
     }
-    DisposableEffect(url) {
+    // key 要跟 remember(url, gen) 一致,否則 gen 變(同 url 重生)時舊 player 不會 release(洩漏)
+    DisposableEffect(url, gen) {
         onDispose { player.release() }
     }
     AndroidView(
@@ -978,6 +991,8 @@ private fun VideoPreview(url: String, gen: Int = 0, modifier: Modifier = Modifie
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             }
         },
+        // factory 只跑一次;gen 變→remember 建新 player,要靠 update 重新綁定到 PlayerView,否則畫面停在舊片
+        update = { it.player = player },
         modifier = modifier,
     )
 }
@@ -1001,7 +1016,7 @@ private fun AddImageSlot(onClick: () -> Unit) {
 }
 
 @Composable
-private fun SelectedImageSlot(uri: Uri, onRemove: () -> Unit) {
+private fun SelectedImageSlot(uri: Uri, onRemove: (() -> Unit)? = null) {
     Box(modifier = Modifier.size(80.dp)) {
         AsyncImage(
             model = uri,
@@ -1012,17 +1027,20 @@ private fun SelectedImageSlot(uri: Uri, onRemove: () -> Unit) {
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(22.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(11.dp))
-                .clickable(onClick = onRemove),
-            contentAlignment = Alignment.Center,
-        ) {
-            ImagineIcon(name = "close", size = 14.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        // onRemove == null → 不顯示移除 X(組合延長尾格不可刪,避免無來源圖死路)
+        if (onRemove != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(11.dp))
+                    .clickable(onClick = onRemove),
+                contentAlignment = Alignment.Center,
+            ) {
+                ImagineIcon(name = "close", size = 14.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

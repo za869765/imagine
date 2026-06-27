@@ -103,7 +103,8 @@ fun GenerateImageScreen(
     // 點結果圖開全螢幕看圖器的起始索引(null=未開);動作作用在當頁那張,修掉「永遠只動第 1 張」
     var viewerIndex by remember { mutableStateOf<Int?>(null) }
     // 每次成功生成 +1,讓結果圖 Coil 快取 key 變動 → 避免 xAI 重用同一 URL 時看到上一張舊圖。
-    var resultGen by remember { mutableStateOf(0) }
+    // 用 rememberSaveable 跟 resultUrls 一致(process death 還原後不重置回 0 撞到舊 disk 快取)。
+    var resultGen by rememberSaveable { mutableStateOf(0) }
     // 這批生成存檔後的本機檔名(依序對齊 resultUrls);給「設為素材庫」整批標分類用。
     var savedNames by remember { mutableStateOf<List<String?>>(emptyList()) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }

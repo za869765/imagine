@@ -1,6 +1,8 @@
 package com.za869765.imagine.ui.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -130,6 +132,9 @@ fun FullscreenImageViewer(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.5f))
+                        // 5 顆膠囊(我的素材:生圖/生影/存相簿/改分類/移出)會超出窄手機寬度,
+                        // 加水平捲動避免最右邊「移出/改分類」被切到按不到。
+                        .horizontalScroll(rememberScrollState())
                         .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = actionsBottomPad),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,

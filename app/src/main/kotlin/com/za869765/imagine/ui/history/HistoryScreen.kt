@@ -115,10 +115,12 @@ fun HistoryScreen(
     val imgCount = entries.count { !it.isVideo }
     val vidCount = entries.count { it.isVideo }
     val charCount = entries.count { !it.isVideo && it.displayName in characters }
+    // 修:選取只計入「目前可見」的項目,避免切 filter/搜尋後刪到看不見的檔(資料遺失)
+    val visibleSelected = selected.intersect(items.map { it.uri.toString() }.toSet())
 
     fun exitSelect() { selectMode = false; selected = emptySet() }
     fun deleteSelected() {
-        val toDel = selected
+        val toDel = visibleSelected
         scope.launch {
             withContext(Dispatchers.IO) {
                 toDel.forEach { uriStr ->
@@ -138,7 +140,7 @@ fun HistoryScreen(
     ImagineScreen(
         appBar = {
             ImagineTopAppBar(
-                title = if (selectMode) "已選 ${selected.size}" else "歷史",
+                title = if (selectMode) "已選 ${visibleSelected.size}" else "歷史",
                 showBack = true,
                 onBackClick = { if (selectMode) exitSelect() else onBack() },
                 trailing = {
@@ -185,7 +187,7 @@ fun HistoryScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             )
 
-            if (selectMode && selected.isNotEmpty()) {
+            if (selectMode && visibleSelected.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -198,7 +200,7 @@ fun HistoryScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "🗑 刪除已選 ${selected.size} 項（釋放空間）",
+                        text = "🗑 刪除已選 ${visibleSelected.size} 項（釋放空間）",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W700,
                         color = MaterialTheme.colorScheme.onErrorContainer,
@@ -272,7 +274,7 @@ fun HistoryScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("刪除 ${selected.size} 項？") },
+            title = { Text("刪除 ${visibleSelected.size} 項？") },
             text = { Text("會永久刪除這些圖片／影片檔（無法復原），釋放儲存空間。") },
             confirmButton = {
                 TextButton(onClick = { confirmDelete = false; deleteSelected() }) { Text("刪除") }
