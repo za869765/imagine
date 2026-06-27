@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.storage.MaterialLibrary
+import com.za869765.imagine.data.storage.MaterialSeed
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.storage.MediaImporter
@@ -50,8 +52,8 @@ import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.ViewerAction
 import kotlinx.coroutines.launch
 
-// 素材庫 — 把生成/匯入的圖依 角色/環境/物件/風格 分類收藏,點圖開全螢幕看圖器(縮放/左右滑)當圖生圖/圖生影參考。
-// onUseImage(uri, asVideo): false → 編輯/圖生圖(EDIT image),true → 圖生影(GENERATE_VIDEO);沿用 KEY_INIT_MEDIA。
+// 素材庫 — 角色/環境/物件/風格 四分頁。每頁顯示「我的素材」(自己生成/匯入,可標分類) +
+// 「內建課程素材」(由課程範例圖視覺分類而來的 CDN 圖,點圖直接當圖生圖/圖生影參考)。
 @Composable
 fun MaterialLibraryScreen(
     onUseImage: (String, Boolean) -> Unit,
@@ -63,7 +65,8 @@ fun MaterialLibraryScreen(
     var entries by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
     var tagged by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var loaded by remember { mutableStateOf(false) }
-    var previewIndex by remember { mutableStateOf<Int?>(null) }
+    var previewIndex by remember { mutableStateOf<Int?>(null) }   // 我的素材
+    var seedIndex by remember { mutableStateOf<Int?>(null) }      // 內建素材
     var reloadKey by remember { mutableStateOf(0) }
 
     LaunchedEffect(reloadKey) {
@@ -72,7 +75,11 @@ fun MaterialLibraryScreen(
         loaded = true
     }
 
-    // 從安卓相簿匯入照片 → 拷貝進 filesDir/media → 標記為目前分類。
+    val seedAll = remember { MaterialSeed.load(ctx) }
+    val seedCounts = remember(seedAll) {
+        MaterialLibrary.CATEGORIES.associateWith { c -> seedAll.count { it.category == c } }
+    }
+
     val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 20),
     ) { uris ->
@@ -89,14 +96,15 @@ fun MaterialLibraryScreen(
         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
 
     val imageNames = remember(entries) { entries.filter { !it.isVideo }.map { it.displayName }.toSet() }
-    val counts = remember(tagged, imageNames) {
+    val counts = remember(tagged, imageNames, seedCounts) {
         MaterialLibrary.CATEGORIES.associateWith { c ->
-            tagged.count { it.value == c && it.key in imageNames }
+            tagged.count { it.value == c && it.key in imageNames } + (seedCounts[c] ?: 0)
         }
     }
     val shown = remember(cat, tagged, entries) {
         entries.filter { !it.isVideo && tagged[it.displayName] == cat }
     }
+    val seedUrls = remember(cat, seedAll) { seedAll.filter { it.category == cat }.map { it.url } }
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "素材庫", showBack = true, onBackClick = onBack) },
@@ -111,7 +119,6 @@ fun MaterialLibraryScreen(
                 onSelected = { cat = it },
                 modifier = Modifier.padding(16.dp),
             )
-            // 匯入鈕 — 一律可見,匯入進「目前分類」。
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -132,13 +139,13 @@ fun MaterialLibraryScreen(
                 )
             }
             Text(
-                text = "點圖放大看(雙指縮放/左右滑),底部可直接當圖生圖/圖生影。在「歷史」點圖也能設分類。",
+                text = "點圖放大看(雙指縮放/左右滑),底部可直接當圖生圖/圖生影。內建素材由課程範例圖自動分類。",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
             )
 
-            if (loaded && shown.isEmpty()) {
+            if (loaded && shown.isEmpty() && seedUrls.isEmpty()) {
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center,
@@ -157,20 +164,16 @@ fun MaterialLibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    items(items = shown, key = { it.uri.toString() }) { entry ->
-                        Box(
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .clickable { previewIndex = shown.indexOf(entry) },
-                        ) {
-                            AsyncImage(
-                                model = entry.uri,
-                                contentDescription = entry.displayName,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                    if (shown.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { SectionLabel("我的素材 ${shown.size}") }
+                        items(items = shown, key = { "me_" + it.uri.toString() }) { entry ->
+                            GridCell(model = entry.uri) { previewIndex = shown.indexOf(entry) }
+                        }
+                    }
+                    if (seedUrls.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { SectionLabel("內建課程素材 ${seedUrls.size}") }
+                        items(items = seedUrls, key = { "seed_$it" }) { url ->
+                            GridCell(model = url) { seedIndex = seedUrls.indexOf(url) }
                         }
                     }
                 }
@@ -178,12 +181,13 @@ fun MaterialLibraryScreen(
         }
     }
 
-    val idx = previewIndex
-    if (idx != null && idx in shown.indices) {
+    // 我的素材檢視:生圖/生影/改分類/移出。
+    val mi = previewIndex
+    if (mi != null && mi in shown.indices) {
         val urls = shown.map { it.uri.toString() }
         FullscreenImageViewer(
             urls = urls,
-            startIndex = idx,
+            startIndex = mi,
             onDismiss = { previewIndex = null },
             actions = listOf(
                 ViewerAction("image", "生圖") { url -> onUseImage(url, false); previewIndex = null },
@@ -207,6 +211,49 @@ fun MaterialLibraryScreen(
                     previewIndex = null
                 },
             ),
+        )
+    }
+
+    // 內建素材檢視:只給 生圖/生影(內建參考,不可移除/改分類)。
+    val si = seedIndex
+    if (si != null && si in seedUrls.indices) {
+        FullscreenImageViewer(
+            urls = seedUrls,
+            startIndex = si,
+            onDismiss = { seedIndex = null },
+            actions = listOf(
+                ViewerAction("image", "生圖") { url -> onUseImage(url, false); seedIndex = null },
+                ViewerAction("movie", "生影") { url -> onUseImage(url, true); seedIndex = null },
+            ),
+        )
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.W700,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun GridCell(model: Any, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick),
+    ) {
+        AsyncImage(
+            model = model,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }

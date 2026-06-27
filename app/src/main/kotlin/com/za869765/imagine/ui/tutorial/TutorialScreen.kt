@@ -435,7 +435,7 @@ private fun LessonCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
                 )
-                lesson.videos.forEach { url ->
+                lesson.videos.forEachIndexed { i, url ->
                     if (playingVideo == url) {
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
                             InlineVideoPlayer(
@@ -467,7 +467,8 @@ private fun LessonCard(
                         ) {
                             ImagineIcon(name = "play_arrow", size = 20.dp, fill = 1, tint = MaterialTheme.colorScheme.primary)
                             Text(
-                                text = "播放範例影片",
+                                // 顯示影片開頭主題(由首格 AI 產生),沒有就退回「播放範例影片」
+                                text = lesson.videoCaptions.getOrNull(i)?.takeIf { it.isNotBlank() } ?: "播放範例影片",
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )

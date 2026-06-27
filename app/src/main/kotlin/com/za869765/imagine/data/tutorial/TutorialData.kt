@@ -14,6 +14,8 @@ data class TutorialLesson(
     val images: List<String> = emptyList(),
     val videos: List<String> = emptyList(),
     val prompts: List<String> = emptyList(),
+    // 與 videos 同序;由影片首格 AI 產生的「開頭主題」短標題,空字串=沒標題。
+    val videoCaptions: List<String> = emptyList(),
 )
 
 // 讀取打包在 assets/tutorial_lessons.json 的課程資料(只有文字+URL,~180KB)。
