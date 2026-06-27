@@ -2,4 +2,7 @@
 <paths>
     <!-- ImagineUpdater 把 release APK 下載到 cacheDir/updates/ 之後 grantUriPermission 給 PackageInstaller -->
     <cache-path name="updates" path="updates/" />
+    <!-- MediaExporter「分享」用:app 私有媒體(filesDir/media) 與遠端下載暫存(cacheDir/share) -->
+    <files-path name="media" path="media/" />
+    <cache-path name="share" path="share/" />
 </paths>

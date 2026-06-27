@@ -71,6 +71,7 @@ import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
+import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ImagineBottomNav
@@ -659,13 +660,38 @@ fun GenerateVideoScreen(
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
                             ) {
                                 TextActionButton(
-                                    label = "複製 prompt",
+                                    label = "複製",
                                     icon = "content_copy",
                                     onClick = {
                                         Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
+                                    },
+                                )
+                                TextActionButton(
+                                    label = "存到相簿",
+                                    icon = "download",
+                                    onClick = {
+                                        com.za869765.imagine.ImagineApp.appScope.launch {
+                                            val ok = MediaExporter.saveToGallery(ctx, url, isVideo = true)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                Toast.makeText(
+                                                    ctx,
+                                                    if (ok) "已存到相簿" else "存相簿失敗，改用分享試試",
+                                                    Toast.LENGTH_SHORT,
+                                                ).show()
+                                            }
+                                        }
+                                    },
+                                )
+                                TextActionButton(
+                                    label = "分享",
+                                    icon = "share",
+                                    onClick = {
+                                        com.za869765.imagine.ImagineApp.appScope.launch {
+                                            MediaExporter.share(ctx, url, isVideo = true)
+                                        }
                                     },
                                 )
                             }

@@ -43,6 +43,7 @@ import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
+import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ChipVariant
@@ -402,18 +403,33 @@ fun GenerateImageScreen(
                                     },
                                 )
                                 ImagineChip(
-                                    label = "下載",
+                                    label = "存到相簿",
                                     icon = "download",
                                     variant = ChipVariant.Tonal,
                                     onClick = {
-                                        // v1.0.54 B3: 同上改 appScope
+                                        // 真正匯出到系統相簿 (MediaExporter)，不再只是重存私有沙盒
                                         com.za869765.imagine.ImagineApp.appScope.launch {
+                                            var ok = 0
                                             resultUrls.forEach { url ->
-                                                MediaSaver.saveImageFromUrl(ctx, url, lastPrompt)
+                                                if (MediaExporter.saveToGallery(ctx, url, isVideo = false)) ok++
                                             }
                                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                Toast.makeText(ctx, "已重新存到相簿", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(
+                                                    ctx,
+                                                    if (ok > 0) "已存 $ok 張到相簿" else "存相簿失敗，改用分享試試",
+                                                    Toast.LENGTH_SHORT,
+                                                ).show()
                                             }
+                                        }
+                                    },
+                                )
+                                ImagineChip(
+                                    label = "分享",
+                                    icon = "share",
+                                    variant = ChipVariant.Tonal,
+                                    onClick = {
+                                        com.za869765.imagine.ImagineApp.appScope.launch {
+                                            MediaExporter.share(ctx, resultUrls.first(), isVideo = false)
                                         }
                                     },
                                 )

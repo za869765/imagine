@@ -60,6 +60,8 @@ import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.data.storage.MediaExporter
+import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -535,7 +537,7 @@ private fun VideoPreviewDialog(uri: Uri, onDismiss: () -> Unit) {
     }
     DisposableEffect(uri) { onDispose { player.release() } }
     Dialog(onDismissRequest = onDismiss) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
@@ -553,6 +555,41 @@ private fun VideoPreviewDialog(uri: Uri, onDismiss: () -> Unit) {
                     .fillMaxWidth()
                     .heightIn(min = 200.dp, max = 480.dp),
             )
+            // 匯出這支(合成長片/片段)到系統相簿或分享出去
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+            ) {
+                TextActionButton(
+                    label = "存到相簿",
+                    icon = "download",
+                    color = Color.White,
+                    onClick = {
+                        com.za869765.imagine.ImagineApp.appScope.launch {
+                            val ok = MediaExporter.saveToGallery(ctx, uri.toString(), isVideo = true)
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                Toast.makeText(
+                                    ctx,
+                                    if (ok) "已存到相簿" else "存相簿失敗，改用分享試試",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }
+                    },
+                )
+                TextActionButton(
+                    label = "分享",
+                    icon = "share",
+                    color = Color.White,
+                    onClick = {
+                        com.za869765.imagine.ImagineApp.appScope.launch {
+                            MediaExporter.share(ctx, uri.toString(), isVideo = true)
+                        }
+                    },
+                )
+            }
         }
     }
 }

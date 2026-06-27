@@ -57,7 +57,10 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
+import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
+import com.za869765.imagine.ui.component.TextActionButton
+import com.za869765.imagine.ui.util.Clipboard
 import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
 import com.za869765.imagine.ui.component.ImagineBottomNav
@@ -449,14 +452,17 @@ fun EditPane(
                 modifier = Modifier.padding(top = 8.dp),
             )
             ImagineCard(pad = 0) {
-                AsyncImage(
-                    model = url,
-                    contentDescription = lastPrompt,
-                    contentScale = ContentScale.FillWidth,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp)),
-                )
+                Column {
+                    AsyncImage(
+                        model = url,
+                        contentDescription = lastPrompt,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp)),
+                    )
+                    ResultActionRow(url = url, prompt = lastPrompt, isVideo = false)
+                }
             }
         }
         resultVideoUrl?.let { url ->
@@ -468,15 +474,63 @@ fun EditPane(
                 modifier = Modifier.padding(top = 8.dp),
             )
             ImagineCard(pad = 0) {
-                EditVideoPreview(
-                    url = url,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(12.dp)),
-                )
+                Column {
+                    EditVideoPreview(
+                        url = url,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(RoundedCornerShape(12.dp)),
+                    )
+                    ResultActionRow(url = url, prompt = lastPrompt, isVideo = true)
+                }
             }
         }
+    }
+}
+
+// 編輯/延長結果卡的操作列:複製 prompt + 存到相簿 + 分享。
+@Composable
+private fun ResultActionRow(url: String, prompt: String, isVideo: Boolean) {
+    val ctx = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+    ) {
+        if (prompt.isNotBlank()) {
+            TextActionButton(
+                label = "複製",
+                icon = "content_copy",
+                onClick = { Clipboard.copy(ctx, prompt, toastMsg = "已複製 prompt") },
+            )
+        }
+        TextActionButton(
+            label = "存到相簿",
+            icon = "download",
+            onClick = {
+                com.za869765.imagine.ImagineApp.appScope.launch {
+                    val ok = MediaExporter.saveToGallery(ctx, url, isVideo = isVideo)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        Toast.makeText(
+                            ctx,
+                            if (ok) "已存到相簿" else "存相簿失敗，改用分享試試",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
+            },
+        )
+        TextActionButton(
+            label = "分享",
+            icon = "share",
+            onClick = {
+                com.za869765.imagine.ImagineApp.appScope.launch {
+                    MediaExporter.share(ctx, url, isVideo = isVideo)
+                }
+            },
+        )
     }
 }
 

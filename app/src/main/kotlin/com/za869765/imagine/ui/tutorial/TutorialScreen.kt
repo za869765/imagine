@@ -281,6 +281,7 @@ private fun GalleryList(
                 onUseVideo = onUseVideo,
                 onCopyPrompt = { p -> Clipboard.copy(ctx, p, toastMsg = "已複製提示詞") },
                 onUsePrompt = { p -> onUsePrompt(p, "t2i") },
+                onUsePromptVideo = { p -> onUsePrompt(p, "t2v") },
             )
         }
     }
@@ -392,6 +393,7 @@ private fun LessonCard(
     onUseVideo: (String, String) -> Unit,
     onCopyPrompt: (String) -> Unit,
     onUsePrompt: (String) -> Unit,
+    onUsePromptVideo: (String) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -547,6 +549,14 @@ private fun LessonCard(
                                 icon = "check",
                                 onClick = { onUsePrompt(p) },
                             )
+                            // 影片課程的提示詞本身多為運鏡/動作,額外給「使用(生影)」直送文生影頁
+                            if (lesson.videos.isNotEmpty()) {
+                                TextActionButton(
+                                    label = "使用(生影)",
+                                    icon = "movie",
+                                    onClick = { onUsePromptVideo(p) },
+                                )
+                            }
                         }
                     }
                 }

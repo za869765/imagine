@@ -42,6 +42,8 @@ import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.storage.CharacterStore
 import com.za869765.imagine.data.storage.MediaEntry
+import com.za869765.imagine.data.storage.MediaExporter
+import kotlinx.coroutines.launch
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -211,17 +213,37 @@ fun HistoryDetailScreen(
                             "movie" to "動起來（生影片）",
                         )
                     }
-                    actions.forEachIndexed { i, (icon, label) ->
+                    actions.forEach { (icon, label) ->
                         ActionRow(icon = icon, label = label, onClick = { onAction(label) })
-                        if (i < actions.size - 1) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(0.5.dp)
-                                    .background(MaterialTheme.colorScheme.outlineVariant),
-                            )
-                        }
+                        HDivider()
                     }
+                    // 匯出:存進系統相簿 / 系統分享單(沿用 MediaExporter,entry.uri 為本機檔)
+                    ActionRow(
+                        icon = "download",
+                        label = "存到相簿",
+                        onClick = {
+                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                val ok = MediaExporter.saveToGallery(ctx, entry.uri.toString(), isVideo = entry.isVideo)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    Toast.makeText(
+                                        ctx,
+                                        if (ok) "已存到相簿" else "存相簿失敗，改用分享試試",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
+                        },
+                    )
+                    HDivider()
+                    ActionRow(
+                        icon = "share",
+                        label = "分享",
+                        onClick = {
+                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                MediaExporter.share(ctx, entry.uri.toString(), isVideo = entry.isVideo)
+                            }
+                        },
+                    )
                 }
             }
         }
@@ -304,6 +326,16 @@ private fun CharacterToggleRow(ctx: Context, name: String) {
             )
         }
     }
+}
+
+@Composable
+private fun HDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(0.5.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant),
+    )
 }
 
 @Composable
