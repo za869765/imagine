@@ -71,8 +71,6 @@ private fun categoryOf(ex: PromptExample): String = when {
     else -> "主題"
 }
 
-private val CATEGORIES = listOf("全部", "★ 收藏", "古裝", "現代")
-
 // 教學範本頁 (底部第3分頁):搜尋 + 精選範本(分類/收藏/複製/使用→生成) + 課程圖庫(圖→生成、影片範例、prompt 複製)。
 // onUsePrompt(prompt, usage) usage=t2i/t2v/i2v;i2v 會讓影片頁進圖生影模式。onUseImage(url, asVideo) 由 NavHost 接。
 @Composable
@@ -178,9 +176,15 @@ private fun ReadyList(
                 SegmentedOption("i2v", "圖生影"),
             ),
             activeId = mode,
-            onSelected = { mode = it },
+            onSelected = { mode = it; cat = "全部" },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
+        // 類別隨模式動態產生:i2v 會帶出武打群組(輕功追逐/刀劍打鬥…),t2i/t2v 仍是古裝/現代。
+        val cats = remember(mode) {
+            val present = READY_PROMPTS.filter { usageOf(it) == mode }.map { categoryOf(it) }.distinct()
+            val head = listOf("古裝", "現代").filter { it in present }
+            listOf("全部", "★ 收藏") + head + present.filter { it !in head }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -188,7 +192,7 @@ private fun ReadyList(
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            CATEGORIES.forEach { c ->
+            cats.forEach { c ->
                 CatChip(label = c, selected = cat == c) { cat = c }
             }
         }

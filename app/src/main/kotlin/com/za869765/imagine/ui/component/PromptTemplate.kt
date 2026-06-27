@@ -1713,6 +1713,301 @@ val READY_PROMPTS: List<PromptExample> = listOf(
         category = "現代",
         usage = "i2v",
     ),
+    // martial i2v templates (B2) intense action, subject-agnostic
+    PromptExample(
+        "飛簷急衝起跳",
+        "鏡頭低角度貼地猛然向前推軌,腳尖在牆面連點三下借力暴衝,身形如箭斜射上簷,衣袂炸開破風;落腳瓦片應聲碎裂,慢動作捕捉騰空頂點再切回全速,風聲呼嘯混著瓦礫崩落的脆響。",
+        forVideo = true,
+        category = "輕功追逐",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "屋脊全速疾奔",
+        "鏡頭側向平移跟拍,人物沿屋脊一線狂奔,步伐又快又輕、踩瓦如踏水幾乎不留聲,身體前傾壓低重心;運鏡隨步頻微微抖動帶出速度感,呼吸急促、目光鎖定前方,腳下碎瓦噠噠連響、長街風嘯灌入耳膜。",
+        forVideo = true,
+        category = "輕功追逐",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "凌空躍過長街",
+        "鏡頭從街心仰拍急速拉升,人物一蹬簷角騰身躍起橫越整條長街,空中身形舒展、雙臂後揚劃出弧線,慢動作放大滯空那一瞬的氣勢;落地對側屋頂瞬間切回實速,重重一震膝蓋微沉,破風聲驟止換成落瓦悶響。",
+        forVideo = true,
+        category = "輕功追逐",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "環繞翻身換向",
+        "鏡頭以人物為軸快速環繞半圈,身形在簷角一個側翻急轉換向,動作俐落帶慣性甩動,目光凌厲掃向新方向;速度由快收成半拍停頓再爆出,衣角獵獵作響,翻身落瓦發出清脆一記叩擊。",
+        forVideo = true,
+        category = "輕功追逐",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "連環點水踏瓦",
+        "鏡頭低位快切跟隨腳步,人物在密集瓦面上連環輕點疾掠,每一步只觸一瞬便彈起,身姿輕盈卻力道暗藏;快速剪接強化點踏節奏,神情專注沉穩,踏瓦聲如急鼓密密連響、衣袖破風嘶嘶。",
+        forVideo = true,
+        category = "輕功追逐",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "俯衝穿越窄巷",
+        "鏡頭第一人稱式向前俯衝,人物從高簷一頭栽下、貼著兩牆之間的窄巷急速下墜,中途反踏左右牆面卸力轉折;運鏡隨牆面飛掠產生強烈速度殘影,神色冷峻,風聲尖嘯夾雜腳掌蹬牆的悶沉撞擊。",
+        forVideo = true,
+        category = "輕功追逐",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "末段定身回望",
+        "鏡頭由疾速跟拍驟然減速、緩緩拉遠,人物一個急煞穩穩釘在簷脊頂端,衣袂未定、餘勢仍在輕晃,胸口起伏喘息;速度從狂奔收束成靜止那一刻氣場凝住,目光銳利回望來路,風聲漸歇只剩瓦上細碎餘響。",
+        forVideo = true,
+        category = "輕功追逐",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "拔刀瞬斬橫掃",
+        "鏡頭由側面低角快速橫移跟拍,人物腰胯一沉、瞬間拔刀斜上橫掃,刀身劃出一道銳利光弧;出刀剎那切入半秒慢動作再驟然回正常速,破風聲後接金屬出鞘的清脆鏗鏘,刀尖掃過時眼神驟然凜冽。",
+        forVideo = true,
+        category = "刀劍打鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "雙劍對碰震火",
+        "鏡頭正面快速推近至兩刃交會點,雙劍迎面對劈、硬碰硬地夾死在半空,刃口擦出爆裂火星四濺;碰撞那一格畫面微震、鏡頭輕微抖動,金屬悶響與尖銳摩擦聲交疊,雙方咬牙僵持、手腕青筋暴起。",
+        forVideo = true,
+        category = "刀劍打鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "連環快斬逼退",
+        "鏡頭橫向跟著攻勢一路平移,連續三刀上挑、下劈、回手橫削一氣呵成、毫無停頓,速度快到刀光連成殘影;每一刀都伴隨破風與短促悶哼,落點越打越前、步步進逼,氣勢全程壓著對手後退。",
+        forVideo = true,
+        category = "刀劍打鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "近身纏鬥鎖刃",
+        "鏡頭手持感貼身環繞半圈,兩人短兵相接、刀刃交叉互鎖、肩抵肩硬擠,誰也不退;刃面摩擦發出刺耳金屬磨響,下盤腳步交錯互別,表情猙獰、喉間擠出壓抑的低吼,張力繃到極點。",
+        forVideo = true,
+        category = "刀劍打鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "格擋反殺直刺",
+        "鏡頭先隨來刀向後快拉,人物側身一格、用刀背架開劈勢、火星飛濺,順勢借力擰腰、刀尖筆直反刺而出;格開到反刺切一段子彈時間再瞬間加速,悶響接破空尖嘯,眼神由防轉殺、殺機畢露。",
+        forVideo = true,
+        category = "刀劍打鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "旋身掃劈破圍",
+        "鏡頭隨人物原地急旋環繞一圈,借旋轉慣性甩出一記大開大闔的橫掃,刀光帶起一圈呼嘯氣流逼開四面;旋到出刀那刻略放慢凸顯刀身弧光、再俐落收勢,長破風聲收尾於刀鋒一頓,殺氣外放、衣袂與髮絲被風掀起。",
+        forVideo = true,
+        category = "刀劍打鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "飛身下劈砸地",
+        "鏡頭仰角隨騰空身形向上搖再急速俯衝跟落,人物高高躍起、雙手持刀全力下劈、整個體重灌進刀鋒猛砸;落地前半秒慢放蓄勢、觸地剎那爆速,轟然一記重擊伴金屬砸地與碎裂悶響,地面塵土飛揚、面目猙獰咬牙怒吼。",
+        forVideo = true,
+        category = "刀劍打鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "雙掌對轟氣浪",
+        "鏡頭從側面慢推:人物雙掌猛然向前對推,掌心爆出一道濃縮氣勁,與對面衝來的能量光束正面相撞,撞點瞬間炸開白色衝擊波;慢動作捕捉氣浪向兩側翻捲、地面塵土被掀飛,人物咬牙沉腰、雙臂青筋暴起死命頂住。音效:低頻嗡鳴蓄力、轟然爆裂、持續的能量摩擦嘶嘶聲。",
+        forVideo = true,
+        category = "魔法氣功",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "結界硬接重擊",
+        "鏡頭定在人物正面微仰角:人物單手一抬於身前撐開一面半透明六角結界,對方掌風如重錘砸下,結界表面綻開放射狀裂紋並劇烈震顫,每一次撞擊把人物震得後滑半步、腳下刮出兩道痕;人物神情凝重、瞳孔收緊咬牙苦撐。音效:水晶般的脆裂聲、悶重撞擊、結界崩裂前的高頻嗡響。",
+        forVideo = true,
+        category = "魔法氣功",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "蓄力一掌爆發",
+        "鏡頭由遠快速推近至上半身特寫:人物雙手於腰側合攏凝出一團旋轉壓縮的光球,氣流把周身碎屑往內捲吸,停頓半秒——隨即一聲爆喝雙掌前送,光球化作一道粗大氣柱呼嘯射出,後座力把人物雙臂震得猛然後彈。表情從屏息凝神到睚眥欲裂。音效:蓄力的尖銳充能聲拔高、爆喝、氣柱破空轟鳴。",
+        forVideo = true,
+        category = "魔法氣功",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "環繞掌風纏鬥",
+        "鏡頭環繞人物快速橫移半圈:人物雙掌連環翻拍,每一掌都甩出一道弧形氣刃,與對手的氣勁在半空交錯碰撞、迸出細碎火星;身形隨出掌節奏快速進退、衣袂與氣流被掀動,動作凌厲不留半分空隙。神態冷峻、眼神如刀鎖定。音效:接連的破風咻咻、氣刃相擊的清脆鏗響、急促悶哼。",
+        forVideo = true,
+        category = "魔法氣功",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "結界爆裂反震",
+        "鏡頭貼近過肩、輕微手持晃動:人物撐起的能量護罩在連續轟擊下終於到極限,裂紋瞬間蔓延全罩、表面光芒劇烈閃爍,下一刻轟然炸裂成漫天光屑向外飛濺;爆裂氣浪把人物整個往後掀飛、手臂橫舉護面、表情驟然繃緊。慢動作收尾捕捉飛散的能量碎片。音效:結界過載的高頻尖嘯、一聲巨響炸裂、碎片墜落的細密叮鈴。",
+        forVideo = true,
+        category = "魔法氣功",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "低姿衝拳灌勁",
+        "鏡頭貼地低角度跟拍向前推進:人物壓低重心猛然前衝,一記直拳灌滿氣勁轟出,拳鋒前方氣流被擠壓成錐形衝擊;命中瞬間氣勁炸裂、向四周噴湧扇形氣浪,人物拳臂繃直、半邊身子前傾到極限,怒目圓睜、青筋暴起。音效:衝刺的腳步重踏、灌勁的低吼、命中的悶雷般爆響加金屬餘震。",
+        forVideo = true,
+        category = "魔法氣功",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "雙人氣勁僵持",
+        "鏡頭緩緩拉遠並微微上升俯瞰:兩股能量氣勁在畫面中央死死頂住,交匯點凝成一顆不斷膨脹收縮的光核,左右氣流互相絞纏、火花持續沿接觸線爆濺;人物雙臂前伸全力下壓、腳跟深陷地面寸步不讓,咬牙瞪眼、滿臉漲紅青筋直跳。音效:持續轟鳴的能量對峙嗡聲、火花劈啪、漸強的低頻顫動逼近臨界。",
+        forVideo = true,
+        category = "魔法氣功",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "迅猛直拳連擊",
+        "鏡頭貼身平推跟拍,雙拳如雨點般連續直擊出拳,拳速越打越快、出拳軌跡帶殘影,每一拳收回再爆發、肩膀帶腰胯發力。表情緊咬牙關、眼神鎖死前方殺氣外溢。音效:破風咻咻、拳頭悶擊肉聲與短促吐氣聲交疊。",
+        forVideo = true,
+        category = "拳腳格鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "貼身肘膝亂鬥",
+        "手持鏡頭微晃近身環繞,纏抱貼身近戰、肘擊與膝撞交替砸落,身體擠壓對撞、力道沉悶帶頓挫感。表情猙獰嘶吼、青筋暴起。音效:骨肉撞擊的悶響、布料摩擦與粗重喘息,間雜壓抑的悶哼。",
+        forVideo = true,
+        category = "拳腳格鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "騰空迴旋踢",
+        "鏡頭由低角度仰拍快速上搖,猛然蹬地騰空、腰身擰轉帶出一記高速迴旋踢,踢腿掃出弧線殘影、落地瞬間重心一沉。中段切入0.3秒慢動作放大踢擊頂點再恢復原速。音效:衣袍破風炸裂、踢中瞬間一聲爆響加落地踏震。",
+        forVideo = true,
+        category = "拳腳格鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "連環掃腿壓制",
+        "鏡頭橫向快速跟搖,低身連續掃腿、一腿接一腿橫掃逼近,身形壓低如猛獸撲擊、步步進逼不留空隙。表情冷峻凶狠、目光如刀。音效:掃風呼嘯、踢腿劃破空氣的尖銳破風聲與沉重落腳聲。",
+        forVideo = true,
+        category = "拳腳格鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "格擋反打瞬擊",
+        "鏡頭急速推近定格半秒再彈開,先一個硬格擋震開來勢、緊接側身爆出一記反擊重拳,防守到反攻一氣呵成、節奏由慢驟快。表情由凝神轉為暴烈。音效:格擋的鈍重撞擊、反拳的破空咻聲與命中悶爆聲連成一串。",
+        forVideo = true,
+        category = "拳腳格鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "撲身壓制連砸",
+        "鏡頭俯衝下壓再環繞,猛力撲身壓制、騎身連續下砸重拳,上半身大幅前傾、每拳帶全身重量砸落、越砸越狠。表情失控狂暴、雙眼赤紅。音效:撲倒的重擊悶響、連續砸拳的肉聲節拍與野獸般的低吼。",
+        forVideo = true,
+        category = "拳腳格鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "閃身穿心重擊",
+        "鏡頭側滑跟移再急停,腳步一個側閃卸開攻勢、隨即沉肩擰腰打出一記穿心直拳,閃避與出擊銜接無縫、力道集中於一點爆發。中段半秒慢鏡定格重拳命中再瞬間回正。表情瞬間繃緊、爆喝出聲。音效:閃身衣料疾掠、重拳貫穿的低頻爆響與一聲短促怒吼。",
+        forVideo = true,
+        category = "拳腳格鬥",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "長槍橫掃挑刺",
+        "鏡頭低角度跟槍尖橫掃,長槍劃出一道半圓破風橫掃過畫面後猛然回收下壓、槍尖由下往上挑刺,慢動作捕捉挑起瞬間再切回正常速度,破風聲尖銳收尾「噗」一記悶響。",
+        forVideo = true,
+        category = "兵器對決",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "雙刃迎面交擊",
+        "鏡頭正面快速推近兩兵器交擊點,雙刃自上而下猛力對劈在中線硬碰、火花在接觸點爆開四濺,撞擊定格半拍後雙方手腕震顫回彈,金屬鏗鏘巨響蓋過一切。",
+        forVideo = true,
+        category = "兵器對決",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "火花纏鬥連擊",
+        "鏡頭環繞兩人兵器纏鬥處旋轉,刀刃沿著對方兵器猛力刮擦滑下、一路噴出連串火花,連續三記快切交擊由慢轉快收勢,鏗鏘聲一記接一記層層疊上、最後一擊爆出最大火花。",
+        forVideo = true,
+        category = "兵器對決",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "槍挑兵器架格",
+        "鏡頭側向跟拍,長槍由下往上猛挑勾住對方兵器、順勢往側邊一帶卸力架格住,兩兵器卡死在半空微微顫動較勁,慢動作放大僵持那一秒、肌肉緊繃面露猙獰,低沉摩擦聲「嘎」持續作響。",
+        forVideo = true,
+        category = "兵器對決",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "橫掃逼退連刺",
+        "鏡頭快速橫搖跟著掃擊軌跡,一記大開大闔的橫掃逼退對手後立刻收槍、槍尖連續三下急速直刺壓上,刺擊節奏由緩拉快、每一刺都帶破風尖嘯,最後一刺前頓挫蓄力再爆發。",
+        forVideo = true,
+        category = "兵器對決",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "格擋反劈火星",
+        "鏡頭從格擋者背後越肩推進,兵器猛然上抬硬接來襲一擊、接觸瞬間火星迸射,格住後立刻翻腕反手下劈逆襲,慢動作捕捉火星墜落再切回快速反劈,鏗的一聲後緊接破空斬擊聲。",
+        forVideo = true,
+        category = "兵器對決",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "旋身橫掃爆火",
+        "鏡頭隨身形旋身360度環繞甩動,兵器藉旋轉慣性帶出一記橫掃巨力、掃中對方兵器當場爆出大片火花四濺飛濺,旋身落定後重心一沉穩住、氣勢逼人怒目而視,破風轉鏗鏘再轉低吼悶哼收勢。",
+        forVideo = true,
+        category = "兵器對決",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "凝氣低伏起手",
+        "鏡頭緩緩貼地推近,捕捉雙方屏息對峙、指節攥緊微顫;氣勁壓得周遭塵粒懸停。下一拍肩背猛然壓低成蓄勢,腳掌碾地一沉,悶雷般的吐氣與筋骨繃緊的低鳴炸開預兆。",
+        forVideo = true,
+        category = "對峙爆發",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "瞬間暴起破靜",
+        "前半拍全然凝止、只有衣料獵獵微動的破風聲;後半拍人影驟然彈射前衝,鏡頭以猛烈快推跟上,塵土被踏裂噴濺。破風尖嘯撕裂空氣,落步重砸地面轟然炸響。",
+        forVideo = true,
+        category = "對峙爆發",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "環繞蓄勢對峙",
+        "鏡頭低角度繞著兩人緩慢環移,張力隨距離縮短一步步收緊,呼吸聲與心跳般的悶響交疊放大。轉到正面瞬間切為慢動作,雙方同時暴起對撞,氣浪掀飛腳下碎石。",
+        forVideo = true,
+        category = "對峙爆發",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "塵爆起跑衝刺",
+        "腳跟猛力一蹬,身後塵土如爆炸般轟然炸開、向四方翻捲;鏡頭從靜止猛地切為高速橫向跟拍,人影壓低撕風直線突進。蹬地悶響接連串成奔雷,破風聲節節飆高。",
+        forVideo = true,
+        category = "對峙爆發",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "刀光出鞘瞬發",
+        "特寫手腕由鬆轉緊、指尖一顫的微距停格,空氣彷彿凍結;倏然拔身前撲,寒光劃出一道銳利殘影,鏡頭隨揮斬猛甩。金屬出鞘的清脆鏗鳴與破空銳嘯同時爆裂,刀光掃處塵霧四散。",
+        forVideo = true,
+        category = "對峙爆發",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "地面崩裂衝撞",
+        "雙方蓄力下沉、肌理繃到極限的瞬間,腳下地面應聲龜裂;鏡頭俯衝壓近捕捉爆發那一拍,兩道身影如離弦交錯對衝。碎石崩飛、悶哼與重擊轟鳴撞成一團,氣勁震得鏡頭微微抖動。",
+        forVideo = true,
+        category = "對峙爆發",
+        usage = "i2v",
+    ),
+    PromptExample(
+        "慢推轉爆切",
+        "極慢推鏡逼近凝重對視,連睫毛的細顫與緊咬的下顎都被放大,聲場壓低到只剩沉重鼻息。臨界那一刻畫面驟然爆切加速,人影暴衝出鏡、塵浪轟然撲面,招式破風與落地震響連環炸開。",
+        forVideo = true,
+        category = "對峙爆發",
+        usage = "i2v",
+    ),
 )
 
 // ── ② 條件選擇器欄位 (單一通用人物/場景 builder,每欄可搜尋下拉) ──
@@ -2310,6 +2605,7 @@ fun ApplyTemplateSheet(
             list
         }
     }
+    var pickCat by remember { mutableStateOf("全部") }
     fun pick(t: String) {
         onApply(t)
         scope.launch {
@@ -2349,8 +2645,30 @@ fun ApplyTemplateSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
-            RandomBar(label = "🎲  隨機一條") { pick(ready.random().text) }
-            ready.forEach { ex ->
+            if (want == "i2v") {
+                // B2:圖生影改用「類別群組」挑選(武打/古裝/現代…),取代隨機一條
+                val i2vCats = remember {
+                    val present = READY_PROMPTS.filter { usageOf(it) == "i2v" }
+                        .map { it.category }.filter { it.isNotEmpty() }.distinct()
+                    val head = listOf("古裝", "現代").filter { it in present }
+                    listOf("全部") + head + present.filter { it !in head }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(bottom = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    i2vCats.forEach { c ->
+                        ReadyCatChip(label = c, selected = pickCat == c) { pickCat = c }
+                    }
+                }
+            } else {
+                RandomBar(label = "🎲  隨機一條") { pick(ready.random().text) }
+            }
+            val shownReady = if (want == "i2v" && pickCat != "全部") ready.filter { it.category == pickCat } else ready
+            shownReady.forEach { ex ->
                 Box(modifier = Modifier.padding(top = 10.dp)) {
                     ReadyPromptCard(
                         ex = ex,
@@ -2360,6 +2678,25 @@ fun ApplyTemplateSheet(
                 }
             }
         }
+    }
+}
+
+// B2:i2v 套用範本 sheet 的類別群組膠囊鈕(武打/古裝/現代…)。
+@Composable
+private fun ReadyCatChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.W600,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
