@@ -44,6 +44,7 @@ import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
+import com.za869765.imagine.data.storage.MaterialLibrary
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.ui.component.CardVariant
@@ -101,6 +102,8 @@ fun GenerateImageScreen(
     var resultUrls by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     // 點結果圖開全螢幕看圖器的起始索引(null=未開);動作作用在當頁那張,修掉「永遠只動第 1 張」
     var viewerIndex by remember { mutableStateOf<Int?>(null) }
+    // 這批生成存檔後的本機檔名(依序對齊 resultUrls);給「設為素材庫」整批標分類用。
+    var savedNames by remember { mutableStateOf<List<String?>>(emptyList()) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastMeta by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
@@ -170,9 +173,17 @@ fun GenerateImageScreen(
                         pendingScrollToResult = true  // bug#3: 捲到結果區讓新圖主動出現
                         // v1.0.54 B3: 改用 ImagineApp.appScope (process-lifecycle) — user
                         // 切走/鎖屏時 Composable scope 會 cancel，下載到一半被砍 → History 看不到
-                        result.value.forEach { url ->
+                        savedNames = List(result.value.size) { null }
+                        result.value.forEachIndexed { i, url ->
                             com.za869765.imagine.ImagineApp.appScope.launch {
-                                MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
+                                val savedUri = MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
+                                val name = savedUri?.substringAfterLast('/')
+                                if (name != null) {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        savedNames = savedNames.toMutableList()
+                                            .also { if (i < it.size) it[i] = name }
+                                    }
+                                }
                             }
                         }
                         Toast.makeText(
@@ -451,6 +462,33 @@ fun GenerateImageScreen(
                                     variant = ChipVariant.Tonal,
                                     onClick = { onAnimateImage(resultUrls.first(), lastPrompt) },
                                 )
+                            }
+                            Text(
+                                text = "設為素材庫(整批)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                MaterialLibrary.CATEGORIES.forEach { c ->
+                                    ImagineChip(
+                                        label = c,
+                                        variant = ChipVariant.Tonal,
+                                        onClick = {
+                                            val names = savedNames.filterNotNull()
+                                            if (names.isEmpty()) {
+                                                Toast.makeText(ctx, "圖片儲存中,請稍候再試", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                names.forEach { MaterialLibrary.setCategory(ctx, it, c) }
+                                                Toast.makeText(ctx, "已把 ${names.size} 張設為「$c」素材", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
