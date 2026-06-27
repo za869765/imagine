@@ -1,13 +1,37 @@
 package com.za869765.imagine
 
 import android.app.Application
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
 import com.za869765.imagine.data.notify.Notifications
 import com.za869765.imagine.data.storage.CrashLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-class ImagineApp : Application() {
+// SingletonImageLoader.Factory:給 Coil 全域用的 ImageLoader,設大容量磁碟快取 →
+// 課程圖/範例圖載過一次就快取到本機,之後秒開、可離線。network fetcher 由 coil-network-okhttp
+// 透過 serviceLoader(預設開)自動帶入,不會因自訂 loader 而失去網路載入。
+class ImagineApp : Application(), SingletonImageLoader.Factory {
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader.Builder(context)
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizePercent(context, 0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(this.cacheDir.resolve("image_cache"))
+                    .maxSizePercent(0.10)
+                    .build()
+            }
+            .build()
+
     companion object {
         // v1.0.54: app-scoped coroutine — 用在「不能被 Composable lifecycle 取消」的任務，
         // 例如 EditScreen.handleImageResult 內的下載+存檔 (B3 修法)
