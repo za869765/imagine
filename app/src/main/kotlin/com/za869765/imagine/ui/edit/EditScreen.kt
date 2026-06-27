@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -63,6 +65,8 @@ import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.util.Clipboard
 import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
+import com.za869765.imagine.ui.component.FullscreenImageViewer
+import com.za869765.imagine.ui.component.FullscreenVideoPlayer
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -444,6 +448,7 @@ fun EditPane(
         }
 
         resultImageUrl?.let { url ->
+            var showImg by remember { mutableStateOf(false) }
             Text(
                 "結果",
                 fontSize = 11.sp, fontWeight = FontWeight.W600,
@@ -459,10 +464,14 @@ fun EditPane(
                         contentScale = ContentScale.FillWidth,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp)),
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showImg = true },
                     )
                     ResultActionRow(url = url, prompt = lastPrompt, isVideo = false)
                 }
+            }
+            if (showImg) {
+                FullscreenImageViewer(urls = listOf(url), onDismiss = { showImg = false })
             }
         }
         resultVideoUrl?.let { url ->
@@ -477,9 +486,10 @@ fun EditPane(
                 Column {
                     EditVideoPreview(
                         url = url,
+                        allowFullscreen = true,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
+                            .heightIn(min = 200.dp, max = 460.dp)
                             .clip(RoundedCornerShape(12.dp)),
                     )
                     ResultActionRow(url = url, prompt = lastPrompt, isVideo = true)
@@ -649,7 +659,7 @@ private fun VideoThumb(uri: Uri, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun EditVideoPreview(url: String, modifier: Modifier = Modifier) {
+private fun EditVideoPreview(url: String, modifier: Modifier = Modifier, allowFullscreen: Boolean = false) {
     val ctx = LocalContext.current
     val player = remember(url) {
         ExoPlayer.Builder(ctx).build().apply {
@@ -661,13 +671,23 @@ private fun EditVideoPreview(url: String, modifier: Modifier = Modifier) {
     DisposableEffect(url) {
         onDispose { player.release() }
     }
+    var fullscreen by remember { mutableStateOf(false) }
     AndroidView(
         factory = { c ->
             PlayerView(c).apply {
                 this.player = player
                 useController = true
+                // 真實比例(直/橫/方不變形);allowFullscreen 時控制列出現全螢幕鈕。
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                if (allowFullscreen) setFullscreenButtonClickListener {
+                    player.pause()
+                    fullscreen = true
+                }
             }
         },
         modifier = modifier,
     )
+    if (fullscreen) {
+        FullscreenVideoPlayer(url = url, onDismiss = { fullscreen = false })
+    }
 }

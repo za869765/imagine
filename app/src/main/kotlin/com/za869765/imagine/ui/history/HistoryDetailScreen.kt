@@ -48,6 +48,7 @@ import com.za869765.imagine.data.storage.MediaExporter
 import kotlinx.coroutines.launch
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.FullscreenImageViewer
+import com.za869765.imagine.ui.component.FullscreenVideoPlayer
 import com.za869765.imagine.ui.component.ViewerAction
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -294,16 +295,25 @@ private fun VideoPlayer(uri: String, modifier: Modifier = Modifier) {
         }
     }
     DisposableEffect(uri) { onDispose { player.release() } }
+    var fullscreen by remember { mutableStateOf(false) }
     AndroidView(
         factory = { c ->
             PlayerView(c).apply {
                 this.player = player
                 useController = true
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                // 控制列全螢幕鈕 → 開橫向/全螢幕播放器(真實比例)。
+                setFullscreenButtonClickListener {
+                    player.pause()
+                    fullscreen = true
+                }
             }
         },
         modifier = modifier,
     )
+    if (fullscreen) {
+        FullscreenVideoPlayer(url = uri, onDismiss = { fullscreen = false })
+    }
 }
 
 @Composable
