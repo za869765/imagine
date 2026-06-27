@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,11 +33,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.tutorial.TutorialData
 import com.za869765.imagine.data.tutorial.TutorialLesson
+import com.za869765.imagine.ui.component.FullscreenImageViewer
+import com.za869765.imagine.ui.component.ViewerAction
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
@@ -238,7 +238,8 @@ private fun GalleryList(
     }
     var expanded by remember { mutableStateOf<Int?>(null) }
     var playingVideo by remember { mutableStateOf<String?>(null) }
-    var pendingImage by remember { mutableStateOf<String?>(null) }
+    // 預覽:該課全部範例圖 + 起始索引(可左右滑切換、雙指縮放)。
+    var pendingImage by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
 
     if (lessons.isEmpty()) {
         Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -277,7 +278,7 @@ private fun GalleryList(
                     expanded = if (expanded == lesson.sec) null else lesson.sec
                     playingVideo = null
                 },
-                onImageTap = { pendingImage = it },
+                onImageTap = { imgs, i -> pendingImage = imgs to i },
                 onPlayVideo = { playingVideo = it },
                 onUseVideo = onUseVideo,
                 onCopyPrompt = { p -> Clipboard.copy(ctx, p, toastMsg = "已複製提示詞") },
@@ -287,54 +288,18 @@ private fun GalleryList(
         }
     }
 
-    // 圖片：先進預覽 (放大看圖) → 再選 重繪 / 動起來。
-    val img = pendingImage
-    if (img != null) {
-        ImagePreviewDialog(
-            url = img,
-            onAnimate = { onUseImage(img, true); pendingImage = null },
-            onEdit = { onUseImage(img, false); pendingImage = null },
+    // 圖片：點圖開全螢幕看圖器(雙指縮放/左右滑切換該課所有範例圖),底部選 重繪 / 動起來。
+    val pend = pendingImage
+    if (pend != null) {
+        FullscreenImageViewer(
+            urls = pend.first,
+            startIndex = pend.second,
             onDismiss = { pendingImage = null },
+            actions = listOf(
+                ViewerAction("edit", "重繪") { url -> onUseImage(url, false); pendingImage = null },
+                ViewerAction("play_arrow", "動起來") { url -> onUseImage(url, true); pendingImage = null },
+            ),
         )
-    }
-}
-
-// 範例圖預覽 — 放大看圖,下方選「重繪/編輯」或「動起來(圖生影)」。
-@Composable
-private fun ImagePreviewDialog(
-    url: String,
-    onAnimate: () -> Unit,
-    onEdit: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(16.dp),
-        ) {
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 180.dp, max = 420.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface),
-            )
-            Text(
-                text = "用這張範例圖做什麼？",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.W700,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
-            )
-            ActionRow(icon = "edit", label = "重繪／編輯（以此圖為來源）", onClick = onEdit)
-            ActionRow(icon = "play_arrow", label = "動起來（以此圖生成影片）", onClick = onAnimate)
-        }
     }
 }
 
@@ -389,7 +354,7 @@ private fun LessonCard(
     isOpen: Boolean,
     playingVideo: String?,
     onToggle: () -> Unit,
-    onImageTap: (String) -> Unit,
+    onImageTap: (List<String>, Int) -> Unit,
     onPlayVideo: (String) -> Unit,
     onUseVideo: (String, String) -> Unit,
     onCopyPrompt: (String) -> Unit,
@@ -448,7 +413,7 @@ private fun LessonCard(
                         .padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    lesson.images.forEach { url ->
+                    lesson.images.forEachIndexed { i, url ->
                         AsyncImage(
                             model = url,
                             contentDescription = lesson.title,
@@ -457,7 +422,7 @@ private fun LessonCard(
                                 .size(150.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surface)
-                                .clickable { onImageTap(url) },
+                                .clickable { onImageTap(lesson.images, i) },
                         )
                     }
                 }

@@ -2,6 +2,7 @@ package com.za869765.imagine.ui.generate
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,8 @@ import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.ui.component.CardVariant
 import com.za869765.imagine.ui.component.ChipVariant
+import com.za869765.imagine.ui.component.FullscreenImageViewer
+import com.za869765.imagine.ui.component.ViewerAction
 import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
@@ -96,6 +99,8 @@ fun GenerateImageScreen(
     var imageFn by rememberSaveable { mutableStateOf("gen") }
 
     var resultUrls by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    // 點結果圖開全螢幕看圖器的起始索引(null=未開);動作作用在當頁那張,修掉「永遠只動第 1 張」
+    var viewerIndex by remember { mutableStateOf<Int?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastMeta by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
@@ -358,7 +363,7 @@ fun GenerateImageScreen(
 
                 ImagineCard(pad = 0, variant = CardVariant.Filled) {
                     Column {
-                        resultUrls.forEach { url ->
+                        resultUrls.forEachIndexed { i, url ->
                             AsyncImage(
                                 model = url,
                                 contentDescription = lastPrompt,
@@ -366,7 +371,8 @@ fun GenerateImageScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(ImagineCustomShapes.Media)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .clickable { viewerIndex = i },
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                         }
@@ -450,6 +456,37 @@ fun GenerateImageScreen(
                     }
                 }
             }
+        }
+
+        // 點結果圖 → 全螢幕看圖器(雙指縮放/多張左右滑);底部動作作用在當頁那張。
+        val vi = viewerIndex
+        if (vi != null && vi in resultUrls.indices) {
+            FullscreenImageViewer(
+                urls = resultUrls,
+                startIndex = vi,
+                onDismiss = { viewerIndex = null },
+                actions = listOf(
+                    ViewerAction("download", "存相簿") { url ->
+                        com.za869765.imagine.ImagineApp.appScope.launch {
+                            val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                Toast.makeText(
+                                    ctx,
+                                    if (ok) "已存到相簿" else "存相簿失敗，改用分享試試",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }
+                    },
+                    ViewerAction("share", "分享") { url ->
+                        com.za869765.imagine.ImagineApp.appScope.launch {
+                            MediaExporter.share(ctx, url, isVideo = false)
+                        }
+                    },
+                    ViewerAction("edit", "編輯") { url -> viewerIndex = null; onEditImage(url, lastPrompt) },
+                    ViewerAction("movie", "動起來") { url -> viewerIndex = null; onAnimateImage(url, lastPrompt) },
+                ),
+            )
         }
     }
 }

@@ -4,10 +4,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +13,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,22 +36,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.storage.MaterialLibrary
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.storage.MediaImporter
+import com.za869765.imagine.ui.component.FullscreenImageViewer
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.ui.component.ViewerAction
 import kotlinx.coroutines.launch
 
-// 素材庫 — 把生成/匯入的圖依 角色/環境/物件/風格 分類收藏,點圖直接當圖生圖/圖生影的參考。
+// 素材庫 — 把生成/匯入的圖依 角色/環境/物件/風格 分類收藏,點圖開全螢幕看圖器(縮放/左右滑)當圖生圖/圖生影參考。
 // onUseImage(uri, asVideo): false → 編輯/圖生圖(EDIT image),true → 圖生影(GENERATE_VIDEO);沿用 KEY_INIT_MEDIA。
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MaterialLibraryScreen(
     onUseImage: (String, Boolean) -> Unit,
@@ -67,7 +63,7 @@ fun MaterialLibraryScreen(
     var entries by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
     var tagged by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var loaded by remember { mutableStateOf(false) }
-    var preview by remember { mutableStateOf<MediaEntry?>(null) }
+    var previewIndex by remember { mutableStateOf<Int?>(null) }
     var reloadKey by remember { mutableStateOf(0) }
 
     LaunchedEffect(reloadKey) {
@@ -136,7 +132,7 @@ fun MaterialLibraryScreen(
                 )
             }
             Text(
-                text = "點圖 → 當圖生圖／圖生影的參考。在「歷史」點任一張圖也能設定分類。",
+                text = "點圖放大看(雙指縮放/左右滑),底部可直接當圖生圖/圖生影。在「歷史」點圖也能設分類。",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
@@ -167,7 +163,7 @@ fun MaterialLibraryScreen(
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .clickable { preview = entry },
+                                .clickable { previewIndex = shown.indexOf(entry) },
                         ) {
                             AsyncImage(
                                 model = entry.uri,
@@ -182,129 +178,35 @@ fun MaterialLibraryScreen(
         }
     }
 
-    val e = preview
-    if (e != null) {
-        MaterialPreviewDialog(
-            entry = e,
-            currentCat = cat,
-            onUseImage = { asVideo -> onUseImage(e.uri.toString(), asVideo); preview = null },
-            onRecategorize = { newCat ->
-                MaterialLibrary.setCategory(ctx, e.displayName, newCat)
-                Toast.makeText(ctx, "已改分類到「$newCat」", Toast.LENGTH_SHORT).show()
-                reloadKey++
-                preview = null
-            },
-            onRemove = {
-                MaterialLibrary.remove(ctx, e.displayName)
-                Toast.makeText(ctx, "已移出素材庫", Toast.LENGTH_SHORT).show()
-                reloadKey++
-                preview = null
-            },
-            onDismiss = { preview = null },
-        )
-    }
-}
-
-@Composable
-private fun MaterialPreviewDialog(
-    entry: MediaEntry,
-    currentCat: String,
-    onUseImage: (Boolean) -> Unit,
-    onRecategorize: (String) -> Unit,
-    onRemove: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(16.dp),
-        ) {
-            AsyncImage(
-                model = entry.uri,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 180.dp, max = 420.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface),
-            )
-            Text(
-                text = "用這張素材做什麼？",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.W700,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
-            )
-            ActionRow(icon = "edit", label = "用這張生圖（編輯／重繪）") { onUseImage(false) }
-            ActionRow(icon = "movie", label = "用這張生影（圖生影）") { onUseImage(true) }
-
-            Text(
-                text = "改分類",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.W600,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MaterialLibrary.CATEGORIES.forEach { c ->
-                    CatChip(label = c, selected = c == currentCat) { onRecategorize(c) }
-                }
-            }
-            ActionRow(icon = "close", label = "移出素材庫") { onRemove() }
-        }
-    }
-}
-
-@Composable
-private fun CatChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(
-                if (selected) MaterialTheme.colorScheme.secondaryContainer
-                else MaterialTheme.colorScheme.surface,
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
-            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun ActionRow(icon: String, label: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        ImagineIcon(name = icon, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.W600,
-            color = MaterialTheme.colorScheme.onSurface,
+    val idx = previewIndex
+    if (idx != null && idx in shown.indices) {
+        val urls = shown.map { it.uri.toString() }
+        FullscreenImageViewer(
+            urls = urls,
+            startIndex = idx,
+            onDismiss = { previewIndex = null },
+            actions = listOf(
+                ViewerAction("image", "生圖") { url -> onUseImage(url, false); previewIndex = null },
+                ViewerAction("movie", "生影") { url -> onUseImage(url, true); previewIndex = null },
+                ViewerAction("refresh", "改分類") { url ->
+                    shown.firstOrNull { it.uri.toString() == url }?.let { en ->
+                        val cats = MaterialLibrary.CATEGORIES
+                        val next = cats[(cats.indexOf(cat) + 1) % cats.size]
+                        MaterialLibrary.setCategory(ctx, en.displayName, next)
+                        Toast.makeText(ctx, "已改分類到「$next」", Toast.LENGTH_SHORT).show()
+                        reloadKey++
+                    }
+                    previewIndex = null
+                },
+                ViewerAction("close", "移出") { url ->
+                    shown.firstOrNull { it.uri.toString() == url }?.let { en ->
+                        MaterialLibrary.remove(ctx, en.displayName)
+                        Toast.makeText(ctx, "已移出素材庫", Toast.LENGTH_SHORT).show()
+                        reloadKey++
+                    }
+                    previewIndex = null
+                },
+            ),
         )
     }
 }

@@ -47,6 +47,8 @@ import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaExporter
 import kotlinx.coroutines.launch
 import com.za869765.imagine.ui.component.CardVariant
+import com.za869765.imagine.ui.component.FullscreenImageViewer
+import com.za869765.imagine.ui.component.ViewerAction
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineIconButton
@@ -67,6 +69,7 @@ fun HistoryDetailScreen(
     onAction: (String) -> Unit,
 ) {
     val ctx = LocalContext.current
+    var showViewer by remember { mutableStateOf(false) }
     ImagineScreen(
         appBar = {
             ImagineTopAppBar(
@@ -120,7 +123,8 @@ fun HistoryDetailScreen(
                         .fillMaxWidth()
                         .aspectRatio(1f)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable { showViewer = true },
                 )
             }
 
@@ -248,6 +252,33 @@ fun HistoryDetailScreen(
                     )
                 }
             }
+        }
+
+        // 點圖放大 → 全螢幕看圖器(雙指縮放/拖移),底部存相簿/分享。
+        if (showViewer && !entry.isVideo) {
+            FullscreenImageViewer(
+                urls = listOf(entry.uri.toString()),
+                onDismiss = { showViewer = false },
+                actions = listOf(
+                    ViewerAction("download", "存相簿") { url ->
+                        com.za869765.imagine.ImagineApp.appScope.launch {
+                            val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                Toast.makeText(
+                                    ctx,
+                                    if (ok) "已存到相簿" else "存相簿失敗，改用分享試試",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }
+                    },
+                    ViewerAction("share", "分享") { url ->
+                        com.za869765.imagine.ImagineApp.appScope.launch {
+                            MediaExporter.share(ctx, url, isVideo = false)
+                        }
+                    },
+                ),
+            )
         }
     }
 }
