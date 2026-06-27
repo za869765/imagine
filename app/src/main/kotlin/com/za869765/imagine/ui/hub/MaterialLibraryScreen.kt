@@ -44,6 +44,7 @@ import coil3.compose.AsyncImage
 import com.za869765.imagine.data.storage.MaterialLibrary
 import com.za869765.imagine.data.storage.MaterialSeed
 import com.za869765.imagine.data.storage.MediaEntry
+import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.storage.MediaImporter
 import com.za869765.imagine.ui.component.FullscreenImageViewer
@@ -198,6 +199,14 @@ fun MaterialLibraryScreen(
             actions = listOf(
                 ViewerAction("image", "生圖") { url -> onUseImage(url, false); previewIndex = null },
                 ViewerAction("movie", "生影") { url -> onUseImage(url, true); previewIndex = null },
+                ViewerAction("download", "存相簿") { url ->
+                    com.za869765.imagine.ImagineApp.appScope.launch {
+                        val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            Toast.makeText(ctx, if (ok) "已存到相簿" else "存相簿失敗,改用分享試試", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
                 ViewerAction("refresh", "改分類") { url ->
                     recatName = shown.firstOrNull { it.uri.toString() == url }?.displayName
                     previewIndex = null
@@ -220,6 +229,14 @@ fun MaterialLibraryScreen(
             actions = listOf(
                 ViewerAction("image", "生圖") { url -> onUseImage(url, false); seedIndex = null },
                 ViewerAction("movie", "生影") { url -> onUseImage(url, true); seedIndex = null },
+                ViewerAction("download", "存相簿") { url ->
+                    com.za869765.imagine.ImagineApp.appScope.launch {
+                        val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            Toast.makeText(ctx, if (ok) "已存到相簿" else "存相簿失敗,改用分享試試", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
             ),
         )
     }
