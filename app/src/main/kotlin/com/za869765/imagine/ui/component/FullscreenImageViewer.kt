@@ -1,9 +1,11 @@
 package com.za869765.imagine.ui.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -102,7 +105,7 @@ fun FullscreenImageViewer(
                 }
             }
 
-            // 底部:當頁動作鈕
+            // 底部:當頁動作鈕 — 明顯的膠囊按鈕(icon + 文字),clickable 可靠觸發。
             if (actions.isNotEmpty()) {
                 val url = urls[pagerState.currentPage]
                 Row(
@@ -111,19 +114,27 @@ fun FullscreenImageViewer(
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.5f))
                         .navigationBarsPadding()
-                        .padding(vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     actions.forEach { a ->
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.pointerInput(a, url) {
-                                detectTapGestures(onTap = { a.onClick(url) })
-                            },
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(Color.White.copy(alpha = 0.18f))
+                                .clickable { a.onClick(url) }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            ImagineIcon(name = a.icon, size = 24.dp, tint = Color.White)
-                            Text(text = a.label, color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                            ImagineIcon(name = a.icon, size = 20.dp, tint = Color.White)
+                            Text(
+                                text = a.label,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                            )
                         }
                     }
                 }
