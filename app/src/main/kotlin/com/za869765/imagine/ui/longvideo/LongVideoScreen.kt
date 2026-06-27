@@ -7,6 +7,18 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,6 +101,7 @@ fun LongVideoScreen(
     var previewUri by remember { mutableStateOf<Uri?>(null) }
     var sortMode by remember { mutableStateOf("sim") }
     var showMerged by remember { mutableStateOf(false) }
+    var assemblyPreview by remember { mutableStateOf(false) }
     val sequence = remember { mutableStateListOf<MediaEntry>() }
 
     LaunchedEffect(reloadKey) {
@@ -149,49 +162,42 @@ fun LongVideoScreen(
             } else {
                 // ── ① 已選順序 (P1 排序 + P2 預覽) ──
                 Text(
-                    text = "① 已選順序（${sequence.size}）",
+                    text = "① 主組裝條（${sequence.size}）",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W700,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                if (sequence.isEmpty()) {
-                    Text(
-                        text = "還沒選片段 — 從下方「可用片段」加入，至少 2 段才能合成。",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    sequence.forEachIndexed { i, entry ->
-                        SeqRow(
-                            order = i + 1,
-                            entry = entry,
-                            isFirst = i == 0,
-                            isLast = i == sequence.lastIndex,
-                            onPreview = { previewUri = entry.uri },
-                            onUp = {
-                                if (i > 0) {
-                                    val tmp = sequence[i - 1]
-                                    sequence[i - 1] = sequence[i]
-                                    sequence[i] = tmp
-                                }
-                            },
-                            onDown = {
-                                if (i < sequence.lastIndex) {
-                                    val tmp = sequence[i + 1]
-                                    sequence[i + 1] = sequence[i]
-                                    sequence[i] = tmp
-                                }
-                            },
-                            onRemove = { sequence.removeAt(i) },
+                AssemblyTrack(
+                    sequence = sequence,
+                    onPreviewClip = { previewUri = it },
+                )
+                if (sequence.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "總長 ${formatDur(totalMs)}（實際以合成為準）",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
                         )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .clickable { assemblyPreview = true }
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                        ) {
+                            Text(
+                                text = "▶ 預覽組裝",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W700,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
                     }
-                    Text(
-                        text = "預估總長：${formatDur(totalMs)}（實際以合成結果為準）",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
                 }
 
                 // ── 合成 (P3) ──
@@ -364,57 +370,189 @@ fun LongVideoScreen(
         previewUri?.let { u ->
             VideoPreviewDialog(uri = u, onDismiss = { previewUri = null })
         }
+        // 預覽目前組裝狀態 — 依序播放整條(playlist),不必先合成
+        if (assemblyPreview && sequence.isNotEmpty()) {
+            AssemblyPreviewDialog(
+                uris = sequence.map { it.uri },
+                onDismiss = { assemblyPreview = false },
+            )
+        }
     }
 }
 
-// 已選片段一列:順序號 + 首楨縮圖(點播放) + 名稱/時長 + 上移/下移/移除。
+// ── 主組裝條 (剪映風) — 水平排列已選片段;點縮圖預覽、長按拖曳排序、✕ 移除 ──
 @Composable
-private fun SeqRow(
-    order: Int,
-    entry: MediaEntry,
-    isFirst: Boolean,
-    isLast: Boolean,
-    onPreview: () -> Unit,
-    onUp: () -> Unit,
-    onDown: () -> Unit,
-    onRemove: () -> Unit,
+private fun AssemblyTrack(
+    sequence: SnapshotStateList<MediaEntry>,
+    onPreviewClip: (Uri) -> Unit,
 ) {
+    if (sequence.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(vertical = 22.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "組裝條是空的 — 下方片段點「加入」放上來;條上長按可拖曳排序。",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        return
+    }
+    val density = LocalDensity.current
+    val cellW = 96.dp
+    val gap = 8.dp
+    val stepPx = with(density) { (cellW + gap).toPx() }
+    var draggingName by remember { mutableStateOf<String?>(null) }
+    var dragDx by remember { mutableStateOf(0f) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .horizontalScroll(rememberScrollState())
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(gap),
     ) {
-        Text(
-            text = "$order.",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.W700,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(end = 8.dp),
-        )
-        ClipThumb(uri = entry.uri, onClick = onPreview)
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 10.dp),
-        ) {
-            Text(
-                text = clipLabel(entry),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.W600,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+        sequence.toList().forEach { entry ->
+            val isDrag = draggingName == entry.displayName
+            TrackCell(
+                entry = entry,
+                order = sequence.indexOf(entry) + 1,
+                cellWidth = cellW,
+                modifier = Modifier
+                    .zIndex(if (isDrag) 1f else 0f)
+                    .graphicsLayer { translationX = if (isDrag) dragDx else 0f }
+                    .pointerInput(entry.displayName) {
+                        detectTapGestures(onTap = { onPreviewClip(entry.uri) })
+                    }
+                    .pointerInput(entry.displayName) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { draggingName = entry.displayName; dragDx = 0f },
+                            onDragEnd = { draggingName = null; dragDx = 0f },
+                            onDragCancel = { draggingName = null; dragDx = 0f },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                dragDx += amount.x
+                                val cur = sequence.indexOfFirst { it.displayName == entry.displayName }
+                                if (cur >= 0) {
+                                    if (dragDx > stepPx / 2f && cur < sequence.lastIndex) {
+                                        sequence.removeAt(cur); sequence.add(cur + 1, entry); dragDx -= stepPx
+                                    } else if (dragDx < -stepPx / 2f && cur > 0) {
+                                        sequence.removeAt(cur); sequence.add(cur - 1, entry); dragDx += stepPx
+                                    }
+                                }
+                            },
+                        )
+                    },
+                onRemove = {
+                    val idx = sequence.indexOfFirst { it.displayName == entry.displayName }
+                    if (idx >= 0) sequence.removeAt(idx)
+                },
             )
-            val d = formatDur(entry.durationMs)
-            if (d.isNotEmpty()) {
-                Text(text = d, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
         }
-        IconBtn("expand_less", enabled = !isFirst, onClick = onUp)
-        IconBtn("expand_more", enabled = !isLast, onClick = onDown)
-        IconBtn("close", enabled = true, onClick = onRemove)
+    }
+}
+
+@Composable
+private fun TrackCell(
+    entry: MediaEntry,
+    order: Int,
+    cellWidth: Dp,
+    modifier: Modifier = Modifier,
+    onRemove: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .size(width = cellWidth, height = 72.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        TrackThumb(uri = entry.uri)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(3.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.Black.copy(alpha = 0.55f))
+                .padding(horizontal = 5.dp, vertical = 1.dp),
+        ) {
+            Text(text = "$order", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.W700)
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(2.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable(onClick = onRemove)
+                .padding(2.dp),
+        ) {
+            ImagineIcon(name = "close", size = 14.dp, tint = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun TrackThumb(uri: Uri) {
+    val ctx = LocalContext.current
+    val bmp by produceState<ImageBitmap?>(initialValue = null, uri) {
+        value = withContext(Dispatchers.IO) { decodeFirstFrame(ctx, uri)?.asImageBitmap() }
+    }
+    val b = bmp
+    if (b != null) {
+        Image(
+            bitmap = b,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(text = "🎬", fontSize = 18.sp)
+        }
+    }
+}
+
+// 預覽目前組裝狀態 — ExoPlayer 依序播放整條 playlist,不必先合成。
+@Composable
+private fun AssemblyPreviewDialog(uris: List<Uri>, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val player = remember(uris) {
+        ExoPlayer.Builder(ctx).build().apply {
+            setMediaItems(uris.map { MediaItem.fromUri(it) })
+            prepare()
+            playWhenReady = true
+        }
+    }
+    DisposableEffect(uris) { onDispose { player.release() } }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            AndroidView(
+                factory = { c ->
+                    PlayerView(c).apply {
+                        this.player = player
+                        useController = true
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            ImagineIconButton(
+                name = "close",
+                tint = Color.White,
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding(),
+            )
+        }
     }
 }
 
