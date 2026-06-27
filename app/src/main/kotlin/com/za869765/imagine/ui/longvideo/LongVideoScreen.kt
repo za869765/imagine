@@ -364,7 +364,7 @@ fun LongVideoScreen(
                                 entry = entry,
                                 onAdd = { sequence.add(entry) },
                                 onPreview = { previewUri = entry.uri },
-                                onUsePrompt = onUsePrompt,
+                                onRedo = { framePickerEntry = entry },
                             )
                         }
                     }

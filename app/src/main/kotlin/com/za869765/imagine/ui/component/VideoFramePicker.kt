@@ -69,14 +69,6 @@ fun VideoFramePicker(
         frame = withContext(Dispatchers.IO) { decodeFrameAt(ctx, uri, posMs) }
     }
 
-    suspend fun saveCurrentFrame(): String? {
-        val f = frame ?: return null
-        val bytes = withContext(Dispatchers.IO) {
-            ByteArrayOutputStream().use { b -> f.compress(Bitmap.CompressFormat.JPEG, 92, b); b.toByteArray() }
-        }
-        return MediaSaver.saveImage(ctx, bytes, prompt)
-    }
-
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -128,7 +120,7 @@ fun VideoFramePicker(
             PickerAction(icon = "movie", label = "用此格圖生影（以此格當來源）", enabled = !working) {
                 scope.launch {
                     working = true
-                    val u = saveCurrentFrame()
+                    val u = saveFrame(ctx, frame, prompt)
                     working = false
                     if (u != null) {
                         onUseFrameForVideo(u, prompt)
@@ -141,7 +133,7 @@ fun VideoFramePicker(
             PickerAction(icon = "image", label = "存為角色素材（數字人，可重複使用）", enabled = !working) {
                 scope.launch {
                     working = true
-                    val u = saveCurrentFrame()
+                    val u = saveFrame(ctx, frame, prompt)
                     if (u != null) {
                         MaterialLibrary.setCategory(ctx, u.substringAfterLast('/'), MaterialLibrary.CHARACTER)
                         Toast.makeText(ctx, "已存為角色（數字人）— 素材庫「角色」分頁可找到", Toast.LENGTH_SHORT).show()
@@ -155,7 +147,7 @@ fun VideoFramePicker(
             PickerAction(icon = "add", label = "組合延長：接此片後（新片自動串接）", enabled = !working) {
                 scope.launch {
                     working = true
-                    val u = saveCurrentFrame()
+                    val u = saveFrame(ctx, frame, prompt)
                     working = false
                     if (u != null) {
                         onCombineExtend(u, uri.toString())
@@ -200,6 +192,14 @@ private fun PickerAction(icon: String, label: String, enabled: Boolean, onClick:
             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
         )
     }
+}
+
+private suspend fun saveFrame(ctx: Context, frame: Bitmap?, prompt: String): String? {
+    val f = frame ?: return null
+    val bytes = withContext(Dispatchers.IO) {
+        ByteArrayOutputStream().use { b -> f.compress(Bitmap.CompressFormat.JPEG, 92, b); b.toByteArray() }
+    }
+    return MediaSaver.saveImage(ctx, bytes, prompt)
 }
 
 private fun videoDurationMs(ctx: Context, uri: Uri): Long {
