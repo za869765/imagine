@@ -449,13 +449,7 @@ fun EditPane(
 
         resultImageUrl?.let { url ->
             var showImg by remember { mutableStateOf(false) }
-            Text(
-                "結果",
-                fontSize = 11.sp, fontWeight = FontWeight.W600,
-                letterSpacing = 0.08.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            SectionHeader("結果")
             ImagineCard(pad = 0) {
                 Column {
                     AsyncImage(
@@ -475,13 +469,7 @@ fun EditPane(
             }
         }
         resultVideoUrl?.let { url ->
-            Text(
-                "結果",
-                fontSize = 11.sp, fontWeight = FontWeight.W600,
-                letterSpacing = 0.08.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            SectionHeader("結果")
             ImagineCard(pad = 0) {
                 Column {
                     EditVideoPreview(
