@@ -11,6 +11,7 @@ object Routes {
 
     const val GENERATE_IMAGE = "generate_image"
     const val GENERATE_VIDEO = "generate_video"
+    const val COMBINE_EXTEND = "combine_extend" // 組合延長:進階獨立頁(非素材生成 tab)
     const val VIDEO_GENERATING = "video_generating"
 
     const val EDIT = "edit"

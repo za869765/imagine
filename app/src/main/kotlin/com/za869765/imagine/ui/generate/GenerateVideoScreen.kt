@@ -114,6 +114,7 @@ fun GenerateVideoScreen(
     initialPrompt: String? = null,    // 「動起來」時順帶把圖片的 prompt 預填 (對齊 grok-imagine console 行為)
     initialVideoMode: String? = null, // "i2v" → 即使沒帶圖也開在圖生影模式(教學 i2v 範本:純動作,需使用者再選來源圖)
     initialExtendBase: String? = null, // 組合延長:原片 file:// uri,生成成功後 Worker 自動把原片+新片串接
+    onBack: (() -> Unit)? = null, // 組合延長獨立頁(非素材生成 tab)的返回鍵;一般 tab 進入時為 null
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -361,14 +362,26 @@ fun GenerateVideoScreen(
         }
     }
 
+    // 組合延長 = 進階獨立頁:返回鍵 + 不顯示底欄(不歸屬素材生成 tab)。一般影片頁照舊。
+    val isCombineExtend = initialExtendBase != null
     ImagineScreen(
         appBar = {
-            ImagineTopAppBar(
-                title = if (initialExtendBase != null) "🔗 組合延長" else "Imagine",
-                onSettingsClick = onSettingsClick,
-            )
+            if (isCombineExtend) {
+                ImagineTopAppBar(
+                    title = "🔗 組合延長",
+                    showBack = true,
+                    onBackClick = { onBack?.invoke() },
+                    trailing = { Box(modifier = Modifier.size(40.dp)) },
+                )
+            } else {
+                ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick)
+            }
         },
-        bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
+        bottomNav = if (isCombineExtend) {
+            null
+        } else {
+            { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) }
+        },
         scrollState = scrollState,
     ) {
         Column(

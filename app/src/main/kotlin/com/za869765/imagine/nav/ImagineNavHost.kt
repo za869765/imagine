@@ -173,7 +173,8 @@ fun ImagineRoot() {
                             set(KEY_INIT_VIDEO_MODE, "i2v")
                             set(KEY_INIT_EXTEND_BASE, baseVideoUri)
                         }
-                        navController.navigate(Routes.GENERATE_VIDEO)
+                        // 進階功能:走獨立頁,不進素材生成 tab
+                        navController.navigate(Routes.COMBINE_EXTEND)
                     },
                 )
             }
@@ -293,6 +294,33 @@ fun ImagineRoot() {
                     initialPrompt = initPrompt,
                     initialVideoMode = initVideoMode,
                     initialExtendBase = initExtendBase,
+                )
+            }
+
+            // 組合延長 = 進階獨立頁(自長片組合的畫格擷取器進入)。重用 GenerateVideoScreen 的生成引擎,
+            // 但以 onBack 呈現獨立頁(無底欄、不歸屬素材生成 tab)。
+            composable(Routes.COMBINE_EXTEND) {
+                val initUrl = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_MEDIA)
+                val initExtendBase = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_EXTEND_BASE)
+                LaunchedEffect(initUrl, initExtendBase) {
+                    if (initUrl != null || initExtendBase != null) {
+                        navController.previousBackStackEntry?.savedStateHandle?.apply {
+                            remove<String>(KEY_INIT_MEDIA)
+                            remove<String>(KEY_INIT_VIDEO_MODE)
+                            remove<String>(KEY_INIT_EXTEND_BASE)
+                        }
+                    }
+                }
+                GenerateVideoScreen(
+                    onSwitchToImage = {},
+                    onSettingsClick = {},
+                    onNavSelected = {},
+                    initialImageUri = initUrl?.let { Uri.parse(it) },
+                    initialVideoMode = "i2v",
+                    initialExtendBase = initExtendBase,
+                    onBack = { navController.popBackStack() },
                 )
             }
 
