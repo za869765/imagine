@@ -247,8 +247,8 @@ fun SettingsScreen(
                 Text(
                     "圖片",
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.W700,
+                    color = androidx.compose.ui.graphics.Color(0xFF9DB0FF),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ParamPicker(
@@ -287,8 +287,8 @@ fun SettingsScreen(
                 Text(
                     "影片",
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.W700,
+                    color = androidx.compose.ui.graphics.Color(0xFF56E0D2),
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

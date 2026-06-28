@@ -238,7 +238,7 @@ fun ApiKeyEditScreen(
                         )
                     }
                     Box(modifier = Modifier.clickable(onClick = onRemove)) {
-                        ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onErrorContainer)
+                        ImagineIcon(name = "chevron_right", size = 22.dp, tint = MaterialTheme.colorScheme.onErrorContainer)
                     }
                 }
             }
