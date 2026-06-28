@@ -477,16 +477,23 @@ fun GenerateVideoScreen(
                                 fontWeight = FontWeight.W600,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
+                            val estSec = (30 + duration * 8).coerceIn(30, 180)
+                            val pct = ((elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) * 100).toInt()
+                            // 大字 = 估算完成百分比(主);經過秒數縮成小字
                             Text(
-                                "%d:%02d".format(elapsed / 60, elapsed % 60),
-                                fontSize = 28.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.W600,
+                                "$pct%",
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.W700,
                                 color = MaterialTheme.colorScheme.primary,
                             )
-                            val estSec = (30 + duration * 8).coerceIn(30, 180)
+                            Text(
+                                "已 ${"%d:%02d".format(elapsed / 60, elapsed % 60)}（估算,非真實完成率）",
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             LinearProgressIndicator(
-                                progress = { (elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) },
+                                progress = { pct / 100f },
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
@@ -694,23 +701,25 @@ fun GenerateVideoScreen(
                             fontWeight = FontWeight.W600,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
+                        // B3: 估算進度 — 依秒數粗估,非 xAI 真實完成率;封頂 97% 等實際完成。
+                        // 大字 = 估算完成 %(主),經過秒數縮成小字。
+                        val estSec = (30 + duration * 8).coerceIn(30, 180)
+                        val pct = ((elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) * 100).toInt()
                         Text(
-                            "%d:%02d".format(elapsed / 60, elapsed % 60),
-                            fontSize = 28.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.W600,
+                            "$pct%",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.W700,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        // B3: 估算進度條 — 依秒數粗估總時長,非 xAI 真實完成率;封頂 97% 等實際完成。
-                        val estSec = (30 + duration * 8).coerceIn(30, 180)
-                        LinearProgressIndicator(
-                            progress = { (elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) },
-                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                        )
                         Text(
-                            "預估約 $estSec 秒（估算,非真實完成率）；可切背景或鎖屏,完成會發系統通知",
-                            fontSize = 12.sp,
+                            "已 ${"%d:%02d".format(elapsed / 60, elapsed % 60)} · 預估約 $estSec 秒（估算,非真實完成率）;可切背景/鎖屏,完成發通知",
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        LinearProgressIndicator(
+                            progress = { pct / 100f },
+                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                         )
                         // v1.0.54 (c): 提醒 user 別從最近應用滑掉，否則 process 死 worker 中斷
                         Text(
