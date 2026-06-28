@@ -1,6 +1,7 @@
 package com.za869765.imagine.ui.tutorial
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -336,7 +337,7 @@ private fun ActionRow(icon: String, label: String, onClick: () -> Unit) {
             .fillMaxWidth()
             .padding(top = 8.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -370,6 +371,7 @@ private fun LessonCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(
@@ -425,7 +427,7 @@ private fun LessonCard(
                             modifier = Modifier
                                 .size(150.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                                 .clickable { onImageTap(lesson.images, i) },
                         )
                     }
@@ -448,7 +450,7 @@ private fun LessonCard(
                                     .fillMaxWidth()
                                     .height(220.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.surface),
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                             )
                             ActionRow(icon = "edit", label = "影片修改（以此影片重繪／影生影）") {
                                 onUseVideo(url, "video")
@@ -463,7 +465,7 @@ private fun LessonCard(
                                 .fillMaxWidth()
                                 .padding(top = 6.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                                 .clickable { onPlayVideo(url) }
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -495,7 +497,7 @@ private fun LessonCard(
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.surface)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                     ) {
                         Text(
