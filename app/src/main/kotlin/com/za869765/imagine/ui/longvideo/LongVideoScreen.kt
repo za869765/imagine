@@ -70,6 +70,7 @@ import com.za869765.imagine.ui.component.ImagineIconButton
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
+import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
@@ -168,13 +169,7 @@ fun LongVideoScreen(
                 )
             } else {
                 // ── ① 已選順序 (P1 排序 + P2 預覽) ──
-                Text(
-                    text = "① 主組裝條（${sequence.size}）",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W700,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+                SectionHeader("① 主組裝條（${sequence.size}）")
                 AssemblyTrack(
                     sequence = sequence,
                     onPreviewClip = { previewUri = it },
@@ -209,72 +204,37 @@ fun LongVideoScreen(
 
                 // ── 合成 (P3) ──
                 val canMerge = sequence.size >= 2 && !merging
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (canMerge) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant
-                        )
-                        .clickable(enabled = canMerge) {
-                            merging = true
-                            val clips = sequence.map { it.uri }
-                            val count = sequence.size
-                            scope.launch {
-                                val result = VideoMerger.merge(ctx, clips, "$MERGED_PREFIX $count 段")
-                                merging = false
-                                if (result != null) {
-                                    Toast.makeText(ctx, "已合成 $count 段並存到素材庫", Toast.LENGTH_SHORT).show()
-                                    previewUri = Uri.parse(result)   // #5 合成完即時跳預覽
-                                    sequence.clear()
-                                    reloadKey++
-                                } else {
-                                    Toast.makeText(
-                                        ctx,
-                                        "合成失敗：片段需同解析度/編碼才能直接串接",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                }
+                PrimaryButton(
+                    label = if (sequence.size >= 2) "合成長片（${sequence.size} 段）" else "合成長片（至少 2 段）",
+                    icon = "movie",
+                    enabled = canMerge,
+                    loading = merging,
+                    modifier = Modifier.padding(top = 4.dp),
+                    onClick = {
+                        merging = true
+                        val clips = sequence.map { it.uri }
+                        val count = sequence.size
+                        scope.launch {
+                            val result = VideoMerger.merge(ctx, clips, "$MERGED_PREFIX $count 段")
+                            merging = false
+                            if (result != null) {
+                                Toast.makeText(ctx, "已合成 $count 段並存到素材庫", Toast.LENGTH_SHORT).show()
+                                previewUri = Uri.parse(result)   // #5 合成完即時跳預覽
+                                sequence.clear()
+                                reloadKey++
+                            } else {
+                                Toast.makeText(
+                                    ctx,
+                                    "合成失敗：片段需同解析度/編碼才能直接串接",
+                                    Toast.LENGTH_LONG,
+                                ).show()
                             }
                         }
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (merging) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "  合成中…",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W700,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text = if (sequence.size >= 2) "🎬 合成長片（${sequence.size} 段）"
-                            else "🎬 合成長片（至少 2 段）",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W700,
-                            color = if (canMerge) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                    },
+                )
 
                 // ── ② 可用片段 (智慧整理:相似/最新/時長) ──
-                Text(
-                    text = "② 可用片段（${rawAvailable.size}）",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W700,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                SectionHeader("② 可用片段（${rawAvailable.size}）")
                 if (allVideos.none { !isMerged(it) }) {
                     Text(
                         text = "素材庫還沒有短片 — 先到「素材生成 → 影片」做幾段。",
@@ -529,7 +489,7 @@ private fun TrackThumb(uri: Uri) {
         )
     } else {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "🎬", fontSize = 18.sp)
+            ImagineIcon(name = "movie", size = 24.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -667,7 +627,7 @@ private fun ClipThumb(uri: Uri, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            Text(text = "🎬", fontSize = 16.sp)
+            ImagineIcon(name = "movie", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Box(
             modifier = Modifier
@@ -747,23 +707,6 @@ private fun VideoPreviewDialog(uri: Uri, onDismiss: () -> Unit) {
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun IconBtn(icon: String, enabled: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(6.dp),
-    ) {
-        ImagineIcon(
-            name = icon,
-            size = 20.dp,
-            tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
-            else MaterialTheme.colorScheme.outlineVariant,
-        )
     }
 }
 
