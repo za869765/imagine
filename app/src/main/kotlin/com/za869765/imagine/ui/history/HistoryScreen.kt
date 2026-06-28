@@ -169,6 +169,11 @@ fun HistoryScreen(
                 value = query,
                 onValueChange = { query = it },
                 singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ),
                 placeholder = { Text("搜尋 prompt 找圖／影片") },
                 leadingIcon = { ImagineIcon(name = "search", size = 20.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 modifier = Modifier

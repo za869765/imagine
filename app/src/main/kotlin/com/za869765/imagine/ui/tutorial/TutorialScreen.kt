@@ -312,10 +312,16 @@ private fun GalleryList(
 private fun CatChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(100.dp))
             .background(
-                if (selected) MaterialTheme.colorScheme.secondaryContainer
-                else MaterialTheme.colorScheme.surface,
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                else MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+            .border(
+                1.dp,
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                else MaterialTheme.colorScheme.outline,
+                RoundedCornerShape(100.dp),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
