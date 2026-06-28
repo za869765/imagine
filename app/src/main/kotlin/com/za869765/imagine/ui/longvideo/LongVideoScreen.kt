@@ -7,6 +7,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -192,7 +193,7 @@ fun LongVideoScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .background(Color(0xFF56E0D2).copy(alpha = 0.14f))
                                 .clickable { assemblyPreview = true }
                                 .padding(horizontal = 14.dp, vertical = 7.dp),
                         ) {
@@ -200,7 +201,7 @@ fun LongVideoScreen(
                                 text = "▶ 預覽組裝",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.W700,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                color = Color(0xFF7FE9DD),
                             )
                         }
                     }
@@ -586,7 +587,8 @@ private fun AvailRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -627,7 +629,7 @@ private fun AvailRow(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
+                .background(Color(0xFF56E0D2).copy(alpha = 0.14f))
                 .clickable(onClick = onAdd)
                 .padding(horizontal = 14.dp, vertical = 6.dp),
         ) {
@@ -635,7 +637,7 @@ private fun AvailRow(
                 text = "加入",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.W600,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = Color(0xFF7FE9DD),
             )
         }
     }
