@@ -1,8 +1,7 @@
 package com.za869765.imagine.ui.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -14,9 +13,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
@@ -47,8 +48,13 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import coil3.compose.AsyncImage
 
-// 看圖器底部動作 — onClick 帶入「目前顯示中那張」的 url。
-data class ViewerAction(val icon: String, val label: String, val onClick: (String) -> Unit)
+// 看圖器底部動作 — onClick 帶入「目前顯示中那張」的 url。destructive=true → 浮層內紅字(如移出)。
+data class ViewerAction(
+    val icon: String,
+    val label: String,
+    val destructive: Boolean = false,
+    val onClick: (String) -> Unit,
+)
 
 // 共用全螢幕看圖器:雙指縮放 + 雙擊放大(1x↔2.5x) + 拖移 + 多張左右滑;底部動作鈕作用在當頁。
 // 縮放中時關掉 pager 橫滑,讓拖移不會誤觸換頁。
@@ -124,43 +130,120 @@ fun FullscreenImageViewer(
                 }
             }
 
-            // 底部:當頁動作鈕 — 明顯的膠囊按鈕(icon + 文字),clickable 可靠觸發。
+            // 底部:主動作固定列(前 3 顆 + 更多)+ 次要動作收進「更多」浮層 — 修膠囊溢出按不到(痛點 #3/#4)。
             if (actions.isNotEmpty()) {
                 val url = urls[pagerState.currentPage]
-                Row(
+                val primary = if (actions.size > 4) actions.take(3) else actions
+                val overflow = if (actions.size > 4) actions.drop(3) else emptyList<ViewerAction>()
+                var showMore by remember { mutableStateOf(false) }
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        // 5 顆膠囊(我的素材:生圖/生影/存相簿/改分類/移出)會超出窄手機寬度,
-                        // 加水平捲動避免最右邊「移出/改分類」被切到按不到。
-                        .horizontalScroll(rememberScrollState())
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = actionsBottomPad),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .padding(start = 16.dp, end = 16.dp, bottom = actionsBottomPad),
+                    horizontalAlignment = Alignment.End,
                 ) {
-                    actions.forEach { a ->
-                        Row(
+                    // 「更多」浮層(在固定列上方,靠右對齊更多鈕)
+                    if (showMore && overflow.isNotEmpty()) {
+                        Column(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(22.dp))
-                                .background(Color.White.copy(alpha = 0.18f))
-                                .clickable { a.onClick(url) }
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                .padding(bottom = 10.dp)
+                                .width(210.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF1A1B20))
+                                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+                                .padding(6.dp),
                         ) {
-                            ImagineIcon(name = a.icon, size = 20.dp, tint = Color.White)
-                            Text(
-                                text = a.label,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.W600,
-                            )
+                            overflow.forEachIndexed { i, a ->
+                                val fg = if (a.destructive) Color(0xFFF0A0A0) else Color(0xFFECECF0)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(11.dp))
+                                        .clickable { showMore = false; a.onClick(url) }
+                                        .padding(horizontal = 12.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(13.dp),
+                                ) {
+                                    ImagineIcon(name = a.icon, size = 20.dp, tint = fg)
+                                    Text(text = a.label, color = fg, fontSize = 14.sp, fontWeight = FontWeight.W500)
+                                }
+                                if (i < overflow.lastIndex) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp)
+                                            .height(1.dp)
+                                            .background(Color.White.copy(alpha = 0.07f)),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // 固定主動作列
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(Color(0xFF141418).copy(alpha = 0.92f))
+                            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
+                            .padding(9.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        primary.forEach { a ->
+                            ViewerActionSlot(
+                                icon = a.icon,
+                                label = a.label,
+                                highlight = false,
+                                modifier = Modifier.weight(1f),
+                            ) { a.onClick(url) }
+                        }
+                        if (overflow.isNotEmpty()) {
+                            ViewerActionSlot(
+                                icon = "more_horiz",
+                                label = "更多",
+                                highlight = true,
+                                modifier = Modifier.weight(1f),
+                            ) { showMore = !showMore }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+// 固定動作列的單格:icon 疊 label;生圖藍/生影青/其餘白,配合主卡分區色。
+@Composable
+private fun ViewerActionSlot(
+    icon: String,
+    label: String,
+    highlight: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val tint = when (icon) {
+        "image" -> Color(0xFF9DB0FF)
+        "movie" -> Color(0xFF56E0D2)
+        else -> Color.White
+    }
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (highlight) Color.White.copy(alpha = 0.10f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        ImagineIcon(name = icon, size = 22.dp, tint = tint)
+        Text(
+            text = label,
+            color = Color(0xFFECECF0),
+            fontSize = 11.sp,
+            fontWeight = if (highlight) FontWeight.W700 else FontWeight.W600,
+        )
     }
 }
 

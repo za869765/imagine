@@ -207,11 +207,11 @@ fun MaterialLibraryScreen(
                         }
                     }
                 },
-                ViewerAction("refresh", "改分類") { url ->
+                ViewerAction("sell", "改分類") { url ->
                     recatName = shown.firstOrNull { it.uri.toString() == url }?.displayName
                     previewIndex = null
                 },
-                ViewerAction("close", "移出素材庫") { url ->
+                ViewerAction("visibility_off", "移出素材庫", destructive = true) { url ->
                     removeName = shown.firstOrNull { it.uri.toString() == url }?.displayName
                     previewIndex = null
                 },
