@@ -31,6 +31,7 @@ fun MaterialHubScreen(
     onPickImage: () -> Unit,
     onPickVideo: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenGrok: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
 ) {
@@ -65,6 +66,13 @@ fun MaterialHubScreen(
                 desc = "角色 · 環境 · 物件 · 風格 參考圖庫",
                 colors = listOf(Color(0xFF5A2E6E), Color(0xFF8A2360)),
                 onClick = onOpenLibrary,
+            )
+            HubCard(
+                emoji = "💬",
+                title = "提示詞諮詢 · Grok",
+                desc = "用帳號登入 grok.com 網頁版，直接問 Grok 怎麼下提示詞",
+                colors = listOf(Color(0xFF1F2A37), Color(0xFF3A4654)),
+                onClick = onOpenGrok,
             )
         }
     }

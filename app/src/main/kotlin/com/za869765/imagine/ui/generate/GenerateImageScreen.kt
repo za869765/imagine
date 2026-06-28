@@ -91,10 +91,12 @@ fun GenerateImageScreen(
             prompt = initialPrompt
         }
     }
-    var resolution by rememberSaveable { mutableStateOf(prefs.defImageResolution) }
-    var aspectRatio by rememberSaveable { mutableStateOf(prefs.defImageAspect) }
-    var n by rememberSaveable { mutableStateOf(prefs.defImageCount) }
-    var quality by rememberSaveable { mutableStateOf(prefs.defImageQuality) }  // rapid (快) / quality (好)
+    // key 帶 prefs 預設值:在設定改了預設後重進本頁會 re-init 成新預設(否則 rememberSaveable
+    // 還原舊的已存值,改設定看不出變化)。手動改參數在同一預設下仍會保留。
+    var resolution by rememberSaveable(prefs.defImageResolution) { mutableStateOf(prefs.defImageResolution) }
+    var aspectRatio by rememberSaveable(prefs.defImageAspect) { mutableStateOf(prefs.defImageAspect) }
+    var n by rememberSaveable(prefs.defImageCount) { mutableStateOf(prefs.defImageCount) }
+    var quality by rememberSaveable(prefs.defImageQuality) { mutableStateOf(prefs.defImageQuality) }  // rapid (快) / quality (好)
     var loading by remember { mutableStateOf(false) }
     // 圖片頁子模式：gen=生圖 / edit=圖片編輯(內嵌 EditPane)。原本只有生圖,無模式列。
     var imageFn by rememberSaveable { mutableStateOf("gen") }

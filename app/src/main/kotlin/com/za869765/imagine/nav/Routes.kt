@@ -7,6 +7,7 @@ object Routes {
     const val MATERIAL_LIBRARY = "material_library"
     const val LONG_VIDEO = "long_video"
     const val TUTORIAL = "tutorial"
+    const val GROK_CHAT = "grok_chat"
 
     const val GENERATE_IMAGE = "generate_image"
     const val GENERATE_VIDEO = "generate_video"

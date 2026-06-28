@@ -27,6 +27,7 @@ import com.za869765.imagine.ui.generate.GenerateImageScreen
 import com.za869765.imagine.ui.generate.GenerateVideoScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
 import com.za869765.imagine.ui.history.HistoryScreen
+import com.za869765.imagine.ui.grok.GrokChatScreen
 import com.za869765.imagine.ui.hub.MaterialHubScreen
 import com.za869765.imagine.ui.hub.MaterialLibraryScreen
 import com.za869765.imagine.ui.longvideo.LongVideoScreen
@@ -121,9 +122,14 @@ fun ImagineRoot() {
                     onPickImage = { navController.navigate(Routes.GENERATE_IMAGE) },
                     onPickVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
                     onOpenLibrary = { navController.navigate(Routes.MATERIAL_LIBRARY) },
+                    onOpenGrok = { navController.navigate(Routes.GROK_CHAT) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                 )
+            }
+
+            composable(Routes.GROK_CHAT) {
+                GrokChatScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.MATERIAL_LIBRARY) {

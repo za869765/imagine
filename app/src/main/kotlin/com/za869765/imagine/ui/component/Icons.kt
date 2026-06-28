@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Movie
@@ -108,6 +109,8 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "refresh" to true -> Icons.Filled.Refresh
     "search" to false -> Icons.Outlined.Search
     "search" to true -> Icons.Outlined.Search
+    "language" to false -> Icons.Outlined.Language
+    "language" to true -> Icons.Outlined.Language
     "star" to false -> Icons.Outlined.StarBorder
     "star" to true -> Icons.Filled.Star
     else -> Icons.Outlined.AutoAwesome

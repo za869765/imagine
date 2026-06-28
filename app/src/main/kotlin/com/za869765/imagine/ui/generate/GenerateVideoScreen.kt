@@ -135,9 +135,10 @@ fun GenerateVideoScreen(
     // 影片頁子功能：gen=生成(文生影/圖生影,用 mode 細分) / extend=影片延長 / edit=影片編輯。
     // extend / edit 內嵌 EditPane;VideoMode 僅在 gen 時有意義。
     var videoFn by rememberSaveable { mutableStateOf("gen") }
-    var duration by rememberSaveable { mutableStateOf(prefs.defVideoDuration) }
-    var aspect by rememberSaveable { mutableStateOf(prefs.defVideoAspect) }
-    var resolution by rememberSaveable { mutableStateOf(prefs.defVideoResolution) }
+    // key 帶 prefs 預設值:設定改了影片預設後重進本頁會 re-init 成新預設(rememberSaveable 否則還原舊值)
+    var duration by rememberSaveable(prefs.defVideoDuration) { mutableStateOf(prefs.defVideoDuration) }
+    var aspect by rememberSaveable(prefs.defVideoAspect) { mutableStateOf(prefs.defVideoAspect) }
+    var resolution by rememberSaveable(prefs.defVideoResolution) { mutableStateOf(prefs.defVideoResolution) }
     // sourceImages 是 List<Uri> — Uri 本身可序列化,但 List<Uri> 沒 Saver,改存字串 list
     var sourceImageStrings by rememberSaveable {
         mutableStateOf(initialImageUri?.let { listOf(it.toString()) } ?: emptyList())
