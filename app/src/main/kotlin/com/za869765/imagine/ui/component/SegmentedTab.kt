@@ -5,13 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,51 +36,38 @@ fun SegmentedTab(
     val activeBg = activeColor ?: MaterialTheme.colorScheme.secondaryContainer
     val activeFg = if (activeColor != null) Color.White
     else MaterialTheme.colorScheme.onSecondaryContainer
+    // 設計稿 segmented control:外層圓角容器(底+淡邊框+4dp 內距),選中段為內嵌實心圓角丸(無分隔線、無 check)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(40.dp)
+            .height(46.dp)
             .clip(RoundedCornerShape(100.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(100.dp)),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(100.dp))
+            .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        options.forEachIndexed { i, option ->
+        options.forEach { option ->
             val isActive = option.id == activeId
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .background(
-                        if (isActive) activeBg
-                        else Color.Transparent
-                    )
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(if (isActive) activeBg else Color.Transparent)
                     .clickable { onSelected(option.id) }
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (isActive) {
-                    ImagineIcon(
-                        name = "check",
-                        size = 16.dp,
-                        tint = activeFg,
-                    )
-                    Box(modifier = Modifier.padding(start = 6.dp))
-                }
                 Text(
                     text = option.label,
                     fontSize = 14.sp,
-                    fontWeight = if (isActive) FontWeight.W600 else FontWeight.W500,
+                    fontWeight = if (isActive) FontWeight.W700 else FontWeight.W500,
                     color = if (isActive) activeFg
-                    else MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            if (i < options.lastIndex) {
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.outline),
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                 )
             }
         }

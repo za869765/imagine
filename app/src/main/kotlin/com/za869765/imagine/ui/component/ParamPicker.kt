@@ -53,8 +53,8 @@ fun ParamPicker(
             .fillMaxWidth()
             .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
             .clickable { showSheet = true }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.CenterStart,
@@ -74,7 +74,7 @@ fun ParamPicker(
                 Text(
                     text = displayName(value),
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.W500,
+                    fontWeight = FontWeight.W600,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

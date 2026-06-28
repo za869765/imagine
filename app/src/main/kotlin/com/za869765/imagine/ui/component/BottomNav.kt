@@ -42,50 +42,58 @@ fun ImagineBottomNav(
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(80.dp)
-            .padding(top = 12.dp),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.SpaceAround,
-    ) {
-        NavTab.values().forEach { tab ->
-            val isActive = tab == active
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { onTabSelected(tab) },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Box(
+        // 設計稿:頂部 1px 淡分隔線
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color.White.copy(alpha = 0.06f)),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(top = 8.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceAround,
+        ) {
+            NavTab.values().forEach { tab ->
+                val isActive = tab == active
+                Column(
                     modifier = Modifier
-                        .size(width = 56.dp, height = 32.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            if (isActive) MaterialTheme.colorScheme.secondaryContainer
-                            else Color.Transparent
-                        ),
-                    contentAlignment = Alignment.Center,
+                        .weight(1f)
+                        .clickable { onTabSelected(tab) },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
-                    ImagineIcon(
-                        name = tab.icon,
-                        size = 22.dp,
-                        fill = if (isActive) 1 else 0,
-                        tint = if (isActive) MaterialTheme.colorScheme.onSecondaryContainer
+                    Box(
+                        modifier = Modifier
+                            .size(width = 56.dp, height = 30.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                // 設計稿 active 丸 = 主色紫 16% 透明
+                                if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                else Color.Transparent
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ImagineIcon(
+                            name = tab.icon,
+                            size = 23.dp,
+                            fill = if (isActive) 1 else 0,
+                            tint = if (isActive) MaterialTheme.colorScheme.onSecondaryContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = tab.label,
+                        fontSize = 10.5.sp,
+                        fontWeight = if (isActive) FontWeight.W700 else FontWeight.W500,
+                        color = if (isActive) MaterialTheme.colorScheme.onSurface
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(
-                    text = tab.label,
-                    fontSize = 12.sp,
-                    fontWeight = if (isActive) FontWeight.W600 else FontWeight.W500,
-                    color = if (isActive) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
-    }
     }
 }

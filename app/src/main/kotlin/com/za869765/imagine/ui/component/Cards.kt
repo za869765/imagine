@@ -32,8 +32,9 @@ fun ImagineCard(
         CardVariant.Outlined -> Color.Transparent
     }
     val border = when (variant) {
-        CardVariant.Outlined -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        else -> null
+        // 設計稿:卡片都帶 1px 淡邊框(實心卡較淡、外框卡較明顯)
+        CardVariant.Outlined -> BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        CardVariant.Filled -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     }
 
     Surface(
@@ -65,8 +66,8 @@ fun SectionHeader(
     Text(
         text = text,
         fontSize = 12.sp,
-        fontWeight = FontWeight.W600,
-        letterSpacing = 0.08.sp,
+        fontWeight = FontWeight.W700,
+        letterSpacing = 1.0.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier.padding(horizontal = 4.dp, vertical = 4.dp),
     )

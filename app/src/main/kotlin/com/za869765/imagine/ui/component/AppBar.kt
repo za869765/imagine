@@ -30,7 +30,7 @@ fun ImagineTopAppBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(56.dp)
             .background(MaterialTheme.colorScheme.surface)
             .padding(start = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -44,7 +44,7 @@ fun ImagineTopAppBar(
             text = title,
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 22.sp,
-            fontWeight = FontWeight.W600,
+            fontWeight = FontWeight.W700,
             letterSpacing = (-0.01).sp,
             modifier = Modifier
                 .weight(1f)

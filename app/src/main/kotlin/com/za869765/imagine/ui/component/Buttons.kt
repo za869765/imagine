@@ -63,9 +63,9 @@ fun PrimaryButton(
                 }
                 Text(
                     text = label,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.W600,
-                    letterSpacing = 0.02.sp,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.W700,
+                    letterSpacing = 0.5.sp,
                 )
             }
         }
