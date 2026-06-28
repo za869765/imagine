@@ -13,8 +13,8 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 133
-        versionName = "1.0.132"
+        versionCode = 134
+        versionName = "1.0.133"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

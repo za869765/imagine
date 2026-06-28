@@ -8,6 +8,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -534,21 +535,6 @@ fun GenerateVideoScreen(
                 return@Column
             }
 
-            // 模式色彩標頭 — 影片頁青綠系圓角彩條,內含「🎬 影片模式」一眼分辨在哪個模式
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF0F5E57))
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    text = "🎬  影片模式",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.W700,
-                    color = Color.White,
-                )
-            }
-
             SegmentedTab(
                 options = listOf(
                     SegmentedOption("image", "圖片"),
@@ -556,41 +542,27 @@ fun GenerateVideoScreen(
                 ),
                 activeId = "video",
                 onSelected = { if (it == "image") onSwitchToImage() },
-                activeColor = Color(0xFF0F5E57),
+                activeColor = Color(0xFF14463F),
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("模式")
-                // 手機寬度下 4 段會吃字 → 拆成兩排各 2 段(皆全寬,字完整)。邏輯不變:
-                // 第一排=生成(文生影/圖生影,videoFn=gen 時高亮),第二排=編輯影片(延長/編輯)。
-                // 兩排只會有一排高亮,另一排 activeId="" 不匹配→無高亮,表示目前不在那組。
-                // 第一排(生成)
-                SegmentedTab(
-                    options = listOf(
-                        SegmentedOption("t2v", "文生影"),
-                        SegmentedOption("img2vid", "圖生影"),
-                    ),
-                    activeId = if (videoFn == "gen") {
-                        if (mode == VideoMode.T2V) "t2v" else "img2vid"
-                    } else "",
-                    onSelected = {
-                        videoFn = "gen"
-                        mode = if (it == "t2v") VideoMode.T2V else VideoMode.Img2Vid
-                    },
-                )
-                // 第二排(編輯影片)
-                SegmentedTab(
-                    options = listOf(
-                        SegmentedOption("extend", "影片延長"),
-                        SegmentedOption("edit", "影片編輯"),
-                    ),
-                    activeId = when (videoFn) {
-                        "extend" -> "extend"
-                        "edit" -> "edit"
-                        else -> ""
-                    },
-                    onSelected = { videoFn = it },
-                )
+            // 模式 4 選 1:單排可橫滑膠囊(取代原兩排各 2 段+「只有一排高亮」的妥協,痛點 #1)
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                SectionHeader("模式・4 選 1")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ModePill("文生影", videoFn == "gen" && mode == VideoMode.T2V) {
+                        videoFn = "gen"; mode = VideoMode.T2V
+                    }
+                    ModePill("圖生影", videoFn == "gen" && mode == VideoMode.Img2Vid) {
+                        videoFn = "gen"; mode = VideoMode.Img2Vid
+                    }
+                    ModePill("影片延長", videoFn == "extend") { videoFn = "extend" }
+                    ModePill("影片編輯", videoFn == "edit") { videoFn = "edit" }
+                }
             }
 
             // 影片延長 / 影片編輯 → 內嵌 EditPane(自帶來源選取/執行/結果),其餘生成 UI 不渲染。
@@ -1012,6 +984,37 @@ private fun AddImageSlot(onClick: () -> Unit) {
             name = "add_photo_alternate",
             size = 28.dp,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+// 影片模式 4 選 1 膠囊(青綠 active + check)。
+@Composable
+private fun ModePill(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(if (selected) Color(0xFF16433D) else Color.Transparent)
+            .border(
+                1.dp,
+                if (selected) Color(0xFF56E0D2).copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline,
+                RoundedCornerShape(100.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        if (selected) {
+            ImagineIcon(name = "check", size = 15.dp, fill = 1, tint = Color(0xFF7FE9DD))
+        }
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
+            color = if (selected) Color(0xFF7FE9DD) else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }
