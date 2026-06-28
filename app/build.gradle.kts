@@ -13,8 +13,10 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 141
-        versionName = "1.0.140"
+        // 版次顯示整合為 1.X.X(各 1 位十進位數字,如累計 141 → "1.4.1");滿 9 進位:1.4.9→1.5.0→…1.9.9→2.0.0。
+        // versionCode 仍各自單調 +1(Android 規定,與顯示版次脫鉤)。
+        versionCode = 142
+        versionName = "1.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
