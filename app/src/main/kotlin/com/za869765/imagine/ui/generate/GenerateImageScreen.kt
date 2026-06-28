@@ -228,6 +228,7 @@ fun GenerateImageScreen(
                     // 只存 tag,body 太長使用者不需要 — 真要 debug 從 logcat 看
                     lastError = tag
                     lastErrorIsPolicy = (result.kind == ErrorKind.ContentPolicy)
+                    resultUrls = emptyList() // 400/被審核擋下→清上次結果,避免誤會是新結果
                     Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
                 }
             }

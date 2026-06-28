@@ -201,6 +201,7 @@ fun GenerateVideoScreen(
                     WorkInfo.State.FAILED -> {
                         val err = info.outputData.getString(VideoPollWorker.KEY_ERROR)
                         if (!err.isNullOrBlank()) lastError = err
+                        resultVideoUrl = null // 失敗→清上次結果,避免誤會舊片是新結果
                         generating = false
                         trackedRequestId = null
                     }
@@ -210,6 +211,7 @@ fun GenerateVideoScreen(
                         // recovery 機制；現在 v1.0.54 砍 recovery 後罕見，但保留 feedback)
                         lastError = "影片任務被取消 (可能 app 被系統殺，請重試)"
                         Toast.makeText(ctx, lastError, Toast.LENGTH_LONG).show()
+                        resultVideoUrl = null // 取消→清上次結果
                         generating = false
                         trackedRequestId = null
                     }
@@ -328,6 +330,7 @@ fun GenerateVideoScreen(
                         val tag = gen.kind.userFriendlyTag()
                         lastError = tag
                         lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
+                        resultVideoUrl = null // 400/被審核擋下→清上次結果,避免誤會是新結果
                         Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
                         return@launch
                     }
