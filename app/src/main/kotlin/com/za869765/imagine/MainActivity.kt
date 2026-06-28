@@ -75,7 +75,11 @@ class MainActivity : FragmentActivity() {
         val prefs = SecurePrefs.get(this)
         applyScreenshotFlag(this, prefs.preventScreenshots)
 
-        enableEdgeToEdge()
+        // 重設計強制深色 → 系統列固定淺色圖示(深底白 icon),不跟系統淺/深
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         setContent {
             ImagineTheme {
                 Surface(

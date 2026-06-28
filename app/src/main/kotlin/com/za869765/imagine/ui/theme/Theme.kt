@@ -24,18 +24,16 @@ object ImagineSpacing {
 
 @Composable
 fun ImagineTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // 重設計(Claude Design handoff):全 App 強制深色,忽略系統淺/深。darkTheme 參數保留相容,不再使用。
+    @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val budgetColors = if (darkTheme) DarkBudgetColors else LightBudgetColors
-
     CompositionLocalProvider(
-        LocalBudgetColors provides budgetColors,
-        LocalIsDark provides darkTheme,
+        LocalBudgetColors provides DarkBudgetColors,
+        LocalIsDark provides true,
     ) {
         MaterialTheme(
-            colorScheme = colorScheme,
+            colorScheme = RedesignDarkScheme,
             typography = ImagineTypography,
             shapes = ImagineShapes,
             content = content,
