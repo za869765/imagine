@@ -988,7 +988,6 @@ private fun AddImageSlot(onClick: () -> Unit) {
     }
 }
 
-@Composable
 // 影片模式 4 選 1 膠囊(青綠 active + check)。
 @Composable
 private fun ModePill(label: String, selected: Boolean, onClick: () -> Unit) {
