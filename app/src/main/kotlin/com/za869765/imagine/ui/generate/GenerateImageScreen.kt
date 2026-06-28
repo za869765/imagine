@@ -68,6 +68,30 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
+// L2 子模式底線分頁(生圖/圖片編輯)— 與 L1 pill 視覺區隔(痛點 #1)。
+@Composable
+private fun UnderlineTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
+            color = if (selected) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
+        )
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun GenerateImageScreen(
@@ -221,21 +245,6 @@ fun GenerateImageScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 模式色彩標頭 — 圖片頁藍系圓角彩條,內含「🖼 圖片模式」一眼分辨在哪個模式
-            Box(
-                modifier = Modifier
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                    .background(Color(0xFF23408A))
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    text = "🖼  圖片模式",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.W700,
-                    color = Color.White,
-                )
-            }
-
             com.za869765.imagine.ui.component.SegmentedTab(
                 options = listOf(
                     com.za869765.imagine.ui.component.SegmentedOption("image", "圖片"),
@@ -243,18 +252,17 @@ fun GenerateImageScreen(
                 ),
                 activeId = "image",
                 onSelected = { if (it == "video") onSwitchToVideo() },
-                activeColor = Color(0xFF23408A),
+                activeColor = Color(0xFF2E3A6E),
             )
 
-            // 圖片頁模式列：生圖 / 圖片編輯(內嵌 EditPane)。取代 v1.0.86 的「圖片編輯」OutlinedActionButton
-            com.za869765.imagine.ui.component.SegmentedTab(
-                options = listOf(
-                    com.za869765.imagine.ui.component.SegmentedOption("gen", "生圖"),
-                    com.za869765.imagine.ui.component.SegmentedOption("edit", "圖片編輯"),
-                ),
-                activeId = imageFn,
-                onSelected = { imageFn = it },
-            )
+            // L2 子模式:底線分頁(生圖/圖片編輯),與 L1 pill 視覺區隔
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                UnderlineTab("生圖", imageFn == "gen") { imageFn = "gen" }
+                UnderlineTab("圖片編輯", imageFn == "edit") { imageFn = "edit" }
+            }
 
             if (!prefs.isApiKeySet) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
@@ -276,22 +284,14 @@ fun GenerateImageScreen(
                 return@Column
             }
 
-            com.za869765.imagine.ui.component.SegmentedTab(
-                options = listOf(
-                    com.za869765.imagine.ui.component.SegmentedOption("rapid", "Rapid 快速"),
-                    com.za869765.imagine.ui.component.SegmentedOption("quality", "Quality 高品質"),
-                ),
-                activeId = quality,
-                onSelected = { quality = it },
-            )
-
             PromptInput(
                 value = prompt,
                 onValueChange = { prompt = it },
                 flagged = lastErrorIsPolicy,
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 參數 2×2:解析度/長寬比 + 數量/品質。品質從獨立分段控制併進來,少一條堆疊橫條(痛點 #2)。
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ParamPicker(
                     label = "解析度",
                     value = resolution,
@@ -306,11 +306,21 @@ fun GenerateImageScreen(
                     onSelect = { aspectRatio = it },
                     modifier = Modifier.weight(1f),
                 )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ParamPicker(
                     label = "數量",
                     value = n.toString(),
                     options = (1..10).map { it.toString() },
                     onSelect = { n = it.toIntOrNull() ?: 1 },
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "品質",
+                    value = quality,
+                    options = listOf("rapid", "quality"),
+                    onSelect = { quality = it },
+                    displayName = { if (it == "quality") "高品質" else "快速" },
                     modifier = Modifier.weight(1f),
                 )
             }
