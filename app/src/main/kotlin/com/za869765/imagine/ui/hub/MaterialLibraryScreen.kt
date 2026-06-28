@@ -57,7 +57,9 @@ import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.storage.MediaImporter
+import com.za869765.imagine.data.tutorial.TutorialData
 import com.za869765.imagine.ui.component.FullscreenImageViewer
+import com.za869765.imagine.ui.component.FullscreenVideoPlayer
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
@@ -66,6 +68,8 @@ import kotlinx.coroutines.launch
 
 // 素材庫 — 角色/環境/物件/風格 四分頁。每頁顯示「我的素材」(自己生成/匯入,可標分類) +
 // 「內建課程素材」(由課程範例圖視覺分類而來的 CDN 圖,點圖直接當圖生圖/圖生影參考)。
+private const val VIDEO_CAT = "影片" // 素材庫第 5 分頁:課程影片(UI 專屬,非 MaterialLibrary 圖片標記分類)
+
 @Composable
 fun MaterialLibraryScreen(
     onUseImage: (String, Boolean) -> Unit,
@@ -113,16 +117,29 @@ fun MaterialLibraryScreen(
     fun pickFromAlbum() =
         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
 
+    // #2:影片分類 — 把課程圖庫的影片(CDN)全抓進素材庫,點播放。
+    val courseVideos = remember {
+        TutorialData.load(ctx).flatMap { lesson ->
+            lesson.videos.mapIndexed { i, url ->
+                url to (lesson.videoCaptions.getOrNull(i)?.takeIf { it.isNotBlank() } ?: "範例影片")
+            }
+        }
+    }
+    var videoPlayUrl by remember { mutableStateOf<String?>(null) }
+
     val imageNames = remember(entries) { entries.filter { !it.isVideo }.map { it.displayName }.toSet() }
-    val counts = remember(tagged, imageNames, seedCounts) {
+    val counts = remember(tagged, imageNames, seedCounts, courseVideos) {
         MaterialLibrary.CATEGORIES.associateWith { c ->
             tagged.count { it.value == c && it.key in imageNames } + (seedCounts[c] ?: 0)
-        }
+        } + (VIDEO_CAT to courseVideos.size)
     }
     val shown = remember(cat, tagged, entries) {
         entries.filter { !it.isVideo && tagged[it.displayName] == cat }
     }
     val seedUrls = remember(cat, seedAll) { seedAll.filter { it.category == cat }.map { it.url } }
+    val videoSeeds = remember(cat, courseVideos, reloadKey) {
+        if (cat == VIDEO_CAT) courseVideos.filter { it.first !in HiddenSeed.all(ctx) } else emptyList()
+    }
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "素材庫", showBack = true, onBackClick = onBack, onSettingsClick = onSettingsClick) },
@@ -139,17 +156,17 @@ fun MaterialLibraryScreen(
                     .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MaterialLibrary.CATEGORIES.forEach { c ->
+                (MaterialLibrary.CATEGORIES + VIDEO_CAT).forEach { c ->
                     CategoryCountPill(
                         label = c,
                         count = counts[c] ?: 0,
                         selected = cat == c,
-                        onClick = { cat = c },
+                        onClick = { cat = c; seedSelect = false; selectedSeeds = emptySet() },
                     )
                 }
             }
-            // 匯入橫幅:紫調(設計稿)
-            Row(
+            // 匯入橫幅:紫調(設計稿);影片分頁不顯示(不從相簿匯入影片素材)
+            if (cat != VIDEO_CAT) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp)
@@ -236,13 +253,14 @@ fun MaterialLibraryScreen(
                 }
             }
 
-            if (loaded && shown.isEmpty() && seedUrls.isEmpty()) {
+            if (loaded && shown.isEmpty() && seedUrls.isEmpty() && videoSeeds.isEmpty()) {
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "「$cat」還沒有素材。\n從相簿匯入,或在生成結果／歷史把圖設為此分類。",
+                        text = if (cat == VIDEO_CAT) "課程影片載入中或無資料。"
+                        else "「$cat」還沒有素材。\n從相簿匯入,或在生成結果／歷史把圖設為此分類。",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(32.dp),
@@ -281,9 +299,20 @@ fun MaterialLibraryScreen(
                             }
                         }
                     }
+                    if (videoSeeds.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { SectionLabel("課程影片 ${videoSeeds.size}") }
+                        items(items = videoSeeds, key = { "vid_" + it.first }) { (url, caption) ->
+                            VideoSeedCell(caption = caption) { videoPlayUrl = url }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // 影片分類:點影片磚 → 全螢幕播放
+    videoPlayUrl?.let { url ->
+        FullscreenVideoPlayer(url = url, onDismiss = { videoPlayUrl = null })
     }
 
     // 我的素材檢視:生圖/生影/改分類/移出。
@@ -440,6 +469,43 @@ private fun SectionLabel(text: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.07f)))
+    }
+}
+
+// #2 課程影片磚:中央青色播放圈 + 底部字幕(開頭主題);點 → 全螢幕播放。CDN 影片不抓縮圖(省流量)。
+@Composable
+private fun VideoSeedCell(caption: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF56E0D2).copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            ImagineIcon(name = "play_arrow", size = 24.dp, fill = 1, tint = Color(0xFF56E0D2))
+        }
+        Text(
+            text = caption,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
+            color = Color.White,
+            maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        )
     }
 }
 
