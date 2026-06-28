@@ -197,15 +197,16 @@ fun HistoryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.errorContainer)
                         .clickable { confirmDelete = true }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    ImagineIcon(name = "delete", size = 18.dp, tint = MaterialTheme.colorScheme.onErrorContainer)
                     Text(
-                        text = "🗑 刪除已選 ${visibleSelected.size} 項（釋放空間）",
+                        text = "刪除已選 ${visibleSelected.size} 項（釋放空間）",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W700,
                         color = MaterialTheme.colorScheme.onErrorContainer,

@@ -75,7 +75,7 @@ fun HistoryDetailScreen(
     ImagineScreen(
         appBar = {
             ImagineTopAppBar(
-                title = "",
+                title = if (entry?.isVideo == true) "影片詳情" else "圖片詳情",
                 showBack = true,
                 onBackClick = onBack,
                 trailing = { ImagineIconButton(name = "delete", onClick = onDelete) },
@@ -331,7 +331,7 @@ private fun DetailRow(label: String, value: String, mono: Boolean = false) {
             value,
             fontSize = 14.sp,
             fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default,
-            fontWeight = if (mono) FontWeight.W500 else FontWeight.W500,
+            fontWeight = if (mono) FontWeight.W600 else FontWeight.W500,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
