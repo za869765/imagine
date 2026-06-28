@@ -28,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,7 +43,7 @@ fun SplashScreen(onTimeout: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.primary),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -52,21 +51,21 @@ fun SplashScreen(onTimeout: () -> Unit = {}) {
                 modifier = Modifier
                     .size(96.dp)
                     .clip(RoundedCornerShape(28.dp))
-                    .background(Color.White.copy(alpha = 0.12f))
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(28.dp)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), RoundedCornerShape(28.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 ImagineIcon(
                     name = "auto_awesome",
                     size = 56.dp,
                     fill = 1,
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "Imagine",
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.W700,
                 letterSpacing = (-0.02).sp,
@@ -74,7 +73,7 @@ fun SplashScreen(onTimeout: () -> Unit = {}) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "GENERATE · EDIT · IMAGINE",
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.65f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W500,
                 letterSpacing = 2.75.sp,
@@ -104,7 +103,7 @@ fun SplashScreen(onTimeout: () -> Unit = {}) {
                         .offset(y = y.dp)
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)),
                 )
             }
         }
