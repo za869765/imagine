@@ -300,13 +300,9 @@ fun EditPane(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(
-                        if (sourceUri == null) 1.5.dp else 0.dp,
-                        MaterialTheme.colorScheme.outline,
-                        RoundedCornerShape(12.dp),
-                    )
-                    .background(MaterialTheme.colorScheme.surfaceDim)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
                     .clickable(onClick = launchPick),
                 contentAlignment = Alignment.Center,
             ) {
@@ -320,10 +316,10 @@ fun EditPane(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(200.dp)
-                                .clip(RoundedCornerShape(12.dp)),
+                                .clip(RoundedCornerShape(16.dp)),
                         )
                     } else {
-                        VideoThumb(uri = src, modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)))
+                        VideoThumb(uri = src, modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(16.dp)))
                     }
                     Box(
                         modifier = Modifier
@@ -458,7 +454,7 @@ fun EditPane(
                         contentScale = ContentScale.FillWidth,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .clickable { showImg = true },
                     )
                     ResultActionRow(url = url, prompt = lastPrompt, isVideo = false)
@@ -478,7 +474,7 @@ fun EditPane(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 200.dp, max = 460.dp)
-                            .clip(RoundedCornerShape(12.dp)),
+                            .clip(RoundedCornerShape(16.dp)),
                     )
                     ResultActionRow(url = url, prompt = lastPrompt, isVideo = true)
                 }
