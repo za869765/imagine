@@ -4,9 +4,11 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -47,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.za869765.imagine.data.storage.HiddenSeed
 import com.za869765.imagine.data.storage.MaterialLibrary
 import com.za869765.imagine.data.storage.MaterialSeed
 import com.za869765.imagine.data.storage.MediaEntry
@@ -79,6 +83,9 @@ fun MaterialLibraryScreen(
     var recatName by remember { mutableStateOf<String?>(null) }   // B4: 改分類目標(讓使用者選)
     var removeName by remember { mutableStateOf<String?>(null) }  // B4: 移出前確認
     var reloadKey by remember { mutableStateOf(0) }
+    // 內建課程素材「長按進批次刪除」;刪除=HiddenSeed.hide,課程圖庫同步隱藏
+    var seedSelect by remember { mutableStateOf(false) }
+    var selectedSeeds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     LaunchedEffect(reloadKey) {
         entries = MediaHistory.loadAll(ctx)
@@ -169,11 +176,65 @@ fun MaterialLibraryScreen(
                 )
             }
             Text(
-                text = "點圖放大看(雙指縮放/左右滑),底部可直接當圖生圖/圖生影。內建素材由課程範例圖自動分類。",
+                text = "點圖放大看(雙指縮放/左右滑),底部可直接當圖生圖/圖生影。內建素材由課程範例圖自動分類;長按可批次移除(課程圖庫同步)。",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
             )
+
+            if (seedSelect) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                            .clickable { seedSelect = false; selectedSeeds = emptySet() }
+                            .padding(horizontal = 16.dp, vertical = 11.dp),
+                    ) {
+                        Text("取消", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                if (selectedSeeds.isNotEmpty()) MaterialTheme.colorScheme.errorContainer
+                                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            )
+                            .clickable(enabled = selectedSeeds.isNotEmpty()) {
+                                HiddenSeed.hide(ctx, selectedSeeds)
+                                Toast.makeText(ctx, "已移除 ${selectedSeeds.size} 張,課程圖庫同步隱藏", Toast.LENGTH_SHORT).show()
+                                selectedSeeds = emptySet()
+                                seedSelect = false
+                                reloadKey++
+                            }
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ImagineIcon(
+                            name = "delete",
+                            size = 18.dp,
+                            tint = if (selectedSeeds.isNotEmpty()) MaterialTheme.colorScheme.onErrorContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = if (selectedSeeds.isEmpty()) "點選要移除的內建素材"
+                            else "刪除已選 ${selectedSeeds.size} 張（課程同步）",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W700,
+                            color = if (selectedSeeds.isNotEmpty()) MaterialTheme.colorScheme.onErrorContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
 
             if (loaded && shown.isEmpty() && seedUrls.isEmpty()) {
                 Box(
@@ -203,7 +264,21 @@ fun MaterialLibraryScreen(
                     if (seedUrls.isNotEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) { SectionLabel("內建課程素材 ${seedUrls.size}") }
                         items(items = seedUrls, key = { "seed_$it" }) { url ->
-                            GridCell(model = url) { seedIndex = seedUrls.indexOf(url) }
+                            GridCell(
+                                model = url,
+                                selectMode = seedSelect,
+                                selected = url in selectedSeeds,
+                                onLongClick = {
+                                    seedSelect = true
+                                    selectedSeeds = selectedSeeds + url
+                                },
+                            ) {
+                                if (seedSelect) {
+                                    selectedSeeds = if (url in selectedSeeds) selectedSeeds - url else selectedSeeds + url
+                                } else {
+                                    seedIndex = seedUrls.indexOf(url)
+                                }
+                            }
                         }
                     }
                 }
@@ -368,15 +443,22 @@ private fun SectionLabel(text: String) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GridCell(model: Any, onClick: () -> Unit) {
+private fun GridCell(
+    model: Any,
+    selectMode: Boolean = false,
+    selected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         AsyncImage(
             model = model,
@@ -384,5 +466,29 @@ private fun GridCell(model: Any, onClick: () -> Unit) {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
+        if (selectMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                        else Color.Black.copy(alpha = 0.15f),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(
+                        if (selected) MaterialTheme.colorScheme.primary
+                        else Color.Black.copy(alpha = 0.4f),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) ImagineIcon(name = "check", size = 16.dp, tint = Color.White)
+            }
+        }
     }
 }

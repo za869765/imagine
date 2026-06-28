@@ -84,7 +84,7 @@ fun TutorialScreen(
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    var tab by rememberSaveable { mutableStateOf("ready") }
+    var tab by rememberSaveable { mutableStateOf("gallery") } // 預設課程圖庫(使用者要求),非精選範本
     var query by rememberSaveable { mutableStateOf("") }
     var favorites by remember { mutableStateOf(prefs.favoriteTemplates.toSet()) }
 
@@ -372,6 +372,11 @@ private fun LessonCard(
     onUsePrompt: (String) -> Unit,
     onUsePromptVideo: (String) -> Unit,
 ) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // 同步「素材庫內建素材批次刪除」:過濾掉被使用者隱藏的課程圖
+    val visibleImages = lesson.images.filter {
+        it !in com.za869765.imagine.data.storage.HiddenSeed.all(ctx)
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -397,7 +402,7 @@ private fun LessonCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "${lesson.images.size} 圖 · ${lesson.videos.size} 影片 · ${lesson.prompts.size} 提示詞",
+                    text = "${visibleImages.size} 圖 · ${lesson.videos.size} 影片 · ${lesson.prompts.size} 提示詞",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
@@ -411,7 +416,7 @@ private fun LessonCard(
         }
 
         if (isOpen) {
-            if (lesson.images.isNotEmpty()) {
+            if (visibleImages.isNotEmpty()) {
                 Text(
                     text = "範例圖（點圖→動起來/重繪）",
                     fontSize = 11.sp,
@@ -425,7 +430,7 @@ private fun LessonCard(
                         .padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    lesson.images.forEachIndexed { i, url ->
+                    visibleImages.forEachIndexed { i, url ->
                         AsyncImage(
                             model = url,
                             contentDescription = lesson.title,
@@ -434,7 +439,7 @@ private fun LessonCard(
                                 .size(150.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                .clickable { onImageTap(lesson.images, i) },
+                                .clickable { onImageTap(visibleImages, i) },
                         )
                     }
                 }

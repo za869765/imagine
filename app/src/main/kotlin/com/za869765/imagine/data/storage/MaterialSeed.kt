@@ -31,6 +31,8 @@ object MaterialSeed {
         return loaded
     }
 
-    fun urlsIn(ctx: Context, category: String): List<String> =
-        load(ctx).filter { it.category == category }.map { it.url }
+    fun urlsIn(ctx: Context, category: String): List<String> {
+        val hidden = HiddenSeed.all(ctx) // 使用者批次刪掉的同步過濾
+        return load(ctx).filter { it.category == category && it.url !in hidden }.map { it.url }
+    }
 }
