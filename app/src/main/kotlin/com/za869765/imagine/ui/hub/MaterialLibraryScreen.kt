@@ -5,7 +5,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -35,8 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,8 +57,6 @@ import com.za869765.imagine.ui.component.FullscreenImageViewer
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
-import com.za869765.imagine.ui.component.SegmentedOption
-import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.ViewerAction
 import kotlinx.coroutines.launch
 
@@ -120,29 +124,48 @@ fun MaterialLibraryScreen(
         scroll = false,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            SegmentedTab(
-                options = MaterialLibrary.CATEGORIES.map { c -> SegmentedOption(c, "$c ${counts[c] ?: 0}") },
-                activeId = cat,
-                onSelected = { cat = it },
-                modifier = Modifier.padding(16.dp),
-            )
+            // 分類改成可橫滑的計數膠囊(角色 12 / 環境 8 …),取代等寬分段控制
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 6.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .clickable { pickFromAlbum() }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .horizontalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ImagineIcon(name = "add_photo_alternate", size = 20.dp, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                MaterialLibrary.CATEGORIES.forEach { c ->
+                    CategoryCountPill(
+                        label = c,
+                        count = counts[c] ?: 0,
+                        selected = cat == c,
+                        onClick = { cat = c },
+                    )
+                }
+            }
+            // 匯入橫幅:紫調(設計稿)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF211C30))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.20f), RoundedCornerShape(14.dp))
+                    .clickable { pickFromAlbum() }
+                    .padding(horizontal = 14.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
+            ) {
+                ImagineIcon(name = "add_photo_alternate", size = 21.dp, tint = Color(0xFFC9B8FF))
                 Text(
                     text = "從相簿匯入到「$cat」",
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = Color(0xFFC9B8FF),
+                )
+                Box(modifier = Modifier.weight(1f))
+                Text(
+                    text = "最多 20 張",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
@@ -293,15 +316,56 @@ fun MaterialLibraryScreen(
     }
 }
 
+// 分類計數膠囊:選中=主色紫淡底+紫框,計數用 mono。
+@Composable
+private fun CategoryCountPill(label: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
+            .border(
+                1.dp,
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline,
+                RoundedCornerShape(100.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "$count",
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
+    }
+}
+
 @Composable
 private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.W700,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.W700,
+            letterSpacing = 0.5.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.07f)))
+    }
 }
 
 @Composable
@@ -311,6 +375,7 @@ private fun GridCell(model: Any, onClick: () -> Unit) {
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
