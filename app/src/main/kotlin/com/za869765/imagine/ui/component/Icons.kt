@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
@@ -111,6 +114,12 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "search" to true -> Icons.Outlined.Search
     "language" to false -> Icons.Outlined.Language
     "language" to true -> Icons.Outlined.Language
+    "photo_library" to false -> Icons.Outlined.PhotoLibrary
+    "photo_library" to true -> Icons.Outlined.PhotoLibrary
+    "forum" to false -> Icons.Outlined.Forum
+    "forum" to true -> Icons.Outlined.Forum
+    "chevron_right" to false -> Icons.AutoMirrored.Outlined.ArrowForwardIos
+    "chevron_right" to true -> Icons.AutoMirrored.Outlined.ArrowForwardIos
     "star" to false -> Icons.Outlined.StarBorder
     "star" to true -> Icons.Filled.Star
     else -> Icons.Outlined.AutoAwesome
