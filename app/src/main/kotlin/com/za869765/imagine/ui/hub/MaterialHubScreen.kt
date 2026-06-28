@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -101,6 +102,7 @@ fun MaterialHubScreen(
 }
 
 // 主卡:左上彩色 icon 磚 + 右上柔光暈 + 左下大標題 + 標籤 chip 群。
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PrimaryGenCard(
     modifier: Modifier = Modifier,
