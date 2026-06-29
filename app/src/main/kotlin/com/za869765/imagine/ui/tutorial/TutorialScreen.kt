@@ -48,6 +48,7 @@ import com.za869765.imagine.ui.component.InlineVideoPlayer
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.PromptExample
 import com.za869765.imagine.ui.component.READY_PROMPTS
+import com.za869765.imagine.ui.component.EXTRA_PROMPTS
 import com.za869765.imagine.ui.component.ReadyPromptCard
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
@@ -158,7 +159,7 @@ private fun ReadyList(
     var cat by rememberSaveable { mutableStateOf("全部") }
     val q = query.trim()
     val filtered = remember(q, cat, favorites, mode) {
-        READY_PROMPTS.filter { ex ->
+        (READY_PROMPTS + EXTRA_PROMPTS).filter { ex ->
             val matchMode = usageOf(ex) == mode
             val matchQ = q.isEmpty() || ex.tag.contains(q, true) || ex.text.contains(q, true)
             val matchCat = when (cat) {
@@ -182,7 +183,7 @@ private fun ReadyList(
         )
         // 類別隨模式動態產生:i2v 會帶出武打群組(輕功追逐/刀劍打鬥…),t2i/t2v 仍是古裝/現代。
         val cats = remember(mode) {
-            val present = READY_PROMPTS.filter { usageOf(it) == mode }.map { categoryOf(it) }.distinct()
+            val present = (READY_PROMPTS + EXTRA_PROMPTS).filter { usageOf(it) == mode }.map { categoryOf(it) }.distinct()
             val head = listOf("古裝", "現代").filter { it in present }
             listOf("全部", "★ 收藏") + head + present.filter { it !in head }
         }

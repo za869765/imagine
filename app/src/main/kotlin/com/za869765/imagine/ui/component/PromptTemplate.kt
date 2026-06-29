@@ -2597,7 +2597,7 @@ fun ApplyTemplateSheet(
     // 三類分流:文生圖頁→t2i;影片頁未選圖→t2v(文生影);影片頁已選圖→i2v(圖生影)。
     val want = if (!forVideo) "t2i" else if (videoHasImage) "i2v" else "t2v"
     val ready = run {
-        val list = READY_PROMPTS.filter { usageOf(it) == want }
+        val list = (READY_PROMPTS + EXTRA_PROMPTS).filter { usageOf(it) == want }
         if (want == "i2v") {
             val theme = guessTheme(videoSourcePrompt)
             if (theme.isNotEmpty()) list.sortedByDescending { it.category == theme } else list
@@ -2648,7 +2648,7 @@ fun ApplyTemplateSheet(
             if (want == "i2v") {
                 // B2:圖生影改用「類別群組」挑選(武打/古裝/現代…),取代隨機一條
                 val i2vCats = remember {
-                    val present = READY_PROMPTS.filter { usageOf(it) == "i2v" }
+                    val present = (READY_PROMPTS + EXTRA_PROMPTS).filter { usageOf(it) == "i2v" }
                         .map { it.category }.filter { it.isNotEmpty() }.distinct()
                     val head = listOf("古裝", "現代").filter { it in present }
                     listOf("全部") + head + present.filter { it !in head }
