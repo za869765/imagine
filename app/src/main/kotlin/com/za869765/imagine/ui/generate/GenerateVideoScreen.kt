@@ -102,7 +102,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-enum class VideoMode { T2V, Img2Vid }
+enum class VideoMode { T2V, Img2Vid, Ref2Vid }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -131,7 +131,11 @@ fun GenerateVideoScreen(
     }
     var mode by rememberSaveable {
         mutableStateOf(
-            if (initialImageUri != null || initialVideoMode == "i2v") VideoMode.Img2Vid else VideoMode.T2V,
+            when {
+                initialVideoMode == "ref2v" -> VideoMode.Ref2Vid
+                initialImageUri != null || initialVideoMode == "i2v" -> VideoMode.Img2Vid
+                else -> VideoMode.T2V
+            },
         )
     }
     // 影片頁子功能：gen=生成(文生影/圖生影,用 mode 細分) / extend=影片延長 / edit=影片編輯。
@@ -283,7 +287,7 @@ fun GenerateVideoScreen(
         if (mode != VideoMode.T2V && sourceImages.isEmpty()) {
             Toast.makeText(
                 ctx,
-                "請先選擇起始圖",
+                if (mode == VideoMode.Ref2Vid) "請先選擇參考圖" else "請先選擇起始圖",
                 Toast.LENGTH_SHORT,
             ).show()
             return
@@ -316,13 +320,29 @@ fun GenerateVideoScreen(
                     Toast.makeText(ctx, "讀取起始圖失敗 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
                     return@launch
                 }
+                // v1.5.2 參考圖生影:把所有來源圖 encode 成 reference_images。與首幀 image 互斥
+                // (Ref2Vid 只送 reference_images、Img2Vid 只送 image),xAI 文件:參考圖
+                // 「影響輸出但不會被當成第一幀」,適合三相圖/角色一致性生影。
+                val references = if (capturedMode == VideoMode.Ref2Vid) {
+                    val encoded = ArrayList<String>()
+                    for (u in sourceImages) {
+                        val e = encodeImage(u)
+                        if (e != null) encoded.add(e)
+                    }
+                    encoded
+                } else null
+                if (capturedMode == VideoMode.Ref2Vid && references.isNullOrEmpty()) {
+                    generating = false
+                    Toast.makeText(ctx, "讀取參考圖失敗 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
                 val gen = repository.generateVideo(
                     prompt = capturedPrompt,
                     duration = capturedDuration,
                     resolution = resolution,
                     aspectRatio = aspect,
                     startingImageUrl = starting,
-                    referenceImageUrls = null,
+                    referenceImageUrls = references,
                 )
                 when (gen) {
                     is ApiResult.Error -> {
@@ -570,7 +590,7 @@ fun GenerateVideoScreen(
 
             // 模式 4 選 1:單排可橫滑膠囊(取代原兩排各 2 段+「只有一排高亮」的妥協,痛點 #1)
             Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                SectionHeader("模式・4 選 1")
+                SectionHeader("模式・5 選 1")
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -582,6 +602,9 @@ fun GenerateVideoScreen(
                     }
                     ModePill("圖生影", videoFn == "gen" && mode == VideoMode.Img2Vid) {
                         videoFn = "gen"; mode = VideoMode.Img2Vid
+                    }
+                    ModePill("參考圖生影", videoFn == "gen" && mode == VideoMode.Ref2Vid) {
+                        videoFn = "gen"; mode = VideoMode.Ref2Vid
                     }
                     ModePill("影片延長", videoFn == "extend") { videoFn = "extend" }
                     ModePill("影片編輯", videoFn == "edit") { videoFn = "edit" }
@@ -603,7 +626,7 @@ fun GenerateVideoScreen(
             if (mode != VideoMode.T2V) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionHeader(
-                        "起始圖",
+                        if (mode == VideoMode.Ref2Vid) "參考圖（可多張，不會被當成第一幀）" else "起始圖",
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         sourceImages.forEachIndexed { index, uri ->
@@ -658,7 +681,7 @@ fun GenerateVideoScreen(
                 flagged = lastErrorIsPolicy,
                 forVideo = true,
                 // 圖生影模式 → 「套用範本」改出純動作範本;傳來源圖原 prompt 供半智能排序
-                videoHasImage = mode == VideoMode.Img2Vid,
+                videoHasImage = mode == VideoMode.Img2Vid || mode == VideoMode.Ref2Vid,
                 videoSourcePrompt = initialPrompt,
             )
 
