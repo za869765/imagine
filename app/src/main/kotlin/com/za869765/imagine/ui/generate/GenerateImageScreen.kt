@@ -484,8 +484,24 @@ fun GenerateImageScreen(
                                     onClick = { onAnimateImage(resultUrls.first(), lastPrompt) },
                                 )
                             }
+                            // 一鍵把整批結果存成「角色」素材(供之後當參考圖/reference_images 用,角色一致性)
+                            ImagineChip(
+                                label = "🎭 存成角色素材",
+                                icon = "star",
+                                variant = ChipVariant.Tonal,
+                                modifier = Modifier.padding(top = 6.dp),
+                                onClick = {
+                                    val names = savedNames.filterNotNull()
+                                    if (names.isEmpty()) {
+                                        Toast.makeText(ctx, "圖片儲存中,請稍候再試", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        names.forEach { MaterialLibrary.setCategory(ctx, it, MaterialLibrary.CHARACTER) }
+                                        Toast.makeText(ctx, "已存成 ${names.size} 張角色素材,可當參考圖用", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                            )
                             Text(
-                                text = "設為素材庫(整批)",
+                                text = "或設為其他分類",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.W600,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
