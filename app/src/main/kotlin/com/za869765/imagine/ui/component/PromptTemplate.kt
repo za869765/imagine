@@ -2818,7 +2818,8 @@ fun PromptTemplateSheet(
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    var tab by remember { mutableStateOf("build") }
+    // remember(forVideo): 模式切換時分頁選項不同(分鏡/三視圖工坊),重設回 build 避免停在已不存在的分頁
+    var tab by remember(forVideo) { mutableStateOf("build") }
 
     // 條件選擇器狀態: 每欄預設選第一個選項 (modifier 欄第一個是「(不指定)」)
     val selected = remember {

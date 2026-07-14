@@ -48,7 +48,8 @@ val EXTRA_PROMPTS: List<PromptExample> = listOf(
 def kt_escape(s: str) -> str:
     s = s.replace("\\", "\\\\").replace("\"", "\\\"")
     s = s.replace("$", "${'$'}")
-    s = s.replace("\r\n", "\\n").replace("\n", "\\n")
+    s = s.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
+    s = s.replace("\t", "\\t").replace("\b", "\\b").replace("\f", "\\u000c")
     return s
 
 
@@ -106,11 +107,12 @@ def main() -> int:
     output = "".join(parts)
 
     if args.check:
-        with open(OUT, encoding="utf-8") as fh:
-            current = fh.read()
-        if current == output:
+        with open(OUT, "rb") as fh:
+            current_bytes = fh.read()
+        if current_bytes == output.encode("utf-8"):
             print("IDENTICAL (%d entries)" % total)
             return 0
+        current = current_bytes.decode("utf-8")
         cur_lines = current.splitlines()
         new_lines = output.splitlines()
         print("DIFFERS: current %d lines vs generated %d lines" % (len(cur_lines), len(new_lines)))
