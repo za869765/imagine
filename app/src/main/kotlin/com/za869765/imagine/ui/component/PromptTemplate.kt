@@ -2870,6 +2870,7 @@ fun PromptTemplateSheet(
                 options = buildList {
                     add(SegmentedOption("build", "自己組"))
                     if (forVideo) add(SegmentedOption("storyboard", "分鏡"))
+                    if (!forVideo) add(SegmentedOption("turnaround", "三視圖工坊"))
                 },
                 activeId = tab,
                 onSelected = { tab = it },
@@ -2879,6 +2880,8 @@ fun PromptTemplateSheet(
 
             if (tab == "storyboard") {
                 StoryboardTab(onPick = { pick(it) })
+            } else if (tab == "turnaround") {
+                TurnaroundTab(onPick = { pick(it) })
             } else {
                 // ── ② 範本精靈: 一鍵起手式 + 大類卡片導覽(進入後逐欄挑,每欄可跳過) ──
                 // 可見大類: 圖片模式濾掉影片限定欄位(動作/聲音);空大類不顯示。
