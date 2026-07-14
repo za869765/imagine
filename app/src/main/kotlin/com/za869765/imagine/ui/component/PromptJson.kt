@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 // 「自己組」的 JSON 輸出/匯入 — key=BUILDER_FIELDS 欄位名（中文）、值=選項字串。
@@ -29,7 +30,8 @@ fun parseBuilderJson(text: String): Map<String, String>? {
     val out = mutableMapOf<String, String>()
     obj.forEach { (k, v) ->
         if (k in knownLabels) {
-            val s = (v as? JsonPrimitive)?.content
+            // contentOrNull: JsonNull 回 null 而非字面 "null"
+            val s = (v as? JsonPrimitive)?.contentOrNull
             if (!s.isNullOrBlank()) out[k] = s
         }
     }
