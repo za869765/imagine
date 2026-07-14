@@ -134,11 +134,6 @@ class ImagineRepository(private val api: XaiApi) {
         return first
     }
 
-    companion object {
-        // 填表用便宜快模型；若 xAI 退役此名稱，錯誤 toast 會顯示 API 原文提示改名
-        const val FILL_FORM_MODEL = "grok-4-fast-non-reasoning"
-    }
-
     private inline fun <T> safeCall(block: () -> T): ApiResult<T> = try {
         ApiResult.Success(block())
     } catch (e: retrofit2.HttpException) {
@@ -182,6 +177,9 @@ class ImagineRepository(private val api: XaiApi) {
     }
 
     companion object {
+        // 填表用便宜快模型；若 xAI 退役此名稱，錯誤 toast 會顯示 API 原文提示改名
+        const val FILL_FORM_MODEL = "grok-4-fast-non-reasoning"
+
         private val errJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
         // v1.0.54 O6: 從 xAI 回的 error JSON 取出 error.message。
