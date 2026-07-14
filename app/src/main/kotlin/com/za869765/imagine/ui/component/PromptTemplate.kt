@@ -2913,60 +2913,66 @@ fun PromptTemplateSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
-                OutlinedTextField(
-                    value = fillIdea,
-                    onValueChange = { fillIdea = it },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text(
-                            text = "例：雨夜屋頂上的賽博女殺手，霓虹逆光",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.5.sp),
-                    trailingIcon = {
-                        TextActionButton(
-                            label = if (filling) "填表中…" else "AI 填表",
-                            icon = "auto_awesome",
-                            enabled = fillIdea.isNotBlank() && !filling,
-                            onClick = {
-                                filling = true
-                                scope.launch {
-                                    val res = repository.chatOnce(
-                                        system = buildFillFormSystemPrompt(forVideo),
-                                        user = fillIdea.trim(),
-                                    )
-                                    filling = false
-                                    when (res) {
-                                        is ApiResult.Success -> {
-                                            val parsed = parseBuilderJson(res.value)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    OutlinedTextField(
+                        value = fillIdea,
+                        onValueChange = { fillIdea = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = {
+                            Text(
+                                text = "例：雨夜屋頂上的賽博女殺手，霓虹逆光",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.5.sp),
+                        singleLine = true,
+                    )
+                    TextActionButton(
+                        label = if (filling) "填表中…" else "AI 填表",
+                        icon = "auto_awesome",
+                        enabled = fillIdea.isNotBlank() && !filling,
+                        onClick = {
+                            filling = true
+                            scope.launch {
+                                val res = repository.chatOnce(
+                                    system = buildFillFormSystemPrompt(forVideo),
+                                    user = fillIdea.trim(),
+                                )
+                                filling = false
+                                when (res) {
+                                    is ApiResult.Success -> {
+                                        val parsed = (
+                                            parseBuilderJson(res.value)
                                                 ?: extractJsonObject(res.value)?.let { parseBuilderJson(it) }
-                                            if (parsed == null) {
-                                                android.widget.Toast.makeText(
-                                                    ctx, "AI 回覆解析失敗，再試一次",
-                                                    android.widget.Toast.LENGTH_SHORT,
-                                                ).show()
-                                            } else {
-                                                parsed.forEach { (k, v) -> selected[k] = v }
-                                                android.widget.Toast.makeText(
-                                                    ctx, "已填入 ${parsed.size} 欄",
-                                                    android.widget.Toast.LENGTH_SHORT,
-                                                ).show()
-                                            }
+                                            )?.filterKeys { forVideo || it !in VIDEO_ONLY_FIELDS }
+                                        if (parsed.isNullOrEmpty()) {
+                                            android.widget.Toast.makeText(
+                                                ctx, "AI 回覆解析失敗，再試一次",
+                                                android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
+                                        } else {
+                                            parsed.forEach { (k, v) -> selected[k] = v }
+                                            android.widget.Toast.makeText(
+                                                ctx, "已填入 ${parsed.size} 欄",
+                                                android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
                                         }
-                                        is ApiResult.Error -> android.widget.Toast.makeText(
-                                            ctx,
-                                            "${res.kind.userFriendlyTag()}：${res.message.take(120)}",
-                                            android.widget.Toast.LENGTH_LONG,
-                                        ).show()
                                     }
+                                    is ApiResult.Error -> android.widget.Toast.makeText(
+                                        ctx,
+                                        "${res.kind.userFriendlyTag()}：${res.message.take(120)}",
+                                        android.widget.Toast.LENGTH_LONG,
+                                    ).show()
                                 }
-                            },
-                        )
-                    },
-                    singleLine = true,
-                )
+                            }
+                        },
+                    )
+                }
 
                 Text(
                     text = "一鍵起手式 — 套用協調的一組，再自己微調",
@@ -3129,7 +3135,10 @@ fun PromptTemplateSheet(
                         icon = "content_paste",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         onClick = {
+                            // 同 AI 填表：圖片模式擋掉影片限定欄位（動作/聲音），避免隱藏欄位偷渡進 prompt
                             val parsed = Clipboard.paste(ctx)?.let { parseBuilderJson(it) }
+                                ?.filterKeys { forVideo || it !in VIDEO_ONLY_FIELDS }
+                                ?.ifEmpty { null }
                             if (parsed == null) {
                                 android.widget.Toast.makeText(
                                     ctx, "剪貼簿沒有可解析的欄位 JSON", android.widget.Toast.LENGTH_SHORT,
