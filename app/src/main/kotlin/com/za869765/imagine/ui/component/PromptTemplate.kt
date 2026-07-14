@@ -2820,6 +2820,8 @@ fun PromptTemplateSheet(
     val scope = rememberCoroutineScope()
     // remember(forVideo): 模式切換時分頁選項不同(分鏡/三視圖工坊),重設回 build 避免停在已不存在的分頁
     var tab by remember(forVideo) { mutableStateOf("build") }
+    // 自己組 預覽輸出格式: false=自然語言(直接生成)、true=JSON(複製到結構化平台/LLM填表)
+    var previewJson by remember { mutableStateOf(false) }
 
     // 條件選擇器狀態: 每欄預設選第一個選項 (modifier 欄第一個是「(不指定)」)
     val selected = remember {
@@ -3006,14 +3008,26 @@ fun PromptTemplateSheet(
                 }
 
                 // 即時預覽 (不論在卡片頁或大類內都顯示)
-                Text(
-                    text = "預覽",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
-                )
-                val preview = assembleBuilderPrompt(selected)
+                // 文字=直接生成用；JSON=複製到 Seedance/即夢等結構化平台、或當 LLM 填表 schema
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "預覽",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Box(modifier = Modifier.weight(1f))
+                    ReadyCatChip(label = "文字", selected = !previewJson) { previewJson = false }
+                    ReadyCatChip(label = "JSON", selected = previewJson) { previewJson = true }
+                }
+                val preview =
+                    if (previewJson) assembleBuilderJson(selected) else assembleBuilderPrompt(selected)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3035,6 +3049,25 @@ fun PromptTemplateSheet(
                     horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // 剪貼簿的 {欄位名: 值} JSON 一鍵填回條件（JSON 預覽輸出即此格式）
+                    TextActionButton(
+                        label = "貼上JSON",
+                        icon = "content_paste",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        onClick = {
+                            val parsed = Clipboard.paste(ctx)?.let { parseBuilderJson(it) }
+                            if (parsed == null) {
+                                android.widget.Toast.makeText(
+                                    ctx, "剪貼簿沒有可解析的欄位 JSON", android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            } else {
+                                parsed.forEach { (k, v) -> selected[k] = v }
+                                android.widget.Toast.makeText(
+                                    ctx, "已填入 ${parsed.size} 欄", android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    )
                     TextActionButton(
                         label = "複製",
                         icon = "content_copy",

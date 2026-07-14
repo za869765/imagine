@@ -28,6 +28,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.za869765.imagine.ui.util.Clipboard
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+// 共用 pretty-print Json（三視圖工坊/自己組 的 JSON 輸出都用這顆）
+val PRETTY_JSON = Json { prettyPrint = true }
 
 // 三視圖工坊 — 參數化三視圖 prompt 生成器（仿 aizhuiguang 角色三視圖工坊的互動結構，
 // 內容全原創、僅女角，輸出沿用本 app 三視圖包既定版式：正面/¾側/背面、photorealistic 真人寫實）。
@@ -144,41 +151,81 @@ val TURN_CATS: List<TurnCat> = listOf(
     )),
 )
 
-// ── 拼裝 ──（隨機欄位在呼叫當下擲定；同一角色重按=換細節重生）
-fun buildTurnaroundPrompt(
+// ── 擲定與渲染分離 ──（隨機欄位在 resolve 當下擲定成 TurnResolved；
+// 之後切換 文字/JSON、開關英文結構詞 只重渲染、不重擲，內容不會跳）
+data class TurnResolved(
+    val role: TurnRole,
+    val eth: TurnEth,
+    val age: String,
+    val build: String,
+    val vibe: String,
+    val light: String,
+    val ratio: TurnRatio,
+)
+
+fun resolveTurnaround(
     role: TurnRole,
     eth: TurnEth,
     details: Map<String, String>,
     ratio: TurnRatio,
-    withEn: Boolean,
-): String {
+): TurnResolved {
     fun resolve(field: TurnDetailField): String {
         val v = details[field.label] ?: "隨機"
         return if (v == "隨機") field.options.drop(1).random() else v
     }
+    return TurnResolved(
+        role = role,
+        eth = if (eth.label == "隨機") TURN_ETHS.drop(1).random() else eth,
+        age = resolve(TURN_DETAILS[0]),
+        build = resolve(TURN_DETAILS[1]),
+        vibe = resolve(TURN_DETAILS[2]),
+        light = resolve(TURN_DETAILS[3]),
+        ratio = ratio,
+    )
+}
 
-    val e = if (eth.label == "隨機") TURN_ETHS.drop(1).random() else eth
-    val age = resolve(TURN_DETAILS[0])
-    val build = resolve(TURN_DETAILS[1])
-    val vibe = resolve(TURN_DETAILS[2])
-    val light = resolve(TURN_DETAILS[3])
-
-    val zh = "${e.zh}，女性，$age，$build，${role.zh}，${vibe}氣質；" +
-        "【角色設定三視圖】同一角色 — 正面全身、四分之三側面全身、背面全身，" +
-        "三視等高並排、共用同一條地平線、比例與身高完全一致，中性站姿、雙臂自然放鬆；" +
-        "純淨中性灰攝影棚背景，$light，均勻柔和三點打光、三視光源與色溫一致、無強投影；" +
-        "photorealistic 照片級真人寫實、真人演員、電影級質感、超精細五官與服裝材質、自然真實膚質，8K；" +
-        "正交平視、無透視變形，${ratio.label}。僅此一角色的三個視圖、無第二人、無文字浮水印，端莊不露。"
-
-    if (!withEn) return zh
-
-    val lightEn = TURN_LIGHT_EN[light] ?: "cinematic lighting"
-    val en = "${e.en}, ${role.en}, character turnaround model sheet of the same character, " +
+private fun turnaroundEn(r: TurnResolved): String {
+    val lightEn = TURN_LIGHT_EN[r.light] ?: "cinematic lighting"
+    return "${r.eth.en}, ${r.role.en}, character turnaround model sheet of the same character, " +
         "front full body + 3/4 side full body + back full body, consistent design across all views, " +
         "neutral A-pose, seamless neutral gray studio background, $lightEn, even three-point lighting, " +
         "photorealistic live-action, cinematic quality, ultra detailed face and outfit, 8K, " +
-        "orthographic eye-level view, ${ratio.en}"
-    return "$zh\n$en"
+        "orthographic eye-level view, ${r.ratio.en}"
+}
+
+// 自然語言版 — 給 xAI Imagine 直接生成用
+fun renderTurnaroundText(r: TurnResolved, withEn: Boolean): String {
+    val zh = "${r.eth.zh}，女性，${r.age}，${r.build}，${r.role.zh}，${r.vibe}氣質；" +
+        "【角色設定三視圖】同一角色 — 正面全身、四分之三側面全身、背面全身，" +
+        "三視等高並排、共用同一條地平線、比例與身高完全一致，中性站姿、雙臂自然放鬆；" +
+        "純淨中性灰攝影棚背景，${r.light}，均勻柔和三點打光、三視光源與色溫一致、無強投影；" +
+        "photorealistic 照片級真人寫實、真人演員、電影級質感、超精細五官與服裝材質、自然真實膚質，8K；" +
+        "正交平視、無透視變形，${r.ratio.label}。僅此一角色的三個視圖、無第二人、無文字浮水印，端莊不露。"
+    return if (withEn) "$zh\n${turnaroundEn(r)}" else zh
+}
+
+// JSON 版 — 複製到 Seedance/即夢 等吃結構化提示詞的平台用（中文 key，與畫面值同語言）
+fun renderTurnaroundJson(r: TurnResolved, withEn: Boolean): String {
+    val obj = buildJsonObject {
+        put("任務", "角色設定三視圖（character turnaround model sheet）")
+        put("視圖", "正面全身、四分之三側面全身、背面全身；三視等高並排、共用同一條地平線、比例與身高完全一致")
+        put("姿勢", "中性站姿、雙臂自然放鬆")
+        put("性別", "女性")
+        put("人種", r.eth.zh)
+        put("年齡", r.age)
+        put("體型", r.build)
+        put("氣質", r.vibe)
+        put("角色", r.role.name)
+        put("角色描述", r.role.zh)
+        put("背景", "純淨中性灰攝影棚背景")
+        put("光線", "${r.light}；均勻柔和三點打光、三視光源與色溫一致、無強投影")
+        put("畫風", "photorealistic 照片級真人寫實、真人演員、電影級質感、超精細五官與服裝材質、自然真實膚質、8K")
+        put("鏡頭", "正交平視、無透視變形")
+        put("畫幅", r.ratio.label)
+        put("限制", "僅此一角色的三個視圖、無第二人、無文字浮水印、端莊不露")
+        if (withEn) put("英文結構詞", turnaroundEn(r))
+    }
+    return PRETTY_JSON.encodeToString(JsonObject.serializer(), obj)
 }
 
 // ── Tab UI ──（掛在 PromptTemplateSheet 的「三視圖」分頁，父層已可垂直捲動）
@@ -190,14 +237,21 @@ fun TurnaroundTab(onPick: (String) -> Unit) {
     var catIndex by remember { mutableIntStateOf(0) }
     var role by remember { mutableStateOf<TurnRole?>(null) }
     var withEn by remember { mutableStateOf(true) }
+    var asJson by remember { mutableStateOf(false) }
     var expandedDetail by remember { mutableStateOf<String?>(null) }
-    var result by remember { mutableStateOf("") }
+    var resolved by remember { mutableStateOf<TurnResolved?>(null) }
     val details = remember {
         mutableStateMapOf<String, String>().apply { TURN_DETAILS.forEach { put(it.label, "隨機") } }
     }
+    // 隨機已在 resolved 擲定 → 切 文字/JSON、開關英文只重渲染，內容不跳
+    val result = remember(resolved, asJson, withEn) {
+        resolved?.let {
+            if (asJson) renderTurnaroundJson(it, withEn) else renderTurnaroundText(it, withEn)
+        } ?: ""
+    }
 
     fun regen() {
-        role?.let { result = buildTurnaroundPrompt(it, eth, details, ratio, withEn) }
+        role?.let { resolved = resolveTurnaround(it, eth, details, ratio) }
     }
 
     TurnSectionLabel("① 畫幅")
@@ -349,17 +403,27 @@ fun TurnaroundTab(onPick: (String) -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Box(modifier = Modifier.weight(1f))
-        Switch(checked = withEn, onCheckedChange = { withEn = it; regen() })
+        Switch(checked = withEn, onCheckedChange = { withEn = it })
     }
 
-    // 輸出
-    Text(
-        text = "生成的三視圖提示詞",
-        fontSize = 12.sp,
-        fontWeight = FontWeight.W600,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
-    )
+    // 輸出（文字=直接生圖用；JSON=複製到 Seedance/即夢等結構化平台用）
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "生成的三視圖提示詞",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.W600,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(modifier = Modifier.weight(1f))
+        TurnChip(label = "文字", selected = !asJson) { asJson = false }
+        Box(modifier = Modifier.padding(start = 6.dp))
+        TurnChip(label = "JSON", selected = asJson) { asJson = true }
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
