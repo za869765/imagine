@@ -1,6 +1,9 @@
 package com.za869765.imagine.data.repo
 
 import com.za869765.imagine.data.api.XaiApi
+import com.za869765.imagine.data.api.dto.ChatCompletionRequest
+import com.za869765.imagine.data.api.dto.ChatMessage
+import com.za869765.imagine.data.api.dto.ChatResponseFormat
 import com.za869765.imagine.data.api.dto.ImageEditRequest
 import com.za869765.imagine.data.api.dto.ImageGenerationRequest
 import com.za869765.imagine.data.api.dto.ImageInput
@@ -101,6 +104,39 @@ class ImagineRepository(private val api: XaiApi) {
 
     suspend fun pollVideoStatus(requestId: String) = safeCall {
         api.getVideoStatus(requestId)
+    }
+
+    // 單發 chat（目前給「AI 填表」用）— 回助手訊息全文。
+    // jsonMode 先試 response_format=json_object；部分模型/版本不支援時（400/404）自動降級純提示詞重試一次。
+    suspend fun chatOnce(
+        system: String,
+        user: String,
+        model: String = FILL_FORM_MODEL,
+        jsonMode: Boolean = true,
+    ): ApiResult<String> {
+        suspend fun call(withJsonMode: Boolean): ApiResult<String> = safeCall {
+            api.chatCompletion(
+                ChatCompletionRequest(
+                    model = model,
+                    messages = listOf(ChatMessage("system", system), ChatMessage("user", user)),
+                    responseFormat = if (withJsonMode) ChatResponseFormat("json_object") else null,
+                    temperature = 0.7,
+                ),
+            ).choices.firstOrNull()?.message?.content ?: error("空回應")
+        }
+
+        val first = call(jsonMode)
+        if (jsonMode && first is ApiResult.Error &&
+            (first.kind == ErrorKind.ContentPolicy || first.kind == ErrorKind.NotFound)
+        ) {
+            return call(false)
+        }
+        return first
+    }
+
+    companion object {
+        // 填表用便宜快模型；若 xAI 退役此名稱，錯誤 toast 會顯示 API 原文提示改名
+        const val FILL_FORM_MODEL = "grok-4-fast-non-reasoning"
     }
 
     private inline fun <T> safeCall(block: () -> T): ApiResult<T> = try {

@@ -1,5 +1,7 @@
 package com.za869765.imagine.data.api
 
+import com.za869765.imagine.data.api.dto.ChatCompletionRequest
+import com.za869765.imagine.data.api.dto.ChatCompletionResponse
 import com.za869765.imagine.data.api.dto.ImageEditRequest
 import com.za869765.imagine.data.api.dto.ImageGenerationRequest
 import com.za869765.imagine.data.api.dto.ImageGenerationResponse
@@ -32,4 +34,7 @@ interface XaiApi {
 
     @GET("v1/videos/{requestId}")
     suspend fun getVideoStatus(@Path("requestId") requestId: String): VideoStatusResponse
+
+    @POST("v1/chat/completions")
+    suspend fun chatCompletion(@Body req: ChatCompletionRequest): ChatCompletionResponse
 }

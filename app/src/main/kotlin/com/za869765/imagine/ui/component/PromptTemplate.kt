@@ -35,6 +35,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.za869765.imagine.data.api.XaiClient
+import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.repo.ApiResult
+import com.za869765.imagine.data.repo.ImagineRepository
+import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
 
@@ -2822,6 +2827,11 @@ fun PromptTemplateSheet(
     var tab by remember(forVideo) { mutableStateOf("build") }
     // 自己組 預覽輸出格式: false=自然語言(直接生成)、true=JSON(複製到結構化平台/LLM填表)
     var previewJson by remember { mutableStateOf(false) }
+    // AI 填表: 一句話點子 → Grok 依欄位候選清單回 JSON → 填回 selected
+    var fillIdea by remember { mutableStateOf("") }
+    var filling by remember { mutableStateOf(false) }
+    val prefs = remember { SecurePrefs.get(ctx) }
+    val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
 
     // 條件選擇器狀態: 每欄預設選第一個選項 (modifier 欄第一個是「(不指定)」)
     val selected = remember {
@@ -2894,12 +2904,76 @@ fun PromptTemplateSheet(
                         .filter { it.second.isNotEmpty() }
                 }
 
+                // ✨ AI 填表 — 一句話點子丟給 Grok（走生圖同一把 API key，非 grok.com 帳號），
+                // 依欄位候選清單回 JSON，一鍵填回下方條件；每按一次=一次 chat API 呼叫（小額計費）。
+                Text(
+                    text = "✨ AI 填表 — 一句話點子，Grok 幫你選好條件",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                OutlinedTextField(
+                    value = fillIdea,
+                    onValueChange = { fillIdea = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            text = "例：雨夜屋頂上的賽博女殺手，霓虹逆光",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.5.sp),
+                    trailingIcon = {
+                        TextActionButton(
+                            label = if (filling) "填表中…" else "AI 填表",
+                            icon = "auto_awesome",
+                            enabled = fillIdea.isNotBlank() && !filling,
+                            onClick = {
+                                filling = true
+                                scope.launch {
+                                    val res = repository.chatOnce(
+                                        system = buildFillFormSystemPrompt(forVideo),
+                                        user = fillIdea.trim(),
+                                    )
+                                    filling = false
+                                    when (res) {
+                                        is ApiResult.Success -> {
+                                            val parsed = parseBuilderJson(res.value)
+                                                ?: extractJsonObject(res.value)?.let { parseBuilderJson(it) }
+                                            if (parsed == null) {
+                                                android.widget.Toast.makeText(
+                                                    ctx, "AI 回覆解析失敗，再試一次",
+                                                    android.widget.Toast.LENGTH_SHORT,
+                                                ).show()
+                                            } else {
+                                                parsed.forEach { (k, v) -> selected[k] = v }
+                                                android.widget.Toast.makeText(
+                                                    ctx, "已填入 ${parsed.size} 欄",
+                                                    android.widget.Toast.LENGTH_SHORT,
+                                                ).show()
+                                            }
+                                        }
+                                        is ApiResult.Error -> android.widget.Toast.makeText(
+                                            ctx,
+                                            "${res.kind.userFriendlyTag()}：${res.message.take(120)}",
+                                            android.widget.Toast.LENGTH_LONG,
+                                        ).show()
+                                    }
+                                }
+                            },
+                        )
+                    },
+                    singleLine = true,
+                )
+
                 Text(
                     text = "一鍵起手式 — 套用協調的一組，再自己微調",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(top = 14.dp, bottom = 8.dp),
                 )
                 Row(
                     modifier = Modifier
