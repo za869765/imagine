@@ -3,6 +3,7 @@ package com.za869765.imagine.data.api
 import com.za869765.imagine.data.api.dto.ChatCompletionRequest
 import com.za869765.imagine.data.api.dto.ChatCompletionResponse
 import com.za869765.imagine.data.api.dto.ImageEditRequest
+import com.za869765.imagine.data.api.dto.ImageEditSingleRequest
 import com.za869765.imagine.data.api.dto.ImageGenerationRequest
 import com.za869765.imagine.data.api.dto.ImageGenerationResponse
 import com.za869765.imagine.data.api.dto.VideoEditRequest
@@ -22,6 +23,10 @@ interface XaiApi {
 
     @POST("v1/images/edits")
     suspend fun editImage(@Body req: ImageEditRequest): ImageGenerationResponse
+
+    // 單張輸入圖走 image:{...} 形狀(多張的 images:[...] 對單張未驗證,分開最穩)
+    @POST("v1/images/edits")
+    suspend fun editImageSingle(@Body req: ImageEditSingleRequest): ImageGenerationResponse
 
     @POST("v1/videos/generations")
     suspend fun generateVideo(@Body req: VideoGenerationRequest): VideoGenerationResponse

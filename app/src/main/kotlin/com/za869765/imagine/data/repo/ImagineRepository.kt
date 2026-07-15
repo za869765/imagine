@@ -5,6 +5,7 @@ import com.za869765.imagine.data.api.dto.ChatCompletionRequest
 import com.za869765.imagine.data.api.dto.ChatMessage
 import com.za869765.imagine.data.api.dto.ChatResponseFormat
 import com.za869765.imagine.data.api.dto.ImageEditRequest
+import com.za869765.imagine.data.api.dto.ImageEditSingleRequest
 import com.za869765.imagine.data.api.dto.ImageGenerationRequest
 import com.za869765.imagine.data.api.dto.ImageInput
 import com.za869765.imagine.data.api.dto.VideoEditRequest
@@ -66,12 +67,17 @@ class ImagineRepository(private val api: XaiApi) {
         prompt: String,
         imageUrls: List<String>,
     ): ApiResult<List<String>> = safeCall {
-        api.editImage(
-            ImageEditRequest(
-                prompt = prompt,
-                image = imageUrls.map { ImageInput(url = it) },
-            ),
-        ).data.mapNotNull { it.url }
+        // v1.7.3: 單圖/多圖走不同欄位形狀(xAI schema 實測,詳見 ImageDtos)
+        val resp = if (imageUrls.size == 1) {
+            api.editImageSingle(
+                ImageEditSingleRequest(prompt = prompt, image = ImageInput(url = imageUrls[0])),
+            )
+        } else {
+            api.editImage(
+                ImageEditRequest(prompt = prompt, images = imageUrls.map { ImageInput(url = it) }),
+            )
+        }
+        resp.data.mapNotNull { it.url }
     }
 
     suspend fun generateVideo(

@@ -13,11 +13,22 @@ data class ImageGenerationRequest(
     @SerialName("response_format") val responseFormat: String = "url",
 )
 
+// v1.7.3: xAI /images/edits 的正確形狀(2026-07-16 對線上 API 實測):
+// 單圖 = image:{url,type} 單物件、多圖 = images:[{url,type}]。
+// 舊的 image:[{...}] 會被 422 拒收(「image[0] 應為 string 不是 map」)。
 @Serializable
 data class ImageEditRequest(
     val model: String = "grok-imagine-image-quality",
     val prompt: String,
-    val image: List<ImageInput>,
+    val images: List<ImageInput>,
+    @SerialName("response_format") val responseFormat: String = "url",
+)
+
+@Serializable
+data class ImageEditSingleRequest(
+    val model: String = "grok-imagine-image-quality",
+    val prompt: String,
+    val image: ImageInput,
     @SerialName("response_format") val responseFormat: String = "url",
 )
 
