@@ -123,6 +123,10 @@ fun EditPane(
             sourceUriStr = initialMediaUri.toString()
         }
     }
+    // 角色參考(v1.7.2,僅 ImageEdit):最多 2 張,與來源共 3 張送 /images/edits —
+    // super-i 雙參考圖法:來源當造型底,角色定妝圖鎖臉。Uri 非 Saveable,存字串。
+    var charRefStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var showCharPicker by remember { mutableStateOf(false) }
     // trackedRequestId 是 SSOT — 切走再回來時 LaunchedEffect 會恢復 loading 並重 observe。
     // loading 維持 remember,ImageEdit (scope-cancel 路徑) 切走時不會卡住。
     var loading by remember { mutableStateOf(false) }
@@ -142,6 +146,7 @@ fun EditPane(
         val isImage = mode == EditMode.ImageEdit
         if (isImage != lastIsImage) {
             sourceUriStr = null
+            charRefStrings = emptyList()
             resultImageUrl = null
             resultVideoUrl = null
             lastIsImage = isImage
@@ -240,7 +245,13 @@ fun EditPane(
 
                 when (capturedMode) {
                     EditMode.ImageEdit -> {
-                        val r = repository.editImage(capturedPrompt, listOf(encoded))
+                        // 角色參考(最多 2)接在來源後 — xAI /images/edits 最多 3 張輸入圖
+                        val charEncoded = ArrayList<String>()
+                        for (s in charRefStrings.take(2)) {
+                            val e = MediaEncoder.encodeForApi(ctx, Uri.parse(s), MediaEncoder.Kind.Image)
+                            if (e != null) charEncoded.add(e)
+                        }
+                        val r = repository.editImage(capturedPrompt, listOf(encoded) + charEncoded)
                         loading = false
                         // v1.0.54: 不再傳 scope (改用 appScope 內部 launch)
                         handleImageResult(r, capturedPrompt, ctx) {
@@ -375,6 +386,66 @@ fun EditPane(
             }
         }
 
+        // 角色參考(僅圖片編輯):帶入角色資產定妝圖鎖臉 — 來源當造型底、角色圖鎖臉,
+        // 與來源共 3 張送 API(雙參考圖法)。
+        if (mode == EditMode.ImageEdit) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    com.za869765.imagine.ui.component.ImagineChip(
+                        label = "🎭 加角色參考（鎖臉）",
+                        icon = "star",
+                        variant = com.za869765.imagine.ui.component.ChipVariant.Tonal,
+                        onClick = { showCharPicker = true },
+                    )
+                    if (charRefStrings.isNotEmpty()) {
+                        Text(
+                            "prompt 記得指名參考誰的臉",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (charRefStrings.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        charRefStrings.forEachIndexed { index, s ->
+                            Box(modifier = Modifier.size(64.dp)) {
+                                AsyncImage(
+                                    model = Uri.parse(s),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .clickable {
+                                            charRefStrings = charRefStrings
+                                                .toMutableList()
+                                                .also { it.removeAt(index) }
+                                        },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    ImagineIcon(
+                                        name = "close", size = 13.dp,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionHeader("編輯說明")
             if (mode == EditMode.ImageEdit) {
@@ -451,6 +522,26 @@ fun EditPane(
                 term = term,
                 onConfirm = { pendingRiskTerm = null; runExecute() },
                 onDismiss = { pendingRiskTerm = null },
+            )
+        }
+
+        if (showCharPicker) {
+            com.za869765.imagine.ui.component.CharacterPickerSheet(
+                onDismiss = { showCharPicker = false },
+                onPick = { name, uris ->
+                    showCharPicker = false
+                    if (uris.isEmpty()) {
+                        Toast.makeText(ctx, "角色「$name」還沒有定妝圖", Toast.LENGTH_SHORT).show()
+                    } else {
+                        // 上限 2 張(與來源共 3);取角色前 2 張(通常是正面定妝)
+                        charRefStrings = uris.take(2).map { it.toString() }
+                        Toast.makeText(
+                            ctx,
+                            "已帶入「$name」${charRefStrings.size} 張當鎖臉參考",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                },
             )
         }
 

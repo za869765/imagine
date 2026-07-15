@@ -132,13 +132,26 @@ fun GenerateImageScreen(
     // 用 rememberSaveable 跟 resultUrls 一致(process death 還原後不重置回 0 撞到舊 disk 快取)。
     var resultGen by rememberSaveable { mutableStateOf(0) }
     // 這批生成存檔後的本機檔名(依序對齊 resultUrls);給「設為素材庫」整批標分類用。
-    var savedNames by remember { mutableStateOf<List<String?>>(emptyList()) }
+    // v1.7.2: 改 rememberSaveable("" = 還沒存好) — 否則切頁回來 resultUrls 還原了
+    // 但 savedNames 空掉,「存成角色資產」永遠卡在「圖片儲存中」。
+    var savedNames by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastMeta by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
     // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
     var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
+    // 角色資產:存成角色的命名對話框(v1.7.2)。非 null=開啟,值=開啟當下快照的檔名
+    // (確認時不能重讀 savedNames — 對話框開著時新批完成會把它換掉,寫進錯批的圖)
+    var saveCharacterNames by remember { mutableStateOf<List<String>?>(null) }
+    // 批次存檔帳本:appScope 下載完成順手寫 prefs(不依賴 composition 存活)。
+    // 切頁時 in-flight 的存檔寫不回已死的 state,回來只還原 "" 佔位 → 點按鈕時從帳本對帳回填。
+    val batchPrefs = remember {
+        ctx.getSharedPreferences("imagine_batch_saved", android.content.Context.MODE_PRIVATE)
+    }
+    // 批次識別用 UUID — resultGen 只在單一畫面 instance 內單調,重進頁會從頭數,
+    // 舊 instance 晚到的下載可能撞同號鍵把錯圖對帳進新批;UUID 跨 instance 唯一。
+    var batchToken by rememberSaveable { mutableStateOf("") }
     // v1.0.63 bug#3: 新一輪生成成功時設 true → LaunchedEffect 把畫面捲到底部結果區,
     // 避免「上次結果」已存在時新圖落在 fold 下方使用者看不到。只在「這次生成成功」時觸發,
     // 不用 rememberSaveable 以免進畫面從存檔還原 resultUrls 也跟著亂捲。
@@ -203,15 +216,24 @@ fun GenerateImageScreen(
                         resultGen++                   // A1: 換快取 key,強制顯示這次的新圖
                         // v1.0.54 B3: 改用 ImagineApp.appScope (process-lifecycle) — user
                         // 切走/鎖屏時 Composable scope 會 cancel，下載到一半被砍 → History 看不到
-                        savedNames = List(result.value.size) { null }
+                        savedNames = List(result.value.size) { "" }
+                        // v1.7.2: 這批專屬 token — 上一批(甚至上一個畫面 instance)較晚完成的
+                        // 下載不可寫進新批的 savedNames/帳本鍵(索引對不上會把錯的圖存進角色資產)
+                        val tok = java.util.UUID.randomUUID().toString()
+                        batchToken = tok
+                        batchPrefs.edit().clear().apply()  // 帳本只留當前批(舊批晚到寫入=孤兒鍵,無害)
                         result.value.forEachIndexed { i, url ->
                             com.za869765.imagine.ImagineApp.appScope.launch {
                                 val savedUri = MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
                                 val name = savedUri?.substringAfterLast('/')
                                 if (name != null) {
+                                    // 先記帳本(切頁後 state 死了也留得下),再更新 UI state
+                                    batchPrefs.edit().putString("b${tok}_$i", name).apply()
                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        savedNames = savedNames.toMutableList()
-                                            .also { if (i < it.size) it[i] = name }
+                                        if (batchToken == tok) {
+                                            savedNames = savedNames.toMutableList()
+                                                .also { if (i < it.size) it[i] = name }
+                                        }
                                     }
                                 }
                             }
@@ -484,19 +506,25 @@ fun GenerateImageScreen(
                                     onClick = { onAnimateImage(resultUrls.first(), lastPrompt) },
                                 )
                             }
-                            // 一鍵把整批結果存成「角色」素材(供之後當參考圖/reference_images 用,角色一致性)
+                            // 一鍵把整批結果存成「角色資產」(名字+定妝圖組;之後生成可一鍵帶入
+                            // 整組當參考圖,角色一致性)。同時標進素材庫「角色」分類。
                             ImagineChip(
-                                label = "🎭 存成角色素材",
+                                label = "🎭 存成角色資產",
                                 icon = "star",
                                 variant = ChipVariant.Tonal,
                                 modifier = Modifier.padding(top = 6.dp),
                                 onClick = {
-                                    val names = savedNames.filterNotNull()
-                                    if (names.isEmpty()) {
-                                        Toast.makeText(ctx, "圖片儲存中,請稍候再試", Toast.LENGTH_SHORT).show()
+                                    // 先跟帳本對帳回填(切頁期間完成的存檔只在帳本裡)
+                                    val filled = savedNames.mapIndexed { i, n ->
+                                        n.ifEmpty { batchPrefs.getString("b${batchToken}_$i", "") ?: "" }
+                                    }
+                                    if (filled != savedNames) savedNames = filled
+                                    // 全批存好才能開命名對話框 — 部分完成就寫入會漏圖進角色
+                                    val done = filled.count { it.isNotEmpty() }
+                                    if (filled.isEmpty() || done < filled.size) {
+                                        Toast.makeText(ctx, "圖片儲存中($done/${filled.size}),請稍候再試", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        names.forEach { MaterialLibrary.setCategory(ctx, it, MaterialLibrary.CHARACTER) }
-                                        Toast.makeText(ctx, "已存成 ${names.size} 張角色素材,可當參考圖用", Toast.LENGTH_SHORT).show()
+                                        saveCharacterNames = filled  // 快照,對話框開著時不受新批影響
                                     }
                                 },
                             )
@@ -516,7 +544,7 @@ fun GenerateImageScreen(
                                         label = c,
                                         variant = ChipVariant.Tonal,
                                         onClick = {
-                                            val names = savedNames.filterNotNull()
+                                            val names = savedNames.filter { it.isNotEmpty() }
                                             if (names.isEmpty()) {
                                                 Toast.makeText(ctx, "圖片儲存中,請稍候再試", Toast.LENGTH_SHORT).show()
                                             } else {
@@ -531,6 +559,20 @@ fun GenerateImageScreen(
                     }
                 }
             }
+        }
+
+        // 角色資產命名對話框:確認後 加進 CharacterAssets + 標素材庫「角色」分類。
+        // 用開啟當下的快照(saveCharacterNames),不重讀 savedNames — 防對話框開著時被新批換掉。
+        saveCharacterNames?.let { snapshot ->
+            com.za869765.imagine.ui.component.SaveToCharacterDialog(
+                onDismiss = { saveCharacterNames = null },
+                onConfirm = { charName ->
+                    com.za869765.imagine.data.storage.CharacterAssets.addImages(ctx, charName, snapshot)
+                    snapshot.forEach { MaterialLibrary.setCategory(ctx, it, MaterialLibrary.CHARACTER) }
+                    saveCharacterNames = null
+                    Toast.makeText(ctx, "已把 ${snapshot.size} 張存進角色「$charName」", Toast.LENGTH_SHORT).show()
+                },
+            )
         }
 
         // 點結果圖 → 全螢幕看圖器(雙指縮放/多張左右滑);底部動作作用在當頁那張。

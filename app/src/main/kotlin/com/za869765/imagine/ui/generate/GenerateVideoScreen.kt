@@ -152,6 +152,8 @@ fun GenerateVideoScreen(
     val sourceImages = sourceImageStrings.map { Uri.parse(it) }
     // 圖生影「從素材庫選」：true 時彈出素材庫圖片 grid sheet
     var showLibraryPicker by remember { mutableStateOf(false) }
+    // 參考圖生影「帶入角色」：true 時彈出角色資產 sheet(v1.7.2)
+    var showCharacterPicker by remember { mutableStateOf(false) }
 
     // trackedRequestId 是 SSOT — process / Composable 重建後從 saveable 恢復,LaunchedEffect
     // 自動重新 observe Worker 並把 generating 設回 true。generating 維持 remember,避免
@@ -644,6 +646,16 @@ fun GenerateVideoScreen(
                             AddImageSlot(onClick = { showLibraryPicker = true })
                         }
                     }
+                    // 參考圖生影:一鍵帶入「角色資產」整組定妝圖(鎖臉/鎖造型,角色一致性)
+                    if (mode == VideoMode.Ref2Vid) {
+                        ImagineChip(
+                            label = "🎭 帶入角色定妝圖",
+                            icon = "star",
+                            variant = ChipVariant.Tonal,
+                            modifier = Modifier.padding(top = 4.dp),
+                            onClick = { showCharacterPicker = true },
+                        )
+                    }
                     // 起始圖 / 參考圖常駐 chip — Grok 風格：原圖跟 prompt 永遠能拿走，
                     // 不論還沒生成 / 生成中 / 成功 / 400 失敗。
                     if (sourceImages.isNotEmpty()) {
@@ -907,6 +919,26 @@ fun GenerateVideoScreen(
                         // 圖生影一次一張 → 直接取代來源；用 app 生成的 file URI(xAI 可解析)
                         sourceImageStrings = listOf(entry.uri.toString())
                         showLibraryPicker = false
+                    },
+                )
+            }
+
+            if (showCharacterPicker) {
+                com.za869765.imagine.ui.component.CharacterPickerSheet(
+                    onDismiss = { showCharacterPicker = false },
+                    onPick = { name, uris ->
+                        showCharacterPicker = false
+                        if (uris.isEmpty()) {
+                            Toast.makeText(ctx, "角色「$name」還沒有定妝圖", Toast.LENGTH_SHORT).show()
+                        } else {
+                            // 整組取代目前參考圖;超過上限(3)只取前面的,並提示
+                            sourceImageStrings = uris.take(maxImages).map { it.toString() }
+                            if (uris.size > maxImages) {
+                                Toast.makeText(ctx, "「$name」有 ${uris.size} 張,已帶入前 $maxImages 張", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(ctx, "已帶入「$name」${uris.size} 張定妝圖", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     },
                 )
             }
