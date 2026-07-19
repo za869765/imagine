@@ -77,6 +77,11 @@ fun guessTheme(prompt: String?): String {
     return if (GUZHUANG_KW.any { prompt.contains(it) }) "古裝" else "現代"
 }
 
+// 鎖臉咒語 — Base Image 身份鎖(IDENTITY LOCK＋HEAD SCALE LOCK)。
+// 編輯頁「🔒 鎖臉咒語」快捷鈕與 READY_PROMPTS「鎖臉咒語·Base Image 換景」共用同一份。
+const val IDENTITY_LOCK_SPELL =
+    "以圖片作為 BASE IMAGE，不要生成新的人物。IDENTITY LOCK，完整保留原本女性的身份。保留：臉部身份、頭型、頭骨形狀、額頭、眉毛、眼睛、鼻子、嘴唇、下顎線、髮型。不可以 Identity Drift、不可以重新設計臉部、不可以重建臉部。頭部比例鎖定（HEAD SCALE LOCK）：頭部尺寸維持 100% 真實人體比例、不可以縮小臉部。只改變：姿勢、構圖、光線、場景、服裝（依需求刪改此清單，其餘一律與原圖一致）。"
+
 // ── ① 現成完整範例 (無方括號,可直接送 xAI Imagine) ──
 val READY_PROMPTS: List<PromptExample> = listOf(
     PromptExample(
@@ -2047,7 +2052,7 @@ val READY_PROMPTS: List<PromptExample> = listOf(
     ),
     PromptExample(
         "鎖臉咒語·Base Image 換景",
-        "以圖片作為 BASE IMAGE，不要生成新的人物。IDENTITY LOCK，完整保留原本女性的身份。保留：臉部身份、頭型、頭骨形狀、額頭、眉毛、眼睛、鼻子、嘴唇、下顎線、髮型。不可以 Identity Drift、不可以重新設計臉部、不可以重建臉部。頭部比例鎖定（HEAD SCALE LOCK）：頭部尺寸維持 100% 真實人體比例、不可以縮小臉部。只改變：姿勢、構圖、光線、場景、服裝（依需求刪改此清單，其餘一律與原圖一致）。",
+        IDENTITY_LOCK_SPELL,
         forVideo = false,
         category = "短片資產",
         usage = "t2i",
@@ -2185,6 +2190,28 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
             "偏窄鵝蛋·清冷成熟", "短圓鵝蛋·少女親和", "不參考真實人物/明星（原創防侵權）",
         ),
     ),
+    // 人物 DNA 三欄（眼/鼻/唇）— 出圖鎖同一人時,只固定「髮型髮色+眼+鼻+唇」5 特徵,
+    // 其餘交給 身形/姿勢/構圖/光線/氛圍。文字描述是特徵範圍非唯一身份,真鎖臉配 Base Image/參考圖。
+    BuilderField(
+        "眼型眼色",
+        listOf(
+            "(不指定)", "杏眼", "桃花眼", "丹鳳眼", "圓眼", "貓系微吊眼", "溫柔下垂眼",
+            "深棕瞳", "淺棕瞳", "黑瞳", "琥珀瞳", "霧灰瞳",
+        ),
+    ),
+    BuilderField(
+        "鼻形",
+        listOf(
+            "(不指定)", "自然小巧鼻（亞洲自然·不刻意挺）", "秀氣直鼻", "圓潤鼻頭", "小翹鼻",
+            "水滴鼻", "精靈鼻", "海鷗線美鼻",
+        ),
+    ),
+    BuilderField(
+        "唇形",
+        listOf(
+            "(不指定)", "櫻桃小唇", "標準自然唇", "微厚下唇", "薄唇", "微笑唇", "M 唇", "嘟唇",
+        ),
+    ),
     BuilderField(
         "膚色",
         listOf(
@@ -2204,6 +2231,8 @@ val BUILDER_FIELDS: List<BuilderField> = listOf(
             "雷鬼辮", "蓬鬆捲髮", "銀白髮", "亞麻金髮", "栗子棕", "奶茶棕", "蜂蜜金棕",
             "玫瑰金髮", "酒紅挑染", "粉色挑染", "漸層藍髮", "霧灰藍", "漸層粉紫",
             "薄荷綠挑染", "深藍黑", "彩虹漂染",
+            "貓咪鎖骨髮", "掛耳短髮", "精靈短髮", "大長髮中尾段波浪捲",
+            "亞麻棕髮", "棕黑髮", "炭灰髮", "深棕黑髮（陽光下泛淺棕）",
         ),
     ),
     BuilderField(
@@ -2355,7 +2384,7 @@ data class BuilderCategory(val emoji: String, val name: String, val fieldLabels:
 
 val BUILDER_CATEGORIES: List<BuilderCategory> = listOf(
     BuilderCategory("👤", "主體與人數", listOf("主體對象", "畫面人數", "配角安排", "配角類型", "職業", "偽裝身份")),
-    BuilderCategory("🧬", "外貌特徵", listOf("種族風格", "年齡感", "氣質類型", "身形", "臉型五官", "膚色", "髮型髮色", "妝容")),
+    BuilderCategory("🧬", "外貌特徵", listOf("種族風格", "年齡感", "氣質類型", "身形", "臉型五官", "眼型眼色", "鼻形", "唇形", "膚色", "髮型髮色", "妝容")),
     BuilderCategory("👗", "服裝造型", listOf("服飾", "配件")),
     BuilderCategory("🎭", "姿勢情緒", listOf("姿勢", "情緒狀態")),
     BuilderCategory("🏞️", "場景光線", listOf("場景地點", "光線時辰")),
@@ -2464,6 +2493,17 @@ val BUILDER_THEMES: List<BuilderTheme> = listOf(
             "風格類型" to "上美影×迪士尼（水墨水粉手繪）", "主體對象" to "一位女子",
             "氣質類型" to "古典", "臉型五官" to "鵝蛋臉",
             "髮型髮色" to "簪花盤髮", "色調" to "暖金色調",
+        ),
+    ),
+    BuilderTheme(
+        "人物DNA·五官定調",
+        mapOf(
+            "風格類型" to "商業攝影", "主體對象" to "一位女子",
+            "臉型五官" to "鵝蛋臉", "眼型眼色" to "杏眼",
+            "鼻形" to "自然小巧鼻（亞洲自然·不刻意挺）", "唇形" to "櫻桃小唇",
+            "髮型髮色" to "貓咪鎖骨髮",
+            "場景地點" to "攝影棚純色背景", "光線時辰" to "棚燈柔光",
+            "構圖鏡頭" to "胸上中景", "畫面質感" to "自然真實膚質（毛孔絨毛）",
         ),
     ),
 )
@@ -2581,6 +2621,9 @@ fun assembleBuilderPrompt(sel: Map<String, String>): String {
             v("職業"),
             v("身形"),
             v("臉型五官"),
+            v("眼型眼色"),
+            v("鼻形"),
+            v("唇形"),
             v("膚色"),
             v("髮型髮色"),
             v("妝容"),

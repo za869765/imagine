@@ -457,6 +457,14 @@ fun EditPane(
                             prompt = "將這張圖中的角色製作成三視圖角色設定表（turnaround model sheet）：由左至右【正面】【四分之三側面】【背面】三個視圖等高水平並排、共用同一條地平線、比例與身高一致；角色採中性站姿、雙臂自然下垂、表情自然；純淨中性灰 studio 背景、均勻柔和三點打光、正交視角無透視變形；完整保留原角色的臉、髮型、服裝、配色與配件，三視之間完全一致。畫面只有這一個角色的三個視圖，不得出現第二個角色、不得有文字浮水印。"
                         },
                     )
+                    TextActionButton(
+                        label = "🔒 鎖臉咒語",
+                        icon = "lock",
+                        onClick = {
+                            // 來源圖當 Base Image 鎖身份;套用後把「只改變：」句改成要動的項目。
+                            prompt = com.za869765.imagine.ui.component.IDENTITY_LOCK_SPELL
+                        },
+                    )
                 }
             }
             PromptInput(

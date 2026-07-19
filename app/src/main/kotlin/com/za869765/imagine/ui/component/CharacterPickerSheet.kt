@@ -193,7 +193,8 @@ fun SaveToCharacterDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "幫這組定妝圖取個角色名,之後生成時可一鍵帶入整組當參考圖(鎖臉/鎖造型)。",
+                    "幫這組定妝圖取個角色名,之後生成時可一鍵帶入整組當參考圖(鎖臉/鎖造型)。" +
+                        "同一角色要分多套定妝(居家/外出/正式),用「名字·定妝」分開存,例:小美·外出。",
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
                 )

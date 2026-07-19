@@ -170,6 +170,34 @@ private fun detectVideoConflicts(prompt: String): List<VideoConflict> {
     return hits
 }
 
+// ── 鎖臉/臉部一致性提醒 (使用者實戰心法):
+// ① 角度 Drift — 同一角色走樣的主因是攝影角度/表情變化(回眸/微笑),不是臉的描述。
+// ② 整形臉 — 挺鼻詞堆疊(海鷗線/水滴鼻/精靈鼻)易生「整形感」,鼻形定調一種即可。
+private data class FaceLockTip(val title: String, val detail: String)
+
+private val ANGLE_DRIFT_KW = listOf("回眸", "回頭", "轉身", "側臉", "仰頭", "微笑")
+private val NOSE_STACK_KW = listOf("挺鼻", "高鼻樑", "海鷗線", "水滴鼻", "精靈鼻", "美鼻")
+
+private fun detectFaceLockTips(prompt: String): List<FaceLockTip> {
+    if (prompt.isBlank()) return emptyList()
+    val hits = mutableListOf<FaceLockTip>()
+    val angleHits = ANGLE_DRIFT_KW.filter { prompt.contains(it) }
+    if (angleHits.isNotEmpty()) {
+        hits += FaceLockTip(
+            "角度/表情變化易走樣：" + angleHits.joinToString("、"),
+            "模型不是在「認人」,是重新抽樣 — 同一角色 Drift 的主因是攝影角度與表情,不是臉的描述。要固定同一張臉:帶角色定妝圖當參考(雙參考鎖臉),或以舊圖當 Base Image 掛「鎖臉咒語」(範本搜「鎖臉」);人物特徵段凍結不動、只換構圖。",
+        )
+    }
+    val noseHits = NOSE_STACK_KW.filter { prompt.contains(it) }
+    if (noseHits.size >= 2) {
+        hits += FaceLockTip(
+            "挺鼻詞堆疊：" + noseHits.joinToString("、"),
+            "亞洲女性自然不挺鼻,刻意疊加挺鼻詞容易生成「整形臉」— 鼻形定調一種就好,其餘刪掉。",
+        )
+    }
+    return hits
+}
+
 // ── 教學建議 (依目前 prompt 動態挑、活用 super-i 教學重點,不是死板規則) ──
 // 每條:標題 + 為什麼 + 一鍵可插入的片語(對應真實選項則智慧替換,否則附加) + 節次參考。
 data class TeachTip(val title: String, val why: String, val insert: String, val lesson: String)
@@ -574,6 +602,48 @@ fun PromptAdvisorSheet(
                         )
                         Text(
                             text = "這幾個同類設定可能互相打架，留一個方向通常更穩（這裡只提醒，不會自動改你的字）。",
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+
+            // ── 鎖臉/臉部一致性提醒 (角度 Drift / 整形臉,圖片影片皆適用) ──
+            val faceTips = detectFaceLockTips(currentPrompt)
+            if (faceTips.isNotEmpty()) {
+                Text(
+                    text = "鎖臉提醒",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W700,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+                )
+                faceTips.forEach { ft ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ImagineIcon(name = "lock", size = 16.dp, fill = 0, tint = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = ft.title,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(
+                            text = ft.detail,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
