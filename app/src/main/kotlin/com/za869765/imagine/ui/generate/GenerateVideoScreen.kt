@@ -884,11 +884,7 @@ fun GenerateVideoScreen(
                                         com.za869765.imagine.ImagineApp.appScope.launch {
                                             val ok = MediaExporter.saveToGallery(ctx, url, isVideo = true)
                                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                Toast.makeText(
-                                                    ctx,
-                                                    if (ok) "已存到相簿" else "存相簿失敗，改用分享試試",
-                                                    Toast.LENGTH_SHORT,
-                                                ).show()
+                                                com.za869765.imagine.ui.component.AppNotice.show(if (ok) "已存到相簿" else "存相簿失敗，改用分享試試")
                                             }
                                         }
                                     },

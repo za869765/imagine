@@ -210,6 +210,9 @@ fun FullscreenImageViewer(
                     }
                 }
             }
+
+            // app 內浮層 host — Dialog 視窗蓋住 Activity 根層的那份,看圖器內的「存相簿」回饋靠這裡顯示
+            AppNoticeHost()
         }
     }
 }

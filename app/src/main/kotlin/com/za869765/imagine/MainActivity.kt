@@ -86,7 +86,11 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    ImagineRoot()
+                    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+                        ImagineRoot()
+                        // app 內浮層 host — 系統 Toast 在無通知權限的 One UI 會被吃掉,存相簿等回饋改走這裡
+                        com.za869765.imagine.ui.component.AppNoticeHost()
+                    }
                 }
             }
         }
