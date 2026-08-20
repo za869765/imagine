@@ -57,7 +57,7 @@ fun PromptInput(
     onValueChange: (String) -> Unit,
     label: String = "Prompt",
     placeholder: String = "描述你想生成的內容...",
-    maxChars: Int = 1000,
+    maxChars: Int = 8000,
     modifier: Modifier = Modifier,
     // S22U (6.8") 觸控區建議 ≥48dp，default 改 156dp 給三行可見高度 + 足夠拇指區
     minHeight: Int = 156,
@@ -255,6 +255,15 @@ fun PromptInput(
                     if (newTf.text.length <= maxChars) {
                         tfValue = newTf
                         if (newTf.text != value) onValueChange(newTf.text)
+                    } else {
+                        // 超長輸入(通常是貼上長 JSON/提示詞)不能整段默默拒收 — 截斷收下,
+                        // 一次多進 2 字以上才 toast,避免打字頂到上限時每鍵都跳提示
+                        if (newTf.text.length - tfValue.text.length > 1) {
+                            Toast.makeText(ctx, "超過 $maxChars 字上限，已截斷", Toast.LENGTH_SHORT).show()
+                        }
+                        val clipped = newTf.text.take(maxChars)
+                        tfValue = TextFieldValue(clipped, selection = TextRange(clipped.length))
+                        if (clipped != value) onValueChange(clipped)
                     }
                 },
                 modifier = Modifier
