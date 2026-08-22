@@ -69,9 +69,11 @@ fun ApiKeyEditScreen(
     val prefs = remember { SecurePrefs.get(ctx) }
     val budgetColors = LocalBudgetColors.current
 
-    var tabId by rememberSaveable { mutableStateOf(prefs.providerId) }
+    // 預設開在「還沒填」或「xAI」那頁;沒有供應商切換的概念(有 key 的模型會一起列在各頁模型清單)
+    var tabId by rememberSaveable {
+        mutableStateOf(if (!prefs.isApiKeySet && prefs.isOpenRouterKeySet) ApiProvider.OPENROUTER.id else ApiProvider.XAI.id)
+    }
     val p = ApiProvider.fromId(tabId)
-    var activeId by remember { mutableStateOf(prefs.providerId) }
     // 每個供應商各自的編輯狀態(切 tab 重設)
     var showFull by remember(tabId) { mutableStateOf(false) }
     var newKey by remember(tabId) { mutableStateOf("") }
@@ -110,47 +112,17 @@ fun ApiKeyEditScreen(
                 onSelected = { tabId = it },
             )
 
-            // 目前使用哪家
-            ImagineCard {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "目前使用",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.W600,
-                        letterSpacing = 0.08.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            ApiProvider.fromId(activeId).label,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.W700,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (activeId != p.id) {
-                            OutlinedActionButton(
-                                label = "改用 ${p.label}",
-                                icon = "swap_horiz",
-                                onClick = {
-                                    prefs.providerId = p.id
-                                    activeId = p.id
-                                    AppNotice.show("生成 / 對話改走 ${p.label}")
-                                },
-                            )
-                        } else {
-                            Text("✓ 生成與對話走這家", fontSize = 12.sp, color = budgetColors.ok)
-                        }
-                    }
-                    Text(
-                        text = if (p == ApiProvider.OPENROUTER)
-                            "OpenRouter:一把 key 通吃 400+ 模型(含免費款),對話 / 生圖 / 生影皆可;費用從 OpenRouter 餘額扣。"
-                        else "xAI:Grok Imagine 圖 $0.05/張、影片 $0.05/秒;圖片編輯 / 影片延長 / 影片編輯 目前只有 xAI 支援。",
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            // 說明卡(v1.8.3 拿掉「目前使用 / 改用」:有 key 的供應商,其模型直接合併列在各頁模型清單)
+            ImagineCard(pad = 12) {
+                Text(
+                    text = (if (p == ApiProvider.OPENROUTER)
+                        "OpenRouter:一把 key 通吃 400+ 模型(含免費款),對話 / 生圖 / 生影皆可;費用從 OpenRouter 餘額扣。"
+                    else "xAI:Grok Imagine 圖 $0.05/張、影片 $0.05/秒;圖片編輯 / 影片延長 / 影片編輯目前只有 xAI 支援。") +
+                        "\n填好 key 後,這家的模型就會出現在對話 / 生圖 / 生影頁的模型清單,選到哪個模型就用哪家的 key。",
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // 目前 Key Card
@@ -282,11 +254,6 @@ fun ApiKeyEditScreen(
                         prefs.openRouterKey = newKey
                         prefs.openRouterKeyVerifiedAt = today
                     }
-                    // 目前使用的那家沒 key 時,自動切到剛存好的這家(第一次只填 OpenRouter 的人不用再多點一下)
-                    if (!prefs.hasKeyFor(prefs.provider)) {
-                        prefs.providerId = p.id
-                        activeId = p.id
-                    }
                     keyTick++
                     newKey = ""
                     AppNotice.show("${p.label} Key 已儲存")
@@ -316,7 +283,7 @@ fun ApiKeyEditScreen(
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
                             Text(
-                                "移除後這家的功能無法使用;若另一家有 key 會自動改用它",
+                                "移除後這家的模型會從各頁模型清單消失",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.75f),
                                 modifier = Modifier.padding(top = 2.dp),
@@ -330,11 +297,6 @@ fun ApiKeyEditScreen(
                                 } else {
                                     prefs.openRouterKey = null
                                     prefs.openRouterKeyVerifiedAt = null
-                                }
-                                val other = if (p == ApiProvider.XAI) ApiProvider.OPENROUTER else ApiProvider.XAI
-                                if (prefs.provider == p && prefs.hasKeyFor(other)) {
-                                    prefs.providerId = other.id
-                                    activeId = other.id
                                 }
                                 keyTick++
                                 AppNotice.show("已移除 ${p.label} Key")

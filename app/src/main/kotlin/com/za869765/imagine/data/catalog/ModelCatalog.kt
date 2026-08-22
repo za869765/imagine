@@ -363,6 +363,17 @@ object OpenRouterCatalog {
     }
 }
 
+// v1.8.3 還沒選過模型時的預設:有 xAI key(或兩家都沒有)用 Grok,只有 OpenRouter key 才用 OpenRouter 款
+fun defaultModelFor(mode: ModelMode, hasXai: Boolean, hasOpenRouter: Boolean, xaiImageQuality: String = "rapid"): String {
+    val useXai = hasXai || !hasOpenRouter
+    return when (mode) {
+        ModelMode.CHAT -> if (useXai) "grok-4-fast-non-reasoning" else "stealth/ox-alpha"
+        ModelMode.IMAGE -> if (useXai) (if (xaiImageQuality == "quality") "grok-imagine-image-quality" else "grok-imagine-image")
+            else "bytedance-seed/seedream-5-0-lite"
+        ModelMode.VIDEO -> if (useXai) "grok-imagine-video" else "google/veo-3.1-lite"
+    }
+}
+
 // xAI 固定清單(官方統一價:圖 $0.05/張、影片 $0.05/秒;對話模型價格 app 不硬寫,看後台)
 object XaiCatalog {
     private val CHAT = listOf(

@@ -46,6 +46,7 @@ import com.za869765.imagine.data.api.OpenRouterClient
 import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.api.dto.ChatMessage
 import com.za869765.imagine.data.catalog.ModelMode
+import com.za869765.imagine.data.catalog.defaultModelFor
 import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
@@ -97,13 +98,14 @@ fun ChatScreen(
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
-    val provider = prefs.provider
     val xaiRepo = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
     val orRepo = remember(prefs) { OpenRouterRepository(OpenRouterClient.build(prefs)) }
 
-    var model by rememberSaveable(provider) {
-        mutableStateOf(if (provider == ApiProvider.OPENROUTER) prefs.orChatModel else prefs.xaiChatModel)
+    // v1.8.3 單一模型選擇(xAI / OpenRouter 合併清單),供應商由模型 id 判斷
+    var model by rememberSaveable {
+        mutableStateOf(prefs.chatModel ?: defaultModelFor(ModelMode.CHAT, prefs.isApiKeySet, prefs.isOpenRouterKeySet))
     }
+    val provider = ApiProvider.ofModel(model)
     var turns by rememberSaveable(stateSaver = chatTurnsSaver) { mutableStateOf(emptyList<ChatTurn>()) }
     var input by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -220,12 +222,8 @@ fun ChatScreen(
 
             ModelPickerRow(
                 mode = ModelMode.CHAT,
-                provider = provider,
                 selectedId = model,
-                onSelect = {
-                    model = it
-                    if (provider == ApiProvider.OPENROUTER) prefs.orChatModel = it else prefs.xaiChatModel = it
-                },
+                onSelect = { model = it; prefs.chatModel = it },
             )
 
             if (!prefs.hasKeyFor(provider)) {

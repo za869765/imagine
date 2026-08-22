@@ -70,6 +70,7 @@ import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.catalog.ModelMode
 import com.za869765.imagine.data.catalog.OpenRouterCatalog
 import com.za869765.imagine.data.catalog.XaiCatalog
+import com.za869765.imagine.data.catalog.defaultModelFor
 import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.OpenRouterRepository
@@ -131,13 +132,17 @@ fun GenerateVideoScreen(
     val focusManager = LocalFocusManager.current
 
     // v1.8.0 供應商 + 模型:xAI 兩款($0.05 / $0.08 每秒);OpenRouter 24 款生影模型(秒數/解析度/長寬比依模型)
-    val provider = prefs.provider
     val orRepo = remember(prefs) { OpenRouterRepository(OpenRouterClient.build(prefs)) }
-    var orModel by rememberSaveable(prefs.orVideoModel) { mutableStateOf(prefs.orVideoModel) }
-    var xaiModel by rememberSaveable(prefs.xaiVideoModel) { mutableStateOf(prefs.xaiVideoModel) }
-    val modelInfo = remember(provider, orModel, xaiModel) {
-        if (provider == ApiProvider.OPENROUTER) OpenRouterCatalog.find(ctx, ModelMode.VIDEO, orModel)
-        else XaiCatalog.models(ModelMode.VIDEO).firstOrNull { it.id == xaiModel }
+    // v1.8.3 單一模型選擇(xAI / OpenRouter 合併清單),供應商由模型 id 判斷
+    var videoModel by rememberSaveable {
+        mutableStateOf(prefs.videoModel ?: defaultModelFor(ModelMode.VIDEO, prefs.isApiKeySet, prefs.isOpenRouterKeySet))
+    }
+    val provider = ApiProvider.ofModel(videoModel)
+    val orModel = videoModel
+    val xaiModel = videoModel
+    val modelInfo = remember(videoModel) {
+        if (provider == ApiProvider.OPENROUTER) OpenRouterCatalog.find(ctx, ModelMode.VIDEO, videoModel)
+        else XaiCatalog.models(ModelMode.VIDEO).firstOrNull { it.id == videoModel }
     }
     val durationOptions = modelInfo?.durations?.takeIf { it.isNotEmpty() }?.sorted() ?: (1..15).toList()
     val resolutionOptions = modelInfo?.resolutions?.takeIf { it.isNotEmpty() } ?: listOf("480p", "720p")
@@ -589,7 +594,7 @@ fun GenerateVideoScreen(
                     PrimaryButton(
                         label = "生成續集 → 自動接成長片",
                         icon = "movie",
-                        enabled = hasPrompt && sourceImages.isNotEmpty() && prefs.isActiveKeySet,
+                        enabled = hasPrompt && sourceImages.isNotEmpty() && prefs.hasKeyFor(provider),
                         onClick = {
                             val term = firstHighRiskTerm(prompt)
                             if (term != null) pendingRiskTerm = term else runGenerate()
@@ -778,12 +783,8 @@ fun GenerateVideoScreen(
             // v1.8.0 模型列(價格 / 免費標記)+ 參數選項依模型
             ModelPickerRow(
                 mode = ModelMode.VIDEO,
-                provider = provider,
-                selectedId = if (provider == ApiProvider.OPENROUTER) orModel else xaiModel,
-                onSelect = {
-                    if (provider == ApiProvider.OPENROUTER) { orModel = it; prefs.orVideoModel = it }
-                    else { xaiModel = it; prefs.xaiVideoModel = it }
-                },
+                selectedId = videoModel,
+                onSelect = { videoModel = it; prefs.videoModel = it },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ParamPicker(
@@ -865,7 +866,7 @@ fun GenerateVideoScreen(
                 PrimaryButton(
                     label = "生 成",
                     icon = "movie",
-                    enabled = hasPrompt && prefs.isActiveKeySet,
+                    enabled = hasPrompt && prefs.hasKeyFor(provider),
                     onClick = {
                         val term = firstHighRiskTerm(prompt)
                         if (term != null) pendingRiskTerm = term else runGenerate()

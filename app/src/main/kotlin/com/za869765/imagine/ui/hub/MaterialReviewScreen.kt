@@ -9,6 +9,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -73,6 +75,7 @@ private const val ST_DISCARDED = "丟棄"
  *   右上「從雲端更新素材」:拉 repo main 的最新 material_seed.json / tutorial_lessons.json(super-i 新課程
  *   由桌面端收錄後 push),不必重裝 APK。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MaterialReviewScreen(
     onBack: () -> Unit,
@@ -182,32 +185,25 @@ fun MaterialReviewScreen(
                     .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterPill(label = "$ST_ALL ${byCat.size}", selected = status == ST_ALL) { status = ST_ALL }
+                FilterPill(label = "全部狀態", selected = status == ST_ALL) { status = ST_ALL }
                 FilterPill(label = "$ST_UNDECIDED $nUndecided", selected = status == ST_UNDECIDED) { status = ST_UNDECIDED }
                 FilterPill(label = "✓ $ST_KEPT $nKept", selected = status == ST_KEPT, tint = Color(0xFF5BD47A)) { status = ST_KEPT }
                 FilterPill(label = "✕ $ST_DISCARDED $nHidden", selected = status == ST_DISCARDED, tint = Color(0xFFFF7B7B)) { status = ST_DISCARDED }
             }
-            // 動作列:雲端更新 / 批次
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            // 動作列(v1.8.3 改 FlowRow,384dp 大字體下自動換行不擠):雲端更新 / 全保留 / 全丟棄
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (updating) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         Text("更新中…", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
-                    TextActionButton(label = "從雲端更新素材", icon = "cloud_download", onClick = { runCloudUpdate() })
+                    ImagineChip(label = "雲端更新", icon = "cloud_download", variant = ChipVariant.Tonal, onClick = { runCloudUpdate() })
                 }
-                Text(
-                    text = lastUpdated?.let { "上次 $it" } ?: "內建版",
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
                 if (filtered.isNotEmpty() && status != ST_KEPT) {
                     ImagineChip(label = "全保留", icon = "thumb_up", variant = ChipVariant.Outlined, onClick = { setState(filteredUrls, ST_KEPT); AppNotice.show("已保留 ${filteredUrls.size} 張") })
                 }
@@ -216,11 +212,12 @@ fun MaterialReviewScreen(
                 }
             }
             Text(
-                text = "點一下循環:未決定 → ✓保留 → ✕丟棄 → 未決定;長按放大看。丟棄=素材庫/課程圖庫同步隱藏,可點回復原。",
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
+                text = "點一下:未決定 → ✓保留 → ✕丟棄;長按放大" + (lastUpdated?.let { " · 素材更新於 $it" } ?: ""),
+                fontSize = 10.sp,
+                lineHeight = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+                maxLines = 2,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 6.dp),
             )
 
             if (filtered.isEmpty()) {

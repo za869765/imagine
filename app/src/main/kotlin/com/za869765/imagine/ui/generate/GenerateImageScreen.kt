@@ -42,6 +42,7 @@ import com.za869765.imagine.data.api.OpenRouterClient
 import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.catalog.ModelMode
 import com.za869765.imagine.data.catalog.OpenRouterCatalog
+import com.za869765.imagine.data.catalog.defaultModelFor
 import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.OpenRouterRepository
@@ -117,9 +118,15 @@ fun GenerateImageScreen(
 
     // v1.8.0 供應商:xAI 照舊(品質→模型);OpenRouter 走 /images(回 base64,直接落地)+ 模型可選,
     // 解析度 / 長寬比 / 數量選項依所選模型的 supported_parameters。
-    val provider = prefs.provider
     val orRepo = remember(prefs) { OpenRouterRepository(OpenRouterClient.build(prefs)) }
-    var orModel by rememberSaveable(prefs.orImageModel) { mutableStateOf(prefs.orImageModel) }
+    // v1.8.3 單一模型選擇(xAI / OpenRouter 合併清單),供應商由模型 id 判斷;xAI 快速/高品質就是兩個模型 id
+    var imageModel by rememberSaveable {
+        mutableStateOf(
+            prefs.imageModel ?: defaultModelFor(ModelMode.IMAGE, prefs.isApiKeySet, prefs.isOpenRouterKeySet, prefs.defImageQuality),
+        )
+    }
+    val provider = ApiProvider.ofModel(imageModel)
+    val orModel = imageModel
     val orModelInfo = remember(orModel) { OpenRouterCatalog.find(ctx, ModelMode.IMAGE, orModel) }
     val orResolutions = orModelInfo?.resolutions?.takeIf { it.isNotEmpty() } ?: listOf("1K", "2K")
     val orAspects = orModelInfo?.aspects?.takeIf { it.isNotEmpty() }
@@ -142,7 +149,6 @@ fun GenerateImageScreen(
     var resolution by rememberSaveable(prefs.defImageResolution) { mutableStateOf(prefs.defImageResolution) }
     var aspectRatio by rememberSaveable(prefs.defImageAspect) { mutableStateOf(prefs.defImageAspect) }
     var n by rememberSaveable(prefs.defImageCount) { mutableStateOf(prefs.defImageCount) }
-    var quality by rememberSaveable(prefs.defImageQuality) { mutableStateOf(prefs.defImageQuality) }  // rapid (快) / quality (好)
     var loading by remember { mutableStateOf(false) }
     // 圖片頁子模式：gen=生圖 / edit=圖片編輯(內嵌 EditPane)。原本只有生圖,無模式列。
     var imageFn by rememberSaveable { mutableStateOf("gen") }
@@ -209,11 +215,7 @@ fun GenerateImageScreen(
             val capturedAr = aspectRatio
             val capturedN = n
             val capturedProvider = provider
-            val capturedModel = when {
-                capturedProvider == ApiProvider.OPENROUTER -> orModel
-                quality == "quality" -> "grok-imagine-image-quality"
-                else -> "grok-imagine-image"
-            }
+            val capturedModel = imageModel
             val capturedOrRes = orResolution
             val capturedOrAr = orAspect
             var orCost: Double? = null
@@ -373,7 +375,7 @@ fun GenerateImageScreen(
                 )
             }
 
-            if (!prefs.isActiveKeySet) {
+            if (!prefs.hasKeyFor(provider)) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
                     Text(
                         "未設定 ${provider.label} API Key — 點此到設定填入、匯入備份,或切換供應商",
@@ -399,14 +401,13 @@ fun GenerateImageScreen(
                 flagged = lastErrorIsPolicy,
             )
 
-            // v1.8.0 模型列(價格 / 免費標記)— xAI:快速/高品質兩款($0.05/張);OpenRouter:43 款生圖模型
+            // v1.8.3 模型列(xAI 快速/高品質 + OpenRouter 43 款合併,價格 / 免費標記)
+            ModelPickerRow(
+                mode = ModelMode.IMAGE,
+                selectedId = imageModel,
+                onSelect = { imageModel = it; prefs.imageModel = it },
+            )
             if (provider == ApiProvider.OPENROUTER) {
-                ModelPickerRow(
-                    mode = ModelMode.IMAGE,
-                    provider = provider,
-                    selectedId = orModel,
-                    onSelect = { orModel = it; prefs.orImageModel = it },
-                )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ParamPicker(
                         label = "解析度",
@@ -460,20 +461,13 @@ fun GenerateImageScreen(
                     modifier = Modifier.weight(1f),
                 )
             }
-            // 品質 = 模型(快速 grok-imagine-image / 高品質 grok-imagine-image-quality),改用模型列顯示價格
-            ModelPickerRow(
-                mode = ModelMode.IMAGE,
-                provider = provider,
-                selectedId = if (quality == "quality") "grok-imagine-image-quality" else "grok-imagine-image",
-                onSelect = { quality = if (it.endsWith("-quality")) "quality" else "rapid" },
-            )
             }
 
             PrimaryButton(
                 label = if (loading) "生成中…" else "生 成",
                 icon = if (loading) null else "auto_awesome",
                 loading = loading,
-                enabled = prompt.isNotBlank() && !loading && prefs.isActiveKeySet,
+                enabled = prompt.isNotBlank() && !loading && prefs.hasKeyFor(provider),
                 onClick = {
                     val term = firstHighRiskTerm(prompt)
                     if (term != null) pendingRiskTerm = term else runGenerate()

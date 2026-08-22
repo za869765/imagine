@@ -4,14 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -50,8 +49,8 @@ import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
 import kotlinx.coroutines.launch
 
-// v1.8.0 模型選擇器:一列(目前模型 + 免費/價格標記),點開底部清單(可搜尋、免費排前、每筆標價)。
-// OpenRouter 清單來自 OpenRouterCatalog(內建快照 / 使用者按「更新清單」重抓);xAI 為固定清單。
+// v1.8.0 模型選擇器;v1.8.3 改「有 key 的供應商合併一份清單」(xAI 在前、OpenRouter 免費排前),
+// 列版面改為名稱整行可讀(最多 2 行)+ 下方標記/價格,384dp 大字體不擠。
 
 // 標記膠囊顏色:免費綠 / 限時免費橘 / 條件免費藍 / 浮動灰 / 付費灰框
 @Composable
@@ -63,12 +62,13 @@ fun BadgePill(badge: String, modifier: Modifier = Modifier) {
         "variable" -> Color(0xFF616161).copy(alpha = 0.30f) to Color(0xFFCFCFCF)
         else -> Color.Transparent to MaterialTheme.colorScheme.onSurfaceVariant
     }
-    val shape = RoundedCornerShape(7.dp)
+    val shape = RoundedCornerShape(6.dp)
     Text(
         text = badgeLabel(badge),
         fontSize = 10.sp,
         fontWeight = FontWeight.W700,
         color = fg,
+        maxLines = 1,
         modifier = modifier
             .clip(shape)
             .background(bg)
@@ -77,15 +77,38 @@ fun BadgePill(badge: String, modifier: Modifier = Modifier) {
     )
 }
 
-fun modelsFor(ctx: android.content.Context, provider: ApiProvider, mode: ModelMode): List<CatalogModel> =
-    if (provider == ApiProvider.XAI) XaiCatalog.models(mode)
-    else OpenRouterCatalog.sortedForPicker(OpenRouterCatalog.models(ctx, mode), mode)
+// 供應商小標(xAI / OpenRouter),合併清單每列辨識用
+@Composable
+private fun ProviderTag(p: ApiProvider) {
+    Text(
+        text = p.shortLabel,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+// 有 key 的供應商才列;兩家都沒 key 時全列(讓使用者知道能用什麼,生成鈕另外擋)
+fun modelsFor(ctx: android.content.Context, mode: ModelMode, hasXai: Boolean, hasOpenRouter: Boolean): List<CatalogModel> {
+    val xai = XaiCatalog.models(mode)
+    val or = OpenRouterCatalog.sortedForPicker(OpenRouterCatalog.models(ctx, mode), mode)
+    return when {
+        hasXai && hasOpenRouter -> xai + or
+        hasXai -> xai
+        hasOpenRouter -> or
+        else -> xai + or
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelPickerRow(
     mode: ModelMode,
-    provider: ApiProvider,
     selectedId: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -93,63 +116,63 @@ fun ModelPickerRow(
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
+    val hasXai = prefs.isApiKeySet
+    val hasOr = prefs.isOpenRouterKeySet
     var refreshKey by remember { mutableStateOf(0) }
     var refreshing by remember { mutableStateOf(false) }
-    val models = remember(provider, mode, refreshKey) { modelsFor(ctx, provider, mode) }
-    val fetchedAt = remember(provider, refreshKey) {
-        if (provider == ApiProvider.OPENROUTER) OpenRouterCatalog.load(ctx).fetchedAt else ""
-    }
+    val models = remember(mode, hasXai, hasOr, refreshKey) { modelsFor(ctx, mode, hasXai, hasOr) }
+    val fetchedAt = remember(refreshKey) { OpenRouterCatalog.load(ctx).fetchedAt }
     val selected = models.firstOrNull { it.id == selectedId } ?: CatalogModel(id = selectedId, name = selectedId)
+    val selectedProvider = ApiProvider.ofModel(selectedId)
     var showSheet by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
             .clickable { showSheet = true }
             .padding(horizontal = 12.dp, vertical = 10.dp),
-        contentAlignment = Alignment.CenterStart,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "模型 · ${provider.label}",
+                text = "模型 · ${selectedProvider.shortLabel}",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W500,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-            ) {
-                Text(
-                    text = selected.displayName,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                BadgePill(selected.badge)
-                Spacer(modifier = Modifier.weight(1f))
-                ImagineIcon(name = "expand_more", size = 20.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             Text(
-                text = selected.priceText(mode),
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                text = selected.displayName,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.W600,
+                lineHeight = 20.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
             )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                BadgePill(selected.badge)
+                Text(
+                    text = selected.priceText(mode),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
+        ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
     if (showSheet) {
@@ -165,7 +188,7 @@ fun ModelPickerRow(
         ) {
             Column(modifier = Modifier.fillMaxHeight(0.92f).padding(bottom = 12.dp)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -174,24 +197,28 @@ fun ModelPickerRow(
                                 ModelMode.CHAT -> "選對話模型"
                                 ModelMode.IMAGE -> "選生圖模型"
                                 ModelMode.VIDEO -> "選生影模型"
-                            } + " · ${provider.label}",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
+                            },
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.W700,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            text = if (provider == ApiProvider.OPENROUTER)
-                                "${filtered.size} 個 · 價格快照 ${fetchedAt.ifBlank { "內建" }} · 免費排最前"
-                            else "${filtered.size} 個 · xAI 官方統一價",
+                            text = buildString {
+                                append(filtered.size).append(" 個")
+                                if (hasXai || !hasOr) append(" · xAI 官方價")
+                                if (hasOr || !hasXai) append(" · OpenRouter 快照 ").append(fetchedAt.ifBlank { "內建" })
+                                if (!hasXai && !hasOr) append(" · 尚未設定 API Key")
+                            },
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
                         )
                     }
-                    if (provider == ApiProvider.OPENROUTER) {
+                    if (hasOr) {
                         if (refreshing) {
-                            CircularProgressIndicator(modifier = Modifier.padding(8.dp).width(20.dp).heightIn(max = 20.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.padding(8.dp).size(20.dp), strokeWidth = 2.dp)
                         } else {
-                            TextActionButton(label = "更新清單", icon = "refresh", onClick = {
+                            TextActionButton(label = "更新", icon = "refresh", onClick = {
                                 refreshing = true
                                 scope.launch {
                                     val r = OpenRouterCatalog.refresh(ctx, prefs.openRouterKey)
@@ -211,24 +238,17 @@ fun ModelPickerRow(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    placeholder = { Text("搜尋模型名稱 / id / 免費", fontSize = 13.sp) },
+                    placeholder = { Text("搜尋名稱 / id / 免費", fontSize = 13.sp) },
                     leadingIcon = { ImagineIcon(name = "search", size = 18.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 )
-                // 圖例
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BadgePill("free"); BadgePill("limited_free"); BadgePill("conditional_free"); BadgePill("paid")
-                }
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(filtered, key = { it.id }) { m ->
                         val isSel = m.id == selectedId
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .background(if (isSel) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
                                 .clickable {
                                     onSelect(m.id)
                                     scope.launch {
@@ -236,41 +256,60 @@ fun ModelPickerRow(
                                         showSheet = false
                                     }
                                 }
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // 第一行:名稱(整行,最多 2 行)+ 已選勾
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = m.displayName,
                                     fontSize = 15.sp,
+                                    lineHeight = 20.sp,
                                     fontWeight = if (isSel) FontWeight.W700 else FontWeight.W500,
                                     color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (isSel) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    ImagineIcon(name = "check", size = 18.dp, fill = 1, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            // 第二行:供應商 + 標記 + 價格
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(top = 4.dp),
+                            ) {
+                                ProviderTag(ApiProvider.ofModel(m.id))
+                                BadgePill(m.badge)
+                                Text(
+                                    text = m.priceText(mode),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false),
+                                    modifier = Modifier.weight(1f),
                                 )
-                                BadgePill(m.badge)
-                                Spacer(modifier = Modifier.weight(1f))
-                                if (isSel) ImagineIcon(name = "check", size = 18.dp, fill = 1, tint = MaterialTheme.colorScheme.primary)
                             }
+                            // 第三行:id(+ctx)與標記說明,小字
                             Text(
                                 text = m.id + (if (mode == ModelMode.CHAT && m.ctx > 0) " · ${m.ctx / 1000}K ctx" else ""),
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = m.priceText(mode),
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                modifier = Modifier.padding(top = 2.dp),
                             )
                             val hint = badgeHint(m.badge)
                             if (hint.isNotBlank()) {
                                 Text(
                                     text = hint,
                                     fontSize = 10.sp,
+                                    lineHeight = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
                                 )
                             }
                         }

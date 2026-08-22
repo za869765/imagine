@@ -400,7 +400,7 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             // v1.8.0 兩家 key + 目前使用哪家
                             Text(
-                                "API Key · 目前使用 ${prefs.provider.label}",
+                                "API Key",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.W600,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -420,7 +420,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 letterSpacing = 0.02.sp,
                             )
-                            if (prefs.isActiveKeySet) {
+                            if (prefs.isApiKeySet || prefs.isOpenRouterKeySet) {
                                 Row(
                                     modifier = Modifier.padding(top = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -428,14 +428,14 @@ fun SettingsScreen(
                                 ) {
                                     ImagineIcon(name = "check", size = 14.dp, fill = 1, tint = budgetColors.ok)
                                     Text(
-                                        "已設定 · 點此切換供應商 / 改 Key",
+                                        "有 key 的供應商模型會一起列出 · 點此管理",
                                         fontSize = 12.sp,
                                         color = budgetColors.ok,
                                     )
                                 }
                             } else {
                                 Text(
-                                    "目前供應商尚未設定 Key — 點此填入或切換",
+                                    "尚未設定任何 Key — 點此填入",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.padding(top = 4.dp),

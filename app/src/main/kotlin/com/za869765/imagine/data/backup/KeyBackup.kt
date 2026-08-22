@@ -11,7 +11,6 @@ import kotlinx.serialization.json.Json
 //   api_key_verified_at,2026-05-20T...
 //   openrouter_key,sk-or-v1-...          (v1.8.0)
 //   openrouter_key_verified_at,2026-08-22 (v1.8.0)
-//   api_provider,xai|openrouter          (v1.8.0 目前使用哪家)
 
 @Serializable
 data class KeyBackup(
@@ -39,7 +38,6 @@ object KeyBackupCodec {
             prefs.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { add("api_key_verified_at" to it) }
             prefs.openRouterKey?.takeIf { it.isNotBlank() }?.let { add("openrouter_key" to it) }
             prefs.openRouterKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { add("openrouter_key_verified_at" to it) }
-            add("api_provider" to prefs.providerId)
         }
         val body = rows.joinToString("\n") { (k, v) -> "${csvCell(k)},${csvCell(v)}" }
         return "key,value\n$body\n"
@@ -58,7 +56,7 @@ object KeyBackupCodec {
         b.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { prefs.apiKeyVerifiedAt = it }
         b.openRouterKey?.takeIf { it.isNotBlank() }?.let { prefs.openRouterKey = it }
         b.openRouterKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { prefs.openRouterKeyVerifiedAt = it }
-        b.provider?.takeIf { it.isNotBlank() }?.let { prefs.providerId = it }
+        // provider 欄位(v1.8.0~1.8.2 短暫存在)已無意義,忽略
         // v1.0.21 砍 BillingState、v1.0.29 砍 GitHub PAT — 舊 backup 內這些欄位
         // 仍 parse 進 data class，但這裡 silently ignore 不寫進 SecurePrefs
         return b
@@ -93,7 +91,6 @@ object KeyBackupCodec {
         verifiedAt?.let { prefs.apiKeyVerifiedAt = it }
         orKey?.let { prefs.openRouterKey = it }
         orVerifiedAt?.let { prefs.openRouterKeyVerifiedAt = it }
-        provider?.let { if (it == "xai" || it == "openrouter") prefs.providerId = it }
         return KeyBackup(
             apiKey = apiKey,
             apiKeyVerifiedAt = verifiedAt,
