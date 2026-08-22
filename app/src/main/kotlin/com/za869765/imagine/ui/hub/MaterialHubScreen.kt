@@ -34,7 +34,7 @@ import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SectionHeader
 
-// 素材生成首頁(重設計 Frame 1):兩張主卡(圖片/影片,大、優先)+ 兩條工具列(素材庫/Grok,次要)。
+// 素材生成首頁(重設計 Frame 1):三張主卡(對話/生圖/生影)+ 工具列(素材庫/去留審查/Grok,次要)。
 @Composable
 fun MaterialHubScreen(
     onPickImage: () -> Unit,
@@ -43,6 +43,8 @@ fun MaterialHubScreen(
     onOpenGrok: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
+    onPickChat: () -> Unit = {},
+    onOpenReview: () -> Unit = {},
 ) {
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
@@ -54,12 +56,22 @@ fun MaterialHubScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            SectionHeader("要產什麼素材？")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionHeader("要做什麼？")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryGenCard(
+                    modifier = Modifier.weight(1f),
+                    icon = "chat",
+                    title = "對話",
+                    tags = listOf("API 對話", "選模型"),
+                    cardBg = Color(0xFF1C1430),
+                    base = Color(0xFFB07CFF),
+                    iconColor = Color(0xFFCFA8FF),
+                    onClick = onPickChat,
+                )
                 PrimaryGenCard(
                     modifier = Modifier.weight(1f),
                     icon = "image",
-                    title = "圖片",
+                    title = "生圖",
                     tags = listOf("文生圖", "圖生圖"),
                     cardBg = Color(0xFF14182A),
                     base = Color(0xFF6E8BFF),
@@ -69,8 +81,8 @@ fun MaterialHubScreen(
                 PrimaryGenCard(
                     modifier = Modifier.weight(1f),
                     icon = "movie",
-                    title = "影片",
-                    tags = listOf("文生影", "圖生影", "延長"),
+                    title = "生影",
+                    tags = listOf("文生影", "圖生影"),
                     cardBg = Color(0xFF0F2422),
                     base = Color(0xFF2BD4C6),
                     iconColor = Color(0xFF56E0D2),
@@ -86,6 +98,15 @@ fun MaterialHubScreen(
                 subtitle = "角色・環境・物件・風格 參考圖庫",
                 trailing = "chevron_right",
                 onClick = onOpenLibrary,
+            )
+            ToolTile(
+                icon = "thumb_up",
+                iconColor = Color(0xFF8BE08F),
+                iconBg = Color(0xFF5BD47A).copy(alpha = 0.15f),
+                title = "素材總覽・去留審查",
+                subtitle = "1000+ 內建素材一次看,點一下決定保留/丟棄;可從雲端更新",
+                trailing = "chevron_right",
+                onClick = onOpenReview,
             )
             ToolTile(
                 icon = "forum",

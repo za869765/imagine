@@ -8,9 +8,10 @@ import kotlinx.serialization.json.Json
 // CSV 格式 (Excel 直接開):
 //   key,value
 //   api_key,xai-...
-//   management_key,xai-mgmt-...
-//   team_id,02192454-54ee-4835-...
 //   api_key_verified_at,2026-05-20T...
+//   openrouter_key,sk-or-v1-...          (v1.8.0)
+//   openrouter_key_verified_at,2026-08-22 (v1.8.0)
+//   api_provider,xai|openrouter          (v1.8.0 目前使用哪家)
 
 @Serializable
 data class KeyBackup(
@@ -19,7 +20,10 @@ data class KeyBackup(
     val managementKey: String? = null,
     val teamId: String? = null,
     val githubPat: String? = null,
-    val version: Int = 3,
+    val openRouterKey: String? = null,
+    val openRouterKeyVerifiedAt: String? = null,
+    val provider: String? = null,
+    val version: Int = 4,
 )
 
 object KeyBackupCodec {
@@ -33,6 +37,9 @@ object KeyBackupCodec {
         val rows = buildList {
             prefs.apiKey?.takeIf { it.isNotBlank() }?.let { add("api_key" to it) }
             prefs.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { add("api_key_verified_at" to it) }
+            prefs.openRouterKey?.takeIf { it.isNotBlank() }?.let { add("openrouter_key" to it) }
+            prefs.openRouterKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { add("openrouter_key_verified_at" to it) }
+            add("api_provider" to prefs.providerId)
         }
         val body = rows.joinToString("\n") { (k, v) -> "${csvCell(k)},${csvCell(v)}" }
         return "key,value\n$body\n"
@@ -49,6 +56,9 @@ object KeyBackupCodec {
         val b = json.decodeFromString<KeyBackup>(jsonStr)
         b.apiKey?.takeIf { it.isNotBlank() }?.let { prefs.apiKey = it }
         b.apiKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { prefs.apiKeyVerifiedAt = it }
+        b.openRouterKey?.takeIf { it.isNotBlank() }?.let { prefs.openRouterKey = it }
+        b.openRouterKeyVerifiedAt?.takeIf { it.isNotBlank() }?.let { prefs.openRouterKeyVerifiedAt = it }
+        b.provider?.takeIf { it.isNotBlank() }?.let { prefs.providerId = it }
         // v1.0.21 砍 BillingState、v1.0.29 砍 GitHub PAT — 舊 backup 內這些欄位
         // 仍 parse 進 data class，但這裡 silently ignore 不寫進 SecurePrefs
         return b
@@ -57,6 +67,9 @@ object KeyBackupCodec {
     private fun importCsv(prefs: SecurePrefs, csv: String): KeyBackup {
         var apiKey: String? = null
         var verifiedAt: String? = null
+        var orKey: String? = null
+        var orVerifiedAt: String? = null
+        var provider: String? = null
         csv.lineSequence()
             .map { it.trim().removePrefix("﻿") }  // 砍 UTF-8 BOM (Excel 存 CSV 常有)
             .filter { it.isNotBlank() }
@@ -67,6 +80,9 @@ object KeyBackupCodec {
                 when (k.lowercase()) {
                     "api_key", "apikey" -> apiKey = v
                     "api_key_verified_at", "apikeyverifiedat" -> verifiedAt = v
+                    "openrouter_key", "openrouterkey" -> orKey = v
+                    "openrouter_key_verified_at", "openrouterkeyverifiedat" -> orVerifiedAt = v
+                    "api_provider", "provider" -> provider = v
                     "management_key", "managementkey", "team_id", "teamid",
                     "github_pat", "githubpat" -> {
                         /* 舊 backup 兼容欄位 — silently ignore */
@@ -75,9 +91,15 @@ object KeyBackupCodec {
             }
         apiKey?.let { prefs.apiKey = it }
         verifiedAt?.let { prefs.apiKeyVerifiedAt = it }
+        orKey?.let { prefs.openRouterKey = it }
+        orVerifiedAt?.let { prefs.openRouterKeyVerifiedAt = it }
+        provider?.let { if (it == "xai" || it == "openrouter") prefs.providerId = it }
         return KeyBackup(
             apiKey = apiKey,
             apiKeyVerifiedAt = verifiedAt,
+            openRouterKey = orKey,
+            openRouterKeyVerifiedAt = orVerifiedAt,
+            provider = provider,
         )
     }
 

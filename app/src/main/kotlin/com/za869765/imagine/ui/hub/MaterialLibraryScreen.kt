@@ -97,9 +97,11 @@ fun MaterialLibraryScreen(
         loaded = true
     }
 
-    val seedAll = remember { MaterialSeed.load(ctx) }
-    val seedCounts = remember(seedAll) {
-        MaterialLibrary.CATEGORIES.associateWith { c -> seedAll.count { it.category == c } }
+    val seedAll = remember(reloadKey) { MaterialSeed.load(ctx) }
+    // v1.8.0 修:內建素材區要套用 HiddenSeed(之前只有課程圖庫有過濾,素材庫格子仍顯示已刪的圖)
+    val hiddenSeeds = remember(reloadKey) { HiddenSeed.all(ctx) }
+    val seedCounts = remember(seedAll, hiddenSeeds) {
+        MaterialLibrary.CATEGORIES.associateWith { c -> seedAll.count { it.category == c && it.url !in hiddenSeeds } }
     }
 
     val picker = rememberLauncherForActivityResult(
@@ -136,7 +138,9 @@ fun MaterialLibraryScreen(
     val shown = remember(cat, tagged, entries) {
         entries.filter { !it.isVideo && tagged[it.displayName] == cat }
     }
-    val seedUrls = remember(cat, seedAll) { seedAll.filter { it.category == cat }.map { it.url } }
+    val seedUrls = remember(cat, seedAll, hiddenSeeds) {
+        seedAll.filter { it.category == cat && it.url !in hiddenSeeds }.map { it.url }
+    }
     val videoSeeds = remember(cat, courseVideos, reloadKey) {
         if (cat == VIDEO_CAT) courseVideos.filter { it.first !in HiddenSeed.all(ctx) } else emptyList()
     }

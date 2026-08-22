@@ -2,6 +2,8 @@ package com.za869765.imagine.ui.settings
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,18 +38,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
-import com.za869765.imagine.ui.util.Clipboard
+import com.za869765.imagine.ui.component.AppNotice
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
+import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.SectionHeader
+import com.za869765.imagine.ui.component.SegmentedOption
+import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.theme.LocalBudgetColors
+import com.za869765.imagine.ui.util.Clipboard
 import java.time.LocalDate
 
+/**
+ * v1.8.0 API Key 頁:上方分段切 xAI / OpenRouter,各自一把 key(輸入 / 貼上 / 顯示 / 複製 / 移除),
+ * 「目前使用」區決定生成 / 對話走哪家(記住選擇)。移除後由本頁自行清 prefs,onRemove 只負責離開。
+ */
 @Composable
 fun ApiKeyEditScreen(
     onBack: () -> Unit,
@@ -57,9 +69,24 @@ fun ApiKeyEditScreen(
     val prefs = remember { SecurePrefs.get(ctx) }
     val budgetColors = LocalBudgetColors.current
 
-    var showFull by remember { mutableStateOf(false) }
-    var newKey by remember { mutableStateOf("") }
-    val canSave = newKey.startsWith("xai-") && newKey.length > 8
+    var tabId by rememberSaveable { mutableStateOf(prefs.providerId) }
+    val p = ApiProvider.fromId(tabId)
+    var activeId by remember { mutableStateOf(prefs.providerId) }
+    // 每個供應商各自的編輯狀態(切 tab 重設)
+    var showFull by remember(tabId) { mutableStateOf(false) }
+    var newKey by remember(tabId) { mutableStateOf("") }
+    var keyTick by remember { mutableStateOf(0) } // 存/移除後刷新顯示
+    val currentKey = remember(tabId, keyTick) { prefs.keyFor(p) }
+    val verifiedAt = remember(tabId, keyTick) {
+        if (p == ApiProvider.XAI) prefs.apiKeyVerifiedAt else prefs.openRouterKeyVerifiedAt
+    }
+    val canSave = newKey.startsWith(p.keyPrefix, ignoreCase = true) && newKey.length > 8
+
+    fun openUrl(url: String) {
+        runCatching {
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
 
     ImagineScreen(
         appBar = {
@@ -77,11 +104,60 @@ fun ApiKeyEditScreen(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            SegmentedTab(
+                options = ApiProvider.entries.map { SegmentedOption(it.id, it.label) },
+                activeId = tabId,
+                onSelected = { tabId = it },
+            )
+
+            // 目前使用哪家
+            ImagineCard {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "目前使用",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                        letterSpacing = 0.08.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            ApiProvider.fromId(activeId).label,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.W700,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (activeId != p.id) {
+                            OutlinedActionButton(
+                                label = "改用 ${p.label}",
+                                icon = "swap_horiz",
+                                onClick = {
+                                    prefs.providerId = p.id
+                                    activeId = p.id
+                                    AppNotice.show("生成 / 對話改走 ${p.label}")
+                                },
+                            )
+                        } else {
+                            Text("✓ 生成與對話走這家", fontSize = 12.sp, color = budgetColors.ok)
+                        }
+                    }
+                    Text(
+                        text = if (p == ApiProvider.OPENROUTER)
+                            "OpenRouter:一把 key 通吃 400+ 模型(含免費款),對話 / 生圖 / 生影皆可;費用從 OpenRouter 餘額扣。"
+                        else "xAI:Grok Imagine 圖 $0.05/張、影片 $0.05/秒;圖片編輯 / 影片延長 / 影片編輯 目前只有 xAI 支援。",
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             // 目前 Key Card
             ImagineCard {
                 Column {
                     Text(
-                        "目前 KEY",
+                        "${p.label} KEY",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W600,
                         letterSpacing = 0.08.sp,
@@ -89,45 +165,48 @@ fun ApiKeyEditScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = if (showFull) prefs.apiKey ?: "未設定" else maskKey(prefs.apiKey),
+                        text = if (showFull) currentKey ?: "未設定" else maskKey(currentKey),
                         fontFamily = FontFamily.Monospace,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         letterSpacing = 0.02.sp,
                     )
-                    if (!prefs.apiKey.isNullOrBlank()) {
+                    if (!currentKey.isNullOrBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.padding(top = 8.dp),
                         ) {
                             ImagineIcon(name = "check", size = 14.dp, fill = 1, tint = budgetColors.ok)
-                            Text(
-                                "已驗證 · ${prefs.apiKeyVerifiedAt ?: "—"}",
-                                fontSize = 12.sp,
-                                color = budgetColors.ok,
-                            )
+                            Text("已設定 · ${verifiedAt ?: "—"}", fontSize = 12.sp, color = budgetColors.ok)
                         }
                         Row(
                             modifier = Modifier.padding(top = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             TextActionButton(label = "複製", icon = "content_copy", onClick = {
-                                copyToClipboard(ctx, prefs.apiKey ?: "")
+                                copyToClipboard(ctx, currentKey)
                             })
                             TextActionButton(
-                                label = if (showFull) "遮蔽 Key" else "顯示完整 Key",
+                                label = if (showFull) "遮蔽" else "顯示完整",
                                 icon = "visibility",
                                 onClick = { showFull = !showFull },
                             )
                         }
+                    }
+                    Row(
+                        modifier = Modifier.padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        TextActionButton(label = "取得 Key", icon = "open_in_new", onClick = { openUrl(p.keysUrl) })
+                        TextActionButton(label = "查帳單 / 用量", icon = "receipt_long", onClick = { openUrl(p.billingUrl) })
                     }
                 }
             }
 
             // 變更為新 Key
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("變更為新 Key")
+                SectionHeader("變更為新 Key（${p.label}）")
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -150,7 +229,7 @@ fun ApiKeyEditScreen(
                         decorationBox = { inner ->
                             if (newKey.isEmpty()) {
                                 Text(
-                                    "xai-...",
+                                    p.keyHint,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontFamily = FontFamily.Monospace,
                                     fontSize = 15.sp,
@@ -169,26 +248,17 @@ fun ApiKeyEditScreen(
                             label = "從剪貼簿貼上",
                             icon = "content_paste",
                             onClick = {
-                                // v1.0.53: 用統一的 Clipboard.paste (coerceToText 強制轉文字，
-                                // 防某些密碼管理器/Bitwarden 用 styled span 導致 .text 回 null)
                                 val raw = Clipboard.paste(ctx)?.trim().orEmpty()
-                                val extracted = extractXaiKeyFrom(raw)
+                                val extracted = extractKeyFrom(raw, p.keyPrefix)
                                 if (extracted != null) {
                                     newKey = extracted
-                                    Toast.makeText(ctx, "✓ 已從剪貼簿載入 xai- key", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(ctx, "✓ 已從剪貼簿載入 ${p.keyPrefix} key", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    // v1.0.53: 失敗 toast 顯示前 40 字 preview，使用者能立刻判斷
-                                    // 是剪貼簿真的沒 xai- 還是 imagine 讀錯內容
                                     val preview = if (raw.isBlank()) "<空>" else raw.take(40)
-                                    Toast.makeText(
-                                        ctx,
-                                        "剪貼簿沒有 xai- key (讀到: $preview)",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
+                                    Toast.makeText(ctx, "剪貼簿沒有 ${p.keyPrefix} key (讀到: $preview)", Toast.LENGTH_LONG).show()
                                 }
                             },
                         )
-                        // v1.0.54 (a): 解釋 Android 剪貼簿 API 限制
                         Text(
                             "只讀「最近一次」複製內容；Samsung 剪貼簿歷史第三方 app 讀不到",
                             fontSize = 10.sp,
@@ -200,51 +270,85 @@ fun ApiKeyEditScreen(
             }
 
             PrimaryButton(
-                label = "驗證並儲存",
+                label = "儲存 ${p.label} Key",
                 icon = "check",
                 enabled = canSave,
                 onClick = {
-                    prefs.apiKey = newKey
-                    prefs.apiKeyVerifiedAt = LocalDate.now().toString()
+                    val today = LocalDate.now().toString()
+                    if (p == ApiProvider.XAI) {
+                        prefs.apiKey = newKey
+                        prefs.apiKeyVerifiedAt = today
+                    } else {
+                        prefs.openRouterKey = newKey
+                        prefs.openRouterKeyVerifiedAt = today
+                    }
+                    // 目前使用的那家沒 key 時,自動切到剛存好的這家(第一次只填 OpenRouter 的人不用再多點一下)
+                    if (!prefs.hasKeyFor(prefs.provider)) {
+                        prefs.providerId = p.id
+                        activeId = p.id
+                    }
+                    keyTick++
+                    newKey = ""
+                    AppNotice.show("${p.label} Key 已儲存")
                     onSaved()
                 },
             )
 
             // 危險區 - 移除 Key
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(16.dp),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+            if (!currentKey.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(16.dp),
                 ) {
-                    ImagineIcon(name = "key", size = 22.dp, fill = 1, tint = MaterialTheme.colorScheme.error)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "移除 API Key",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                        Text(
-                            "移除後將無法使用本 APP，需重新設定",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.75f),
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
-                    Box(modifier = Modifier.clickable(onClick = onRemove)) {
-                        ImagineIcon(name = "chevron_right", size = 22.dp, tint = MaterialTheme.colorScheme.onErrorContainer)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        ImagineIcon(name = "key", size = 22.dp, fill = 1, tint = MaterialTheme.colorScheme.error)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "移除 ${p.label} API Key",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                            Text(
+                                "移除後這家的功能無法使用;若另一家有 key 會自動改用它",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.75f),
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.clickable(onClick = {
+                                if (p == ApiProvider.XAI) {
+                                    prefs.apiKey = null
+                                    prefs.apiKeyVerifiedAt = null
+                                } else {
+                                    prefs.openRouterKey = null
+                                    prefs.openRouterKeyVerifiedAt = null
+                                }
+                                val other = if (p == ApiProvider.XAI) ApiProvider.OPENROUTER else ApiProvider.XAI
+                                if (prefs.provider == p && prefs.hasKeyFor(other)) {
+                                    prefs.providerId = other.id
+                                    activeId = other.id
+                                }
+                                keyTick++
+                                AppNotice.show("已移除 ${p.label} Key")
+                                onRemove()
+                            }),
+                        ) {
+                            ImagineIcon(name = "chevron_right", size = 22.dp, tint = MaterialTheme.colorScheme.onErrorContainer)
+                        }
                     }
                 }
             }
 
             Text(
-                text = "Key 由 Android Keystore 加密儲存於本機，\n不會傳送到任何第三方伺服器。",
+                text = "Key 由 Android Keystore 加密儲存於本機，\n只會送到對應的 API 伺服器（api.x.ai / openrouter.ai）。",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 19.sp,
@@ -266,18 +370,11 @@ private fun copyToClipboard(ctx: Context, text: String) {
     cb.setPrimaryClip(android.content.ClipData.newPlainText("API Key", text))
 }
 
-// 從剪貼簿全文 extract xAI key 子字串,避免使用者貼到「我的 key 是 xai-abc...」
-// 整段文字無法 startsWith 過 canSave 條件。
-// v1.0.53: 加 IGNORE_CASE — 防 user 複製到大小寫變體 (xAI-、XAI- 等)
-private val XAI_KEY_REGEX = Regex("xai-[A-Za-z0-9_-]+", RegexOption.IGNORE_CASE)
-
-private fun extractXaiKeyFrom(raw: String): String? {
+// 從剪貼簿全文 extract key 子字串(依供應商前綴),避免使用者貼到「我的 key 是 xai-abc...」整段文字。
+// IGNORE_CASE 防 IME 自動把開頭字母大寫。
+private fun extractKeyFrom(raw: String, prefix: String): String? {
     if (raw.isBlank()) return null
-    // 整段就是 key (純貼上 key，無任何空白) → 直接回。case-insensitive startsWith
-    // 防 user IME 自動把開頭字母大寫成「Xai-」
-    if (raw.startsWith("xai-", ignoreCase = true) && raw.none { it.isWhitespace() }) {
-        return raw
-    }
-    // 從混雜文字內找 xai-... 連續字串 (如「Your key: xai-abc...」、log 內混 key 等)
-    return XAI_KEY_REGEX.find(raw)?.value
+    if (raw.startsWith(prefix, ignoreCase = true) && raw.none { it.isWhitespace() }) return raw
+    val re = Regex(Regex.escape(prefix) + "[A-Za-z0-9_-]+", RegexOption.IGNORE_CASE)
+    return re.find(raw)?.value
 }

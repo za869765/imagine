@@ -20,4 +20,7 @@ object Routes {
 
     const val SETTINGS = "settings"
     const val API_KEY_EDIT = "api_key_edit"
+    // v1.8.0
+    const val CHAT = "chat"                       // API 對話(xAI / OpenRouter 皆可,非 WebView)
+    const val MATERIAL_REVIEW = "material_review" // 素材總覽・去留審查
 }

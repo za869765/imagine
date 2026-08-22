@@ -28,8 +28,10 @@ import com.za869765.imagine.ui.generate.GenerateVideoScreen
 import com.za869765.imagine.ui.history.HistoryDetailScreen
 import com.za869765.imagine.ui.history.HistoryScreen
 import com.za869765.imagine.ui.grok.GrokChatScreen
+import com.za869765.imagine.ui.chat.ChatScreen
 import com.za869765.imagine.ui.hub.MaterialHubScreen
 import com.za869765.imagine.ui.hub.MaterialLibraryScreen
+import com.za869765.imagine.ui.hub.MaterialReviewScreen
 import com.za869765.imagine.ui.longvideo.LongVideoScreen
 import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
@@ -119,9 +121,11 @@ fun ImagineRoot() {
 
             composable(Routes.MATERIAL_HUB) {
                 MaterialHubScreen(
+                    onPickChat = { navController.navigate(Routes.CHAT) },
                     onPickImage = { navController.navigate(Routes.GENERATE_IMAGE) },
                     onPickVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
                     onOpenLibrary = { navController.navigate(Routes.MATERIAL_LIBRARY) },
+                    onOpenReview = { navController.navigate(Routes.MATERIAL_REVIEW) },
                     onOpenGrok = { navController.navigate(Routes.GROK_CHAT) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
@@ -130,6 +134,36 @@ fun ImagineRoot() {
 
             composable(Routes.GROK_CHAT) {
                 GrokChatScreen(onBack = { navController.popBackStack() })
+            }
+
+            // v1.8.0 API 對話(xAI / OpenRouter);與生圖/生影頁用同一個 MATERIAL_HUB 錨點互切
+            composable(Routes.CHAT) {
+                ChatScreen(
+                    onSwitchToImage = {
+                        navController.navigate(Routes.GENERATE_IMAGE) {
+                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onSwitchToVideo = {
+                        navController.navigate(Routes.GENERATE_VIDEO) {
+                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                )
+            }
+
+            // v1.8.0 素材總覽・去留審查
+            composable(Routes.MATERIAL_REVIEW) {
+                MaterialReviewScreen(
+                    onBack = { navController.popBackStack() },
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                )
             }
 
             composable(Routes.MATERIAL_LIBRARY) {
@@ -227,6 +261,13 @@ fun ImagineRoot() {
                 }
                 GenerateImageScreen(
                     initialPrompt = initPrompt,
+                    onSwitchToChat = {
+                        navController.navigate(Routes.CHAT) {
+                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onSwitchToVideo = {
                         // 圖/影互切錨定 MATERIAL_HUB(素材生成 section root,啟動後永遠在 stack 底)。
                         // 不可錨 GENERATE_IMAGE:從 hub 直接進影片頁時它根本不在 stack,
@@ -281,6 +322,13 @@ fun ImagineRoot() {
                 GenerateVideoScreen(
                     onSwitchToImage = {
                         navController.navigate(Routes.GENERATE_IMAGE) {
+                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onSwitchToChat = {
+                        navController.navigate(Routes.CHAT) {
                             popUpTo(Routes.MATERIAL_HUB) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
@@ -445,6 +493,7 @@ fun ImagineRoot() {
                 SettingsScreen(
                     onApiKeyClick = { navController.navigate(Routes.API_KEY_EDIT) },
                     onLibraryClick = { navController.navigate(Routes.HISTORY) },
+                    onReviewClick = { navController.navigate(Routes.MATERIAL_REVIEW) },
                     onClearedAndReset = {
                         prefs.clearAll()
                         // 清資料後回素材生成首頁 (整個 stack 清掉重來)
@@ -460,11 +509,8 @@ fun ImagineRoot() {
                 ApiKeyEditScreen(
                     onBack = { navController.popBackStack() },
                     onSaved = { navController.popBackStack() },
-                    onRemove = {
-                        prefs.apiKey = null
-                        prefs.apiKeyVerifiedAt = null
-                        navController.popBackStack()
-                    },
+                    // v1.8.0: 哪家 key 要移除由頁內依分頁決定(xAI / OpenRouter),這裡只負責離開
+                    onRemove = { navController.popBackStack() },
                 )
             }
             }

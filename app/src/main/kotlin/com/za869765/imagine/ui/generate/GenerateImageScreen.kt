@@ -38,8 +38,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.za869765.imagine.data.api.OpenRouterClient
 import com.za869765.imagine.data.api.XaiClient
+import com.za869765.imagine.data.catalog.ModelMode
+import com.za869765.imagine.data.catalog.OpenRouterCatalog
+import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.repo.OpenRouterRepository
+import com.za869765.imagine.ui.component.ModelPickerRow
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
@@ -98,6 +104,7 @@ fun GenerateImageScreen(
     onSwitchToVideo: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
+    onSwitchToChat: () -> Unit = {},
     onAnimateImage: (String, String) -> Unit = { _, _ -> },
     onEditImage: (String, String) -> Unit = { _, _ -> },
     initialPrompt: String? = null,
@@ -107,6 +114,21 @@ fun GenerateImageScreen(
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
     val focusManager = LocalFocusManager.current
+
+    // v1.8.0 供應商:xAI 照舊(品質→模型);OpenRouter 走 /images(回 base64,直接落地)+ 模型可選,
+    // 解析度 / 長寬比 / 數量選項依所選模型的 supported_parameters。
+    val provider = prefs.provider
+    val orRepo = remember(prefs) { OpenRouterRepository(OpenRouterClient.build(prefs)) }
+    var orModel by rememberSaveable(prefs.orImageModel) { mutableStateOf(prefs.orImageModel) }
+    val orModelInfo = remember(orModel) { OpenRouterCatalog.find(ctx, ModelMode.IMAGE, orModel) }
+    val orResolutions = orModelInfo?.resolutions?.takeIf { it.isNotEmpty() } ?: listOf("1K", "2K")
+    val orAspects = orModelInfo?.aspects?.takeIf { it.isNotEmpty() }
+        ?: listOf("1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3")
+    val orNMax = (orModelInfo?.nMax ?: 1).coerceIn(1, 10)
+    var orResolution by rememberSaveable(orModel) { mutableStateOf(orResolutions.first()) }
+    var orAspect by rememberSaveable(orModel) {
+        mutableStateOf(if (prefs.defImageAspect in orAspects) prefs.defImageAspect else orAspects.first())
+    }
 
     var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
     // 從 History「使用此提示詞」帶進來 → 覆蓋目前 prompt
@@ -186,14 +208,52 @@ fun GenerateImageScreen(
             val capturedRes = resolution
             val capturedAr = aspectRatio
             val capturedN = n
-            val capturedModel = if (quality == "quality") "grok-imagine-image-quality" else "grok-imagine-image"
-            val result = repository.generateImage(
-                prompt = capturedPrompt,
-                n = capturedN,
-                resolution = capturedRes,
-                aspectRatio = capturedAr.takeIf { it != "auto" },
-                model = capturedModel,
-            )
+            val capturedProvider = provider
+            val capturedModel = when {
+                capturedProvider == ApiProvider.OPENROUTER -> orModel
+                quality == "quality" -> "grok-imagine-image-quality"
+                else -> "grok-imagine-image"
+            }
+            val capturedOrRes = orResolution
+            val capturedOrAr = orAspect
+            var orCost: Double? = null
+            var orSavedNames: List<String> = emptyList()
+            val result: ApiResult<List<String>> = if (capturedProvider == ApiProvider.OPENROUTER) {
+                when (val r = orRepo.generateImage(
+                    model = capturedModel,
+                    prompt = capturedPrompt,
+                    n = capturedN.coerceIn(1, orNMax),
+                    aspectRatio = capturedOrAr.takeIf { it != "auto" },
+                    resolution = capturedOrRes,
+                )) {
+                    is ApiResult.Error -> r
+                    is ApiResult.Success -> {
+                        orCost = r.value.cost
+                        // OpenRouter 回 base64 → 直接存進 app 內 media(與 xAI 下載同一目錄),結果以 file:// 顯示
+                        val uris = ArrayList<String>()
+                        for (img in r.value.images) {
+                            val bytes = img.bytes
+                            val url = img.url
+                            val saved = when {
+                                bytes != null -> MediaSaver.saveImage(ctx, bytes, capturedPrompt)
+                                !url.isNullOrBlank() -> MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
+                                else -> null
+                            }
+                            if (saved != null) uris.add(saved)
+                        }
+                        orSavedNames = uris.map { it.substringAfterLast('/') }
+                        ApiResult.Success(uris)
+                    }
+                }
+            } else {
+                repository.generateImage(
+                    prompt = capturedPrompt,
+                    n = capturedN,
+                    resolution = capturedRes,
+                    aspectRatio = capturedAr.takeIf { it != "auto" },
+                    model = capturedModel,
+                )
+            }
             loading = false
             when (result) {
                 is ApiResult.Success -> {
@@ -209,19 +269,29 @@ fun GenerateImageScreen(
                     } else {
                         resultUrls = result.value
                         lastPrompt = capturedPrompt
-                        lastMeta = "$capturedAr · $capturedRes · ${capturedN} 張"
+                        lastMeta = if (capturedProvider == ApiProvider.OPENROUTER) {
+                            "$capturedOrAr · $capturedOrRes · ${result.value.size} 張 · $capturedModel" +
+                                (orCost?.let { " · 本次 $" + String.format(java.util.Locale.US, "%.4f", it).trimEnd('0').trimEnd('.') } ?: "")
+                        } else {
+                            "$capturedAr · $capturedRes · ${capturedN} 張"
+                        }
                         lastError = ""
                         lastErrorIsPolicy = false
                         pendingScrollToResult = true  // bug#3: 捲到結果區讓新圖主動出現
                         resultGen++                   // A1: 換快取 key,強制顯示這次的新圖
                         // v1.0.54 B3: 改用 ImagineApp.appScope (process-lifecycle) — user
                         // 切走/鎖屏時 Composable scope 會 cancel，下載到一半被砍 → History 看不到
-                        savedNames = List(result.value.size) { "" }
                         // v1.7.2: 這批專屬 token — 上一批(甚至上一個畫面 instance)較晚完成的
                         // 下載不可寫進新批的 savedNames/帳本鍵(索引對不上會把錯的圖存進角色資產)
                         val tok = java.util.UUID.randomUUID().toString()
                         batchToken = tok
                         batchPrefs.edit().clear().apply()  // 帳本只留當前批(舊批晚到寫入=孤兒鍵,無害)
+                        if (capturedProvider == ApiProvider.OPENROUTER) {
+                            // 已在 runGenerate 內同步落地 → 檔名直接就緒(角色資產 / 分類鈕立即可用)
+                            savedNames = orSavedNames
+                            orSavedNames.forEachIndexed { i, name -> batchPrefs.edit().putString("b${tok}_$i", name).apply() }
+                        } else {
+                        savedNames = List(result.value.size) { "" }
                         result.value.forEachIndexed { i, url ->
                             com.za869765.imagine.ImagineApp.appScope.launch {
                                 val savedUri = MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
@@ -237,6 +307,7 @@ fun GenerateImageScreen(
                                     }
                                 }
                             }
+                        }
                         }
                         Toast.makeText(
                             ctx,
@@ -268,13 +339,20 @@ fun GenerateImageScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // v1.8.0 L1 三段:對話｜生圖｜生影
             com.za869765.imagine.ui.component.SegmentedTab(
                 options = listOf(
-                    com.za869765.imagine.ui.component.SegmentedOption("image", "圖片"),
-                    com.za869765.imagine.ui.component.SegmentedOption("video", "影片"),
+                    com.za869765.imagine.ui.component.SegmentedOption("chat", "對話"),
+                    com.za869765.imagine.ui.component.SegmentedOption("image", "生圖"),
+                    com.za869765.imagine.ui.component.SegmentedOption("video", "生影"),
                 ),
                 activeId = "image",
-                onSelected = { if (it == "video") onSwitchToVideo() },
+                onSelected = {
+                    when (it) {
+                        "video" -> onSwitchToVideo()
+                        "chat" -> onSwitchToChat()
+                    }
+                },
                 activeColor = Color(0xFF2E3A6E),
             )
 
@@ -286,11 +364,19 @@ fun GenerateImageScreen(
                 UnderlineTab("生圖", imageFn == "gen") { imageFn = "gen" }
                 UnderlineTab("圖片編輯", imageFn == "edit") { imageFn = "edit" }
             }
+            if (provider == ApiProvider.OPENROUTER && imageFn == "edit") {
+                Text(
+                    "圖片編輯目前只接 xAI(用 xAI key);OpenRouter 的圖生圖請在「生圖」改用支援參考圖的模型。",
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
-            if (!prefs.isApiKeySet) {
+            if (!prefs.isActiveKeySet) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
                     Text(
-                        "未設定 API Key — 點此到設定填入或從 Keys 備份匯入",
+                        "未設定 ${provider.label} API Key — 點此到設定填入、匯入備份,或切換供應商",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.error,
                         lineHeight = 19.sp,
@@ -313,6 +399,41 @@ fun GenerateImageScreen(
                 flagged = lastErrorIsPolicy,
             )
 
+            // v1.8.0 模型列(價格 / 免費標記)— xAI:快速/高品質兩款($0.05/張);OpenRouter:43 款生圖模型
+            if (provider == ApiProvider.OPENROUTER) {
+                ModelPickerRow(
+                    mode = ModelMode.IMAGE,
+                    provider = provider,
+                    selectedId = orModel,
+                    onSelect = { orModel = it; prefs.orImageModel = it },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ParamPicker(
+                        label = "解析度",
+                        value = if (orResolution in orResolutions) orResolution else orResolutions.first(),
+                        options = orResolutions,
+                        onSelect = { orResolution = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ParamPicker(
+                        label = "長寬比",
+                        value = if (orAspect in orAspects) orAspect else orAspects.first(),
+                        options = orAspects,
+                        onSelect = { orAspect = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ParamPicker(
+                        label = "數量",
+                        value = n.coerceIn(1, orNMax).toString(),
+                        options = (1..orNMax).map { it.toString() },
+                        onSelect = { n = it.toIntOrNull() ?: 1 },
+                        displayName = { "$it 張" + (if (orNMax == 1) "（此模型一次 1 張）" else "") },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
             // 參數 2×2:解析度/長寬比 + 數量/品質。品質從獨立分段控制併進來,少一條堆疊橫條(痛點 #2)。
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ParamPicker(
@@ -338,21 +459,21 @@ fun GenerateImageScreen(
                     onSelect = { n = it.toIntOrNull() ?: 1 },
                     modifier = Modifier.weight(1f),
                 )
-                ParamPicker(
-                    label = "品質",
-                    value = quality,
-                    options = listOf("rapid", "quality"),
-                    onSelect = { quality = it },
-                    displayName = { if (it == "quality") "高品質" else "快速" },
-                    modifier = Modifier.weight(1f),
-                )
+            }
+            // 品質 = 模型(快速 grok-imagine-image / 高品質 grok-imagine-image-quality),改用模型列顯示價格
+            ModelPickerRow(
+                mode = ModelMode.IMAGE,
+                provider = provider,
+                selectedId = if (quality == "quality") "grok-imagine-image-quality" else "grok-imagine-image",
+                onSelect = { quality = if (it.endsWith("-quality")) "quality" else "rapid" },
+            )
             }
 
             PrimaryButton(
                 label = if (loading) "生成中…" else "生 成",
                 icon = if (loading) null else "auto_awesome",
                 loading = loading,
-                enabled = prompt.isNotBlank() && !loading && prefs.isApiKeySet,
+                enabled = prompt.isNotBlank() && !loading && prefs.isActiveKeySet,
                 onClick = {
                     val term = firstHighRiskTerm(prompt)
                     if (term != null) pendingRiskTerm = term else runGenerate()

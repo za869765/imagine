@@ -76,11 +76,15 @@ fun SettingsScreen(
     onLibraryClick: () -> Unit,
     onClearedAndReset: () -> Unit,
     onBack: () -> Unit,
+    onReviewClick: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val budgetColors = LocalBudgetColors.current
     val scope = rememberCoroutineScope()
+    // v1.8.0 從雲端更新素材(素材種子 + 課程資料)
+    var seedUpdating by remember { mutableStateOf(false) }
+    var seedLastUpdated by remember { mutableStateOf(com.za869765.imagine.data.storage.SeedUpdater.lastUpdatedAt(ctx)) }
 
     var screenshots by remember { mutableStateOf(prefs.preventScreenshots) }
 
@@ -239,6 +243,59 @@ fun SettingsScreen(
                         }
                     }
                 }
+                // v1.8.0 內建素材:去留審查 + 雲端更新
+                ImagineCard(pad = 0) {
+                    Column {
+                        SettingRow(divider = true, onClick = onReviewClick) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "素材總覽・去留審查",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.W500,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "1000+ 內建素材攤開看,點一下決定保留 / 丟棄",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(name = "chevron_right", size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        SettingRow(divider = false, onClick = {
+                            if (!seedUpdating) {
+                                seedUpdating = true
+                                scope.launch {
+                                    val r = com.za869765.imagine.data.storage.SeedUpdater.update(ctx)
+                                    seedUpdating = false
+                                    r.onSuccess {
+                                        seedLastUpdated = com.za869765.imagine.data.storage.SeedUpdater.lastUpdatedAt(ctx)
+                                        Toast.makeText(ctx, "素材已更新:素材 ${it.seedTotal}(新 ${it.seedAdded})・課程 ${it.lessonTotal}(新 ${it.lessonAdded})", Toast.LENGTH_LONG).show()
+                                    }.onFailure {
+                                        Toast.makeText(ctx, "更新失敗:${it.message?.take(60) ?: "未知錯誤"}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    if (seedUpdating) "更新中…" else "從雲端更新素材（super-i 新課程）",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.W500,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "拉 GitHub 上最新的素材種子與課程資料,不用重裝 APP" + (seedLastUpdated?.let { " · 上次 $it" } ?: ""),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(name = "cloud_download", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
             }
 
             // ── 生成預設 (C1) ── 圖片/影片每次進生成頁的初始參數
@@ -341,21 +398,29 @@ fun SettingsScreen(
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
+                            // v1.8.0 兩家 key + 目前使用哪家
                             Text(
-                                "API Key",
+                                "API Key · 目前使用 ${prefs.provider.label}",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.W600,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                maskKey(prefs.apiKey),
-                                fontSize = 13.sp,
+                                "xAI        " + maskKey(prefs.apiKey),
+                                fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 letterSpacing = 0.02.sp,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
-                            if (!prefs.apiKey.isNullOrBlank()) {
+                            Text(
+                                "OpenRouter " + maskKey(prefs.openRouterKey),
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 0.02.sp,
+                            )
+                            if (prefs.isActiveKeySet) {
                                 Row(
                                     modifier = Modifier.padding(top = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -363,11 +428,18 @@ fun SettingsScreen(
                                 ) {
                                     ImagineIcon(name = "check", size = 14.dp, fill = 1, tint = budgetColors.ok)
                                     Text(
-                                        "已驗證 · ${prefs.apiKeyVerifiedAt ?: "—"}",
+                                        "已設定 · 點此切換供應商 / 改 Key",
                                         fontSize = 12.sp,
                                         color = budgetColors.ok,
                                     )
                                 }
+                            } else {
+                                Text(
+                                    "目前供應商尚未設定 Key — 點此填入或切換",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
                             }
                         }
                         ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -380,7 +452,7 @@ fun SettingsScreen(
             // 改成直接開 console.x.ai 用量頁。Token / 計算都用 xAI 後台原生。
             // v1.0.46: 加 grok.com 入口 — 看歷史/分享回 Imagine 走系統瀏覽器
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("xAI 後台")
+                SectionHeader("帳單 / 後台")
                 ImagineCard(pad = 0) {
                     Column {
                         SettingRow(divider = true, onClick = {
@@ -399,6 +471,51 @@ fun SettingsScreen(
                                 )
                                 Text(
                                     "瀏覽器開啟 — token / 圖片 / 影片數據以官方為準",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(name = "open_in_new", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        // v1.8.0 OpenRouter 額度 / 用量(跟上面 xAI 同一套「查詢帳單」快捷鈕)
+                        SettingRow(divider = true, onClick = {
+                            ctx.startActivity(
+                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(com.za869765.imagine.data.prefs.ApiProvider.OPENROUTER.billingUrl))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "在 openrouter.ai 看餘額 / 帳單",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.W500,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "瀏覽器開啟 — 儲值 / 每筆花費 / 免費額度用量以官方為準",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            ImagineIcon(name = "receipt_long", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        SettingRow(divider = true, onClick = {
+                            ctx.startActivity(
+                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://openrouter.ai/activity"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "OpenRouter 活動紀錄",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.W500,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "逐筆請求:模型 / tokens / 花費",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 2.dp),
@@ -714,7 +831,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "xAI Imagine API 客戶端",
+                    "xAI Imagine ／ OpenRouter API 客戶端",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

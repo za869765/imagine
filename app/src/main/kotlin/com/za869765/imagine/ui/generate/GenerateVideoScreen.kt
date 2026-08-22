@@ -65,8 +65,15 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import coil3.compose.AsyncImage
+import com.za869765.imagine.data.api.OpenRouterClient
 import com.za869765.imagine.data.api.XaiClient
+import com.za869765.imagine.data.catalog.ModelMode
+import com.za869765.imagine.data.catalog.OpenRouterCatalog
+import com.za869765.imagine.data.catalog.XaiCatalog
+import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.repo.OpenRouterRepository
+import com.za869765.imagine.ui.component.ModelPickerRow
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
@@ -110,6 +117,7 @@ fun GenerateVideoScreen(
     onSwitchToImage: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
+    onSwitchToChat: () -> Unit = {},
     initialImageUri: Uri? = null,    // 從圖片頁「動起來」帶過來
     initialPrompt: String? = null,    // 「動起來」時順帶把圖片的 prompt 預填 (對齊 grok-imagine console 行為)
     initialVideoMode: String? = null, // "i2v" → 即使沒帶圖也開在圖生影模式(教學 i2v 範本:純動作,需使用者再選來源圖)
@@ -121,6 +129,20 @@ fun GenerateVideoScreen(
     val scope = rememberCoroutineScope()
     val repository = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
     val focusManager = LocalFocusManager.current
+
+    // v1.8.0 供應商 + 模型:xAI 兩款($0.05 / $0.08 每秒);OpenRouter 24 款生影模型(秒數/解析度/長寬比依模型)
+    val provider = prefs.provider
+    val orRepo = remember(prefs) { OpenRouterRepository(OpenRouterClient.build(prefs)) }
+    var orModel by rememberSaveable(prefs.orVideoModel) { mutableStateOf(prefs.orVideoModel) }
+    var xaiModel by rememberSaveable(prefs.xaiVideoModel) { mutableStateOf(prefs.xaiVideoModel) }
+    val modelInfo = remember(provider, orModel, xaiModel) {
+        if (provider == ApiProvider.OPENROUTER) OpenRouterCatalog.find(ctx, ModelMode.VIDEO, orModel)
+        else XaiCatalog.models(ModelMode.VIDEO).firstOrNull { it.id == xaiModel }
+    }
+    val durationOptions = modelInfo?.durations?.takeIf { it.isNotEmpty() }?.sorted() ?: (1..15).toList()
+    val resolutionOptions = modelInfo?.resolutions?.takeIf { it.isNotEmpty() } ?: listOf("480p", "720p")
+    val aspectOptions = modelInfo?.aspects?.takeIf { it.isNotEmpty() }
+        ?: listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3")
 
     var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
     // initialPrompt 變動 (例如使用者從 History 不同筆動起來) 時覆蓋已存 prompt
@@ -145,6 +167,11 @@ fun GenerateVideoScreen(
     var duration by rememberSaveable(prefs.defVideoDuration) { mutableStateOf(prefs.defVideoDuration) }
     var aspect by rememberSaveable(prefs.defVideoAspect) { mutableStateOf(prefs.defVideoAspect) }
     var resolution by rememberSaveable(prefs.defVideoResolution) { mutableStateOf(prefs.defVideoResolution) }
+    // 所選模型不支援目前的秒數/解析度/長寬比時,送出與顯示都用最接近的合法值(不改使用者存的偏好)
+    val effDuration = if (duration in durationOptions) duration
+        else (durationOptions.firstOrNull { it >= duration } ?: durationOptions.last())
+    val effResolution = if (resolution in resolutionOptions) resolution else resolutionOptions.first()
+    val effAspect = if (aspect in aspectOptions) aspect else aspectOptions.first()
     // sourceImages 是 List<Uri> — Uri 本身可序列化,但 List<Uri> 沒 Saver,改存字串 list
     var sourceImageStrings by rememberSaveable {
         mutableStateOf(initialImageUri?.let { listOf(it.toString()) } ?: emptyList())
@@ -308,7 +335,11 @@ fun GenerateVideoScreen(
                 // 避免使用者按了沒反應、又得手動把預填的字再貼回去
                 val capturedPrompt = prompt.ifBlank { initialPrompt.orEmpty() }
                 val capturedMode = mode
-                val capturedDuration = duration
+                val capturedDuration = effDuration
+                val capturedProvider = provider
+                val capturedModel = if (capturedProvider == ApiProvider.OPENROUTER) orModel else xaiModel
+                val capturedResolution = effResolution
+                val capturedAspect = effAspect
 
                 // v1.0.49: encodeImage 改成 suspend (內含 IO + Bitmap decode)，
                 // 不能再用 .let / .mapNotNull (lambda type 非 suspend) — 改 for loop
@@ -338,14 +369,28 @@ fun GenerateVideoScreen(
                     Toast.makeText(ctx, "讀取參考圖失敗 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
                     return@launch
                 }
-                val gen = repository.generateVideo(
-                    prompt = capturedPrompt,
-                    duration = capturedDuration,
-                    resolution = resolution,
-                    aspectRatio = aspect,
-                    startingImageUrl = starting,
-                    referenceImageUrls = references,
-                )
+                val gen = if (capturedProvider == ApiProvider.OPENROUTER) {
+                    // OpenRouter:POST /videos → job id;frame_images(首幀)與 input_references(參考圖)互斥同 xAI
+                    orRepo.submitVideo(
+                        model = capturedModel,
+                        prompt = capturedPrompt,
+                        duration = capturedDuration,
+                        resolution = capturedResolution,
+                        aspectRatio = capturedAspect,
+                        firstFrameUrl = starting,
+                        referenceUrls = references,
+                    )
+                } else {
+                    repository.generateVideo(
+                        prompt = capturedPrompt,
+                        duration = capturedDuration,
+                        resolution = capturedResolution,
+                        aspectRatio = capturedAspect,
+                        startingImageUrl = starting,
+                        referenceImageUrls = references,
+                        model = capturedModel,
+                    )
+                }
                 when (gen) {
                     is ApiResult.Error -> {
                         generating = false
@@ -363,7 +408,12 @@ fun GenerateVideoScreen(
                         // Worker 跑前景服務,Composable 被 dispose / process 死也能完成。
                         val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
                             .addTag(VideoPollWorker.TAG_VIDEO_POLL)  // v1.0.51: 給 crash-loop recovery 用
-                            .setInputData(VideoPollWorker.inputDataOf(requestId, capturedPrompt, initialExtendBase))
+                            .setInputData(
+                                VideoPollWorker.inputDataOf(
+                                    requestId, capturedPrompt, initialExtendBase,
+                                    provider = if (capturedProvider == ApiProvider.OPENROUTER) VideoPollWorker.PROVIDER_OPENROUTER else VideoPollWorker.PROVIDER_XAI,
+                                ),
+                            )
                             .build()
                         workManager.enqueueUniqueWork(
                             VideoPollWorker.uniqueName(requestId),
@@ -534,7 +584,7 @@ fun GenerateVideoScreen(
                     PrimaryButton(
                         label = "生成續集 → 自動接成長片",
                         icon = "movie",
-                        enabled = hasPrompt && sourceImages.isNotEmpty() && prefs.isApiKeySet,
+                        enabled = hasPrompt && sourceImages.isNotEmpty() && prefs.isActiveKeySet,
                         onClick = {
                             val term = firstHighRiskTerm(prompt)
                             if (term != null) pendingRiskTerm = term else runGenerate()
@@ -580,19 +630,26 @@ fun GenerateVideoScreen(
                 return@Column
             }
 
+            // v1.8.0 L1 三段:對話｜生圖｜生影
             SegmentedTab(
                 options = listOf(
-                    SegmentedOption("image", "圖片"),
-                    SegmentedOption("video", "影片"),
+                    SegmentedOption("chat", "對話"),
+                    SegmentedOption("image", "生圖"),
+                    SegmentedOption("video", "生影"),
                 ),
                 activeId = "video",
-                onSelected = { if (it == "image") onSwitchToImage() },
+                onSelected = {
+                    when (it) {
+                        "image" -> onSwitchToImage()
+                        "chat" -> onSwitchToChat()
+                    }
+                },
                 activeColor = Color(0xFF14463F),
             )
 
             // 模式 4 選 1:單排可橫滑膠囊(取代原兩排各 2 段+「只有一排高亮」的妥協,痛點 #1)
             Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                SectionHeader("模式・5 選 1")
+                SectionHeader(if (provider == ApiProvider.OPENROUTER) "模式・3 選 1" else "模式・5 選 1")
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -608,8 +665,11 @@ fun GenerateVideoScreen(
                     ModePill("參考圖生影", videoFn == "gen" && mode == VideoMode.Ref2Vid) {
                         videoFn = "gen"; mode = VideoMode.Ref2Vid
                     }
-                    ModePill("影片延長", videoFn == "extend") { videoFn = "extend" }
-                    ModePill("影片編輯", videoFn == "edit") { videoFn = "edit" }
+                    // 影片延長 / 影片編輯 只有 xAI 有 API;OpenRouter 模式下不顯示
+                    if (provider == ApiProvider.XAI) {
+                        ModePill("影片延長", videoFn == "extend") { videoFn = "extend" }
+                        ModePill("影片編輯", videoFn == "edit") { videoFn = "edit" }
+                    }
                 }
             }
 
@@ -697,26 +757,36 @@ fun GenerateVideoScreen(
                 videoSourcePrompt = initialPrompt,
             )
 
+            // v1.8.0 模型列(價格 / 免費標記)+ 參數選項依模型
+            ModelPickerRow(
+                mode = ModelMode.VIDEO,
+                provider = provider,
+                selectedId = if (provider == ApiProvider.OPENROUTER) orModel else xaiModel,
+                onSelect = {
+                    if (provider == ApiProvider.OPENROUTER) { orModel = it; prefs.orVideoModel = it }
+                    else { xaiModel = it; prefs.xaiVideoModel = it }
+                },
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ParamPicker(
                     label = "秒數",
-                    value = duration.toString(),
-                    options = (1..15).map { it.toString() },
+                    value = effDuration.toString(),
+                    options = durationOptions.map { it.toString() },
                     onSelect = { duration = it.toIntOrNull() ?: 5 },
                     displayName = { "$it 秒" },
                     modifier = Modifier.weight(1f),
                 )
                 ParamPicker(
                     label = "長寬比",
-                    value = aspect,
-                    options = listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3"),
+                    value = effAspect,
+                    options = aspectOptions,
                     onSelect = { aspect = it },
                     modifier = Modifier.weight(1f),
                 )
                 ParamPicker(
                     label = "解析度",
-                    value = resolution,
-                    options = listOf("480p", "720p"),
+                    value = effResolution,
+                    options = resolutionOptions,
                     onSelect = { resolution = it },
                     modifier = Modifier.weight(1f),
                 )
@@ -777,7 +847,7 @@ fun GenerateVideoScreen(
                 PrimaryButton(
                     label = "生 成",
                     icon = "movie",
-                    enabled = hasPrompt && prefs.isApiKeySet,
+                    enabled = hasPrompt && prefs.isActiveKeySet,
                     onClick = {
                         val term = firstHighRiskTerm(prompt)
                         if (term != null) pendingRiskTerm = term else runGenerate()

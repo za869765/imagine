@@ -87,9 +87,11 @@ class ImagineRepository(private val api: XaiApi) {
         aspectRatio: String? = null,
         startingImageUrl: String? = null,
         referenceImageUrls: List<String>? = null,
+        model: String = "grok-imagine-video",   // v1.8.0 影片頁可選模型(預設不變)
     ): ApiResult<String> = safeCall {
         api.generateVideo(
             VideoGenerationRequest(
+                model = model,
                 prompt = prompt,
                 duration = duration,
                 resolution = resolution,
@@ -110,6 +112,17 @@ class ImagineRepository(private val api: XaiApi) {
 
     suspend fun pollVideoStatus(requestId: String) = safeCall {
         api.getVideoStatus(requestId)
+    }
+
+    // v1.8.0 多輪對話(對話頁用,帶完整歷史)— 回助手訊息全文。
+    suspend fun chat(
+        messages: List<ChatMessage>,
+        model: String,
+        temperature: Double? = null,
+    ): ApiResult<String> = safeCall {
+        api.chatCompletion(
+            ChatCompletionRequest(model = model, messages = messages, temperature = temperature),
+        ).choices.firstOrNull()?.message?.content ?: error("空回應")
     }
 
     // 單發 chat（目前給「AI 填表」用）— 回助手訊息全文。

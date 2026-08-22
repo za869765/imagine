@@ -51,6 +51,14 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.outlined.Chat
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -134,6 +142,23 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "chevron_right" to true -> Icons.AutoMirrored.Outlined.ArrowForwardIos
     "star" to false -> Icons.Outlined.StarBorder
     "star" to true -> Icons.Filled.Star
+    // v1.8.0: 對話 / 帳單 / 雲端更新 / 去留審查
+    "open_in_new" to false -> Icons.AutoMirrored.Outlined.OpenInNew
+    "open_in_new" to true -> Icons.AutoMirrored.Outlined.OpenInNew
+    "chat" to false -> Icons.AutoMirrored.Outlined.Chat
+    "chat" to true -> Icons.AutoMirrored.Outlined.Chat
+    "send" to false -> Icons.AutoMirrored.Outlined.Send
+    "send" to true -> Icons.AutoMirrored.Outlined.Send
+    "receipt_long" to false -> Icons.Outlined.ReceiptLong
+    "receipt_long" to true -> Icons.Outlined.ReceiptLong
+    "cloud_download" to false -> Icons.Outlined.CloudDownload
+    "cloud_download" to true -> Icons.Outlined.CloudDownload
+    "swap_horiz" to false -> Icons.Outlined.SwapHoriz
+    "swap_horiz" to true -> Icons.Outlined.SwapHoriz
+    "thumb_up" to false -> Icons.Outlined.ThumbUp
+    "thumb_up" to true -> Icons.Outlined.ThumbUp
+    "thumb_down" to false -> Icons.Outlined.ThumbDown
+    "thumb_down" to true -> Icons.Outlined.ThumbDown
     else -> Icons.Outlined.AutoAwesome
 }
 

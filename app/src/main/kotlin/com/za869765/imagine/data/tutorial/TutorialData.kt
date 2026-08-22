@@ -1,6 +1,7 @@
 package com.za869765.imagine.data.tutorial
 
 import android.content.Context
+import com.za869765.imagine.data.storage.SeedUpdater
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -20,6 +21,7 @@ data class TutorialLesson(
 
 // 讀取打包在 assets/tutorial_lessons.json 的課程資料(只有文字+URL,~180KB)。
 // 失敗一律回空清單,絕不讓教學頁 crash。
+// v1.8.0:若 filesDir/seed_override/tutorial_lessons.json 存在(「從雲端更新素材」拉的),優先讀它。
 object TutorialData {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -28,7 +30,11 @@ object TutorialData {
 
     fun load(ctx: Context): List<TutorialLesson> {
         cache?.let { return it }
-        val loaded = runCatching {
+        val override = runCatching {
+            val f = SeedUpdater.overrideFile(ctx, SeedUpdater.LESSON_FILE)
+            if (f.exists() && f.length() > 0L) json.decodeFromString<List<TutorialLesson>>(f.readText(Charsets.UTF_8)) else null
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
+        val loaded = override ?: runCatching {
             val text = ctx.assets.open("tutorial_lessons.json")
                 .bufferedReader(Charsets.UTF_8)
                 .use { it.readText() }
@@ -37,4 +43,6 @@ object TutorialData {
         cache = loaded
         return loaded
     }
+
+    fun invalidate() { cache = null }
 }

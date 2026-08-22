@@ -33,6 +33,51 @@ class SecurePrefs private constructor(ctx: Context) {
     // v1.0.29 砍 GitHub PAT — repo 改 public 後 in-app updater 匿名 access 即可
     // 舊資料 (K_GITHUB_PAT) 留在 prefs 不主動清，後續升級若 K_* 重用同名 key 才會覆蓋
 
+    // ── v1.8.0 第二供應商 OpenRouter + 目前使用哪家(記住選擇)───────────
+    // apiKey 仍是 xAI key(名稱不動,避免動到 KeyBackup / 既有畫面);OpenRouter 另存一把。
+    var openRouterKey: String?
+        get() = prefs.getString(K_OR_KEY, null)
+        set(v) = prefs.edit().putString(K_OR_KEY, v).apply()
+
+    var openRouterKeyVerifiedAt: String?
+        get() = prefs.getString(K_OR_KEY_VERIFIED_AT, null)
+        set(v) = prefs.edit().putString(K_OR_KEY_VERIFIED_AT, v).apply()
+
+    val isOpenRouterKeySet: Boolean get() = !openRouterKey.isNullOrBlank()
+
+    var providerId: String
+        get() = prefs.getString(K_PROVIDER, ApiProvider.XAI.id) ?: ApiProvider.XAI.id
+        set(v) = prefs.edit().putString(K_PROVIDER, v).apply()
+
+    val provider: ApiProvider get() = ApiProvider.fromId(providerId)
+
+    fun keyFor(p: ApiProvider): String? = when (p) {
+        ApiProvider.XAI -> apiKey
+        ApiProvider.OPENROUTER -> openRouterKey
+    }
+
+    fun hasKeyFor(p: ApiProvider): Boolean = !keyFor(p).isNullOrBlank()
+
+    // 目前使用的供應商有沒有 key(生成按鈕 gating 用)
+    val isActiveKeySet: Boolean get() = hasKeyFor(provider)
+
+    // 各功能上次選的模型(對話 / 生圖 / 生影),切換後下次進頁自動帶回
+    var orChatModel: String
+        get() = prefs.getString(K_OR_CHAT_MODEL, DEF_OR_CHAT_MODEL) ?: DEF_OR_CHAT_MODEL
+        set(v) = prefs.edit().putString(K_OR_CHAT_MODEL, v).apply()
+    var orImageModel: String
+        get() = prefs.getString(K_OR_IMAGE_MODEL, DEF_OR_IMAGE_MODEL) ?: DEF_OR_IMAGE_MODEL
+        set(v) = prefs.edit().putString(K_OR_IMAGE_MODEL, v).apply()
+    var orVideoModel: String
+        get() = prefs.getString(K_OR_VIDEO_MODEL, DEF_OR_VIDEO_MODEL) ?: DEF_OR_VIDEO_MODEL
+        set(v) = prefs.edit().putString(K_OR_VIDEO_MODEL, v).apply()
+    var xaiChatModel: String
+        get() = prefs.getString(K_XAI_CHAT_MODEL, DEF_XAI_CHAT_MODEL) ?: DEF_XAI_CHAT_MODEL
+        set(v) = prefs.edit().putString(K_XAI_CHAT_MODEL, v).apply()
+    var xaiVideoModel: String
+        get() = prefs.getString(K_XAI_VIDEO_MODEL, DEF_XAI_VIDEO_MODEL) ?: DEF_XAI_VIDEO_MODEL
+        set(v) = prefs.edit().putString(K_XAI_VIDEO_MODEL, v).apply()
+
     // ── PIN (hash + salt + length-hint) ──────────────────────────
     var pinHash: String?
         get() = prefs.getString(K_PIN_HASH, null)
@@ -126,6 +171,20 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_DEF_VID_DUR = "def_vid_dur"
         private const val K_DEF_VID_ASPECT = "def_vid_aspect"
         private const val K_DEF_VID_RES = "def_vid_res"
+        // v1.8.0
+        private const val K_OR_KEY = "openrouter_key"
+        private const val K_OR_KEY_VERIFIED_AT = "openrouter_key_verified_at"
+        private const val K_PROVIDER = "api_provider"
+        private const val K_OR_CHAT_MODEL = "or_chat_model"
+        private const val K_OR_IMAGE_MODEL = "or_image_model"
+        private const val K_OR_VIDEO_MODEL = "or_video_model"
+        private const val K_XAI_CHAT_MODEL = "xai_chat_model"
+        private const val K_XAI_VIDEO_MODEL = "xai_video_model"
+        const val DEF_XAI_VIDEO_MODEL = "grok-imagine-video"
+        const val DEF_OR_CHAT_MODEL = "stealth/ox-alpha"
+        const val DEF_OR_IMAGE_MODEL = "bytedance-seed/seedream-5-0-lite"
+        const val DEF_OR_VIDEO_MODEL = "google/veo-3.1-lite"
+        const val DEF_XAI_CHAT_MODEL = "grok-4-fast-non-reasoning"
 
         @Volatile private var instance: SecurePrefs? = null
         fun get(ctx: Context): SecurePrefs = instance ?: synchronized(this) {

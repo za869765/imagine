@@ -8,11 +8,13 @@ import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.za869765.imagine.data.api.OpenRouterClient
 import com.za869765.imagine.data.api.XaiClient
 import com.za869765.imagine.data.notify.Notifications
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ImagineRepository
+import com.za869765.imagine.data.repo.OpenRouterRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
 import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.data.storage.MediaSaver
@@ -69,6 +71,10 @@ class VideoPollWorker(
         runCatching { setForeground(buildForegroundInfo(0)) }
 
         val prefs = SecurePrefs.get(applicationContext)
+        // v1.8.0 OpenRouter 任務:不同輪詢端點 + 成品要帶 key 下載
+        if (inputData.getString(KEY_PROVIDER) == PROVIDER_OPENROUTER) {
+            return pollOpenRouter(requestId, prompt, prefs)
+        }
         val repository = ImagineRepository(XaiClient.build(prefs))
 
         val pendingStatuses = setOf(
@@ -180,6 +186,87 @@ class VideoPollWorker(
         return Result.failure(workDataOf(KEY_ERROR to "等待超時"))
     }
 
+    // v1.8.0 OpenRouter:GET /videos/{id} 直到 completed → GET /videos/{id}/content(帶 Authorization)存檔。
+    // 狀態:pending / in_progress / completed / failed。成品只存本機,KEY_VIDEO_URL 回 file:// 讓畫面直接播。
+    private suspend fun pollOpenRouter(requestId: String, prompt: String, prefs: SecurePrefs): Result {
+        val repo = OpenRouterRepository(OpenRouterClient.build(prefs))
+        var attempts = 0
+        var pollErrors = 0
+        var elapsedSec = 0
+        while (attempts < MAX_ATTEMPTS) {
+            repeat(POLL_INTERVAL_SEC) {
+                delay(1_000)
+                elapsedSec++
+                if (isStopped) return Result.failure(workDataOf(KEY_ERROR to "已取消"))
+            }
+            runCatching { setForeground(buildForegroundInfo(elapsedSec)) }
+            attempts++
+
+            when (val poll = repo.pollVideo(requestId)) {
+                is ApiResult.Success -> {
+                    pollErrors = 0
+                    when (poll.value.status.lowercase()) {
+                        "completed", "succeeded", "done" -> {
+                            val saved: String? = when (val dl = repo.downloadVideo(requestId)) {
+                                is ApiResult.Success -> dl.value.use { body ->
+                                    body.byteStream().use { MediaSaver.saveVideo(applicationContext, it, prompt) }
+                                }
+                                is ApiResult.Error -> null
+                            }
+                            Notifications.cancelProgress(applicationContext, requestId)
+                            return if (saved != null) {
+                                Notifications.postComplete(
+                                    applicationContext, requestId,
+                                    success = true,
+                                    message = "影片完成(OpenRouter),已存到 App 內,打開 Imagine 看歷史",
+                                )
+                                Result.success(workDataOf(KEY_VIDEO_URL to saved, KEY_SAVED_URI to saved))
+                            } else {
+                                Notifications.postComplete(
+                                    applicationContext, requestId,
+                                    success = false,
+                                    message = "影片完成但下載失敗(費用以 OpenRouter 後台為準)",
+                                )
+                                Result.failure(workDataOf(KEY_ERROR to "完成但下載失敗"))
+                            }
+                        }
+                        "failed", "error", "cancelled", "canceled", "expired" -> {
+                            val err = poll.value.errorText()?.let { "\n$it" }.orEmpty()
+                            Notifications.cancelProgress(applicationContext, requestId)
+                            Notifications.postComplete(
+                                applicationContext, requestId,
+                                success = false,
+                                message = "影片任務 ${poll.value.status}(費用以 OpenRouter 後台為準)$err",
+                            )
+                            return Result.failure(workDataOf(KEY_ERROR to "影片任務 ${poll.value.status}$err"))
+                        }
+                        else -> { /* pending / in_progress / queued 繼續 */ }
+                    }
+                }
+                is ApiResult.Error -> {
+                    pollErrors++
+                    if (pollErrors >= 3) {
+                        val tag = poll.kind.userFriendlyTag()
+                        Notifications.cancelProgress(applicationContext, requestId)
+                        Notifications.postComplete(
+                            applicationContext, requestId,
+                            success = false,
+                            message = "輪詢失敗:$tag",
+                        )
+                        return Result.failure(workDataOf(KEY_ERROR to "$tag (輪詢)"))
+                    }
+                }
+            }
+        }
+        Notifications.cancelProgress(applicationContext, requestId)
+        Notifications.postComplete(
+            applicationContext, requestId,
+            success = false,
+            message = "等待超時(${MAX_ATTEMPTS * POLL_INTERVAL_SEC / 60} 分鐘)— 任務可能仍在 OpenRouter 後台執行",
+        )
+        return Result.failure(workDataOf(KEY_ERROR to "等待超時"))
+    }
+
     private fun buildForegroundInfo(elapsedSec: Int): ForegroundInfo {
         val notif = Notifications.buildProgress(applicationContext, elapsedSec)
         // notification id 0 不允許 — 用 channel 預設 id
@@ -211,11 +298,21 @@ class VideoPollWorker(
         const val UNIQUE_WORK_PREFIX = "video-poll-"
         fun uniqueName(requestId: String) = UNIQUE_WORK_PREFIX + requestId
 
-        fun inputDataOf(requestId: String, prompt: String, extendBase: String? = null): Data =
+        // v1.8.0 供應商(xai / openrouter);舊呼叫端不帶 = xai
+        const val KEY_PROVIDER = "provider"
+        const val PROVIDER_XAI = "xai"
+        const val PROVIDER_OPENROUTER = "openrouter"
+
+        fun inputDataOf(
+            requestId: String,
+            prompt: String,
+            extendBase: String? = null,
+            provider: String = PROVIDER_XAI,
+        ): Data =
             if (extendBase.isNullOrBlank()) {
-                workDataOf(KEY_REQUEST_ID to requestId, KEY_PROMPT to prompt)
+                workDataOf(KEY_REQUEST_ID to requestId, KEY_PROMPT to prompt, KEY_PROVIDER to provider)
             } else {
-                workDataOf(KEY_REQUEST_ID to requestId, KEY_PROMPT to prompt, KEY_EXTEND_BASE to extendBase)
+                workDataOf(KEY_REQUEST_ID to requestId, KEY_PROMPT to prompt, KEY_EXTEND_BASE to extendBase, KEY_PROVIDER to provider)
             }
     }
 }
