@@ -207,25 +207,51 @@ class VideoPollWorker(
                     pollErrors = 0
                     when (poll.value.status.lowercase()) {
                         "completed", "succeeded", "done" -> {
-                            val saved: String? = when (val dl = repo.downloadVideo(requestId)) {
-                                is ApiResult.Success -> dl.value.use { body ->
-                                    body.byteStream().use { MediaSaver.saveVideo(applicationContext, it, prompt) }
+                            // 成品已付費且可重抓 → 下載最多試 3 次(短暫 timeout/502 不要直接判失敗)
+                            var saved: String? = null
+                            for (attempt in 1..3) {
+                                when (val dl = repo.downloadVideo(requestId)) {
+                                    is ApiResult.Success -> saved = dl.value.use { body ->
+                                        body.byteStream().use { MediaSaver.saveVideo(applicationContext, it, prompt) }
+                                    }
+                                    is ApiResult.Error -> { /* 重試 */ }
                                 }
-                                is ApiResult.Error -> null
+                                if (saved != null) break
+                                if (isStopped) return Result.failure(workDataOf(KEY_ERROR to "已取消"))
+                                delay(attempt * 2_000L)
                             }
                             Notifications.cancelProgress(applicationContext, requestId)
                             return if (saved != null) {
+                                val savedUri: String = saved
+                                // 組合延長(v1.8.1):與 xAI 分支相同,帶 extendBase 就把原片＋新片串成長片
+                                val extendBase = inputData.getString(KEY_EXTEND_BASE)
+                                var mergedUri: String? = null
+                                var doneMsg = "影片完成(OpenRouter),已存到 App 內,打開 Imagine 看歷史"
+                                if (!extendBase.isNullOrBlank()) {
+                                    mergedUri = runCatching {
+                                        VideoMerger.merge(
+                                            applicationContext,
+                                            listOf(android.net.Uri.parse(extendBase), android.net.Uri.parse(savedUri)),
+                                            "長片組合 組合延長",
+                                        )
+                                    }.getOrNull()
+                                    doneMsg = if (mergedUri != null) {
+                                        "組合延長完成:原片＋新片已串成長片(看歷史)"
+                                    } else {
+                                        "新片已生成;自動串接失敗(片段需同解析度/編碼)— 可到長片組合手動接"
+                                    }
+                                }
                                 Notifications.postComplete(
                                     applicationContext, requestId,
                                     success = true,
-                                    message = "影片完成(OpenRouter),已存到 App 內,打開 Imagine 看歷史",
+                                    message = doneMsg,
                                 )
-                                Result.success(workDataOf(KEY_VIDEO_URL to saved, KEY_SAVED_URI to saved))
+                                Result.success(workDataOf(KEY_VIDEO_URL to (mergedUri ?: savedUri), KEY_SAVED_URI to (mergedUri ?: savedUri)))
                             } else {
                                 Notifications.postComplete(
                                     applicationContext, requestId,
                                     success = false,
-                                    message = "影片完成但下載失敗(費用以 OpenRouter 後台為準)",
+                                    message = "影片完成但下載失敗(已重試 3 次;費用以 OpenRouter 後台為準)",
                                 )
                                 Result.failure(workDataOf(KEY_ERROR to "完成但下載失敗"))
                             }

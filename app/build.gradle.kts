@@ -15,8 +15,8 @@ android {
         targetSdk = 35
         // 版次顯示整合為 1.X.X(各 1 位十進位數字,如累計 141 → "1.4.1");滿 9 進位:1.4.9→1.5.0→…1.9.9→2.0.0。
         // versionCode 仍各自單調 +1(Android 規定,與顯示版次脫鉤)。
-        versionCode = 181
-        versionName = "1.8.0"
+        versionCode = 182
+        versionName = "1.8.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -139,6 +139,7 @@ dependencies {
     // Media
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.coil.svg)   // v1.8.1: OpenRouter 向量模型(Recraft)回 SVG 也能預覽(ServiceLoader 自動註冊)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 

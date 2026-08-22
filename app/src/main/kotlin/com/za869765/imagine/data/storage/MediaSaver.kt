@@ -45,8 +45,16 @@ object MediaSaver {
         ctx: Context,
         bytes: ByteArray,
         prompt: String,
+        mediaType: String? = null,   // v1.8.1: OpenRouter 回 media_type(png/jpeg/webp/svg+xml),依它決定副檔名
     ): String? = withContext(Dispatchers.IO) {
-        val filename = "imagine_${timestamp()}.png"
+        val ext = when (mediaType?.substringBefore(';')?.trim()?.lowercase()) {
+            "image/jpeg", "image/jpg" -> "jpg"
+            "image/webp" -> "webp"
+            "image/svg+xml" -> "svg"
+            "image/gif" -> "gif"
+            else -> "png"
+        }
+        val filename = "imagine_${timestamp()}.$ext"
         writeFile(ctx, filename, prompt) { it.write(bytes) }
     }
 

@@ -313,6 +313,11 @@ fun GenerateVideoScreen(
     }
 
     fun runGenerate() {
+        // v1.8.1: 舊的 rememberSaveable 模式可能繞過 UI 隱藏 → 送出前再擋一次
+        if (provider == ApiProvider.OPENROUTER && mode == VideoMode.Img2Vid && modelInfo?.frameImages != true) {
+            Toast.makeText(ctx, "此模型不支援圖生影(首幀),請改文生影 / 參考圖生影或換模型", Toast.LENGTH_LONG).show()
+            return
+        }
         if (mode != VideoMode.T2V && sourceImages.isEmpty()) {
             Toast.makeText(
                 ctx,
@@ -659,8 +664,11 @@ fun GenerateVideoScreen(
                     ModePill("文生影", videoFn == "gen" && mode == VideoMode.T2V) {
                         videoFn = "gen"; mode = VideoMode.T2V
                     }
-                    ModePill("圖生影", videoFn == "gen" && mode == VideoMode.Img2Vid) {
-                        videoFn = "gen"; mode = VideoMode.Img2Vid
+                    // 圖生影(首幀):OpenRouter 依模型 supported_frame_images 含 first_frame 才顯示
+                    if (provider == ApiProvider.XAI || modelInfo?.frameImages == true) {
+                        ModePill("圖生影", videoFn == "gen" && mode == VideoMode.Img2Vid) {
+                            videoFn = "gen"; mode = VideoMode.Img2Vid
+                        }
                     }
                     ModePill("參考圖生影", videoFn == "gen" && mode == VideoMode.Ref2Vid) {
                         videoFn = "gen"; mode = VideoMode.Ref2Vid
@@ -670,6 +678,16 @@ fun GenerateVideoScreen(
                         ModePill("影片延長", videoFn == "extend") { videoFn = "extend" }
                         ModePill("影片編輯", videoFn == "edit") { videoFn = "edit" }
                     }
+                }
+                if (provider == ApiProvider.OPENROUTER) {
+                    Text(
+                        text = if (modelInfo?.frameImages == true)
+                            "參考圖生影(input_references)僅部分 OpenRouter 模型支援(Wan/Seedance/Kling 等),不支援會回錯誤。"
+                        else "此模型不支援圖生影(首幀);參考圖生影僅部分模型支援,不支援會回錯誤。",
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 

@@ -125,6 +125,7 @@ fun CatalogModel.priceText(mode: ModelMode): String {
             "second" -> "$${fmtUsd(min)}/秒" + (if (max != null && min != null && max > min) " 起" else "")
             "token" -> "$${fmtUsd(min)}/百萬 video tokens"
             "megapixel_second" -> "$${fmtUsd(min)}/百萬像素·秒"
+            "generation" -> "$${fmtUsd(min)}/支" + (if (max != null && min != null && max > min) " 起" else "")
             else -> if (min == null) "價格未標示" else "$${fmtUsd(min)}"
         }
     }
@@ -326,9 +327,11 @@ object OpenRouterCatalog {
             val id = v.str("id") ?: return@mapNotNull null
             val sk = v.obj("pricing_skus")
             val sec = HashMap<String, Double>(); val tok = HashMap<String, Double>(); val mp = HashMap<String, Double>()
+            val flat = ArrayList<Double>()   // 官方範例有 "generate": 固定單次價(每支)
             sk?.forEach { (k, value) ->
                 val x = (value as? JsonPrimitive)?.let { it.doubleOrNull ?: it.contentOrNull?.toDoubleOrNull() } ?: return@forEach
                 when {
+                    k == "generate" || k.startsWith("generate_") -> flat.add(x)
                     k.startsWith("cents_per_second") || k.startsWith("cents_per_video_output_second") -> sec[k] = x / 100.0
                     k.contains("duration_seconds") -> sec[k] = x
                     k.startsWith("video_tokens") -> tok[k] = x
@@ -340,6 +343,7 @@ object OpenRouterCatalog {
                 sec.isNotEmpty() -> { unit = "second"; mn = sec.values.min(); mx = sec.values.max() }
                 tok.isNotEmpty() -> { unit = "token"; mn = tok.values.min() * 1_000_000; mx = tok.values.max() * 1_000_000 }
                 mp.isNotEmpty() -> { unit = "megapixel_second"; mn = mp.values.min(); mx = mp.values.max() }
+                flat.isNotEmpty() -> { unit = "generation"; mn = flat.min(); mx = flat.max() }
             }
             CatalogModel(
                 id = id,
@@ -350,7 +354,8 @@ object OpenRouterCatalog {
                 resolutions = v.arr("supported_resolutions").strings(),
                 aspects = v.arr("supported_aspect_ratios").strings(),
                 durations = v.arr("supported_durations")?.mapNotNull { (it as? JsonPrimitive)?.doubleOrNull?.toInt() } ?: emptyList(),
-                frameImages = v["supported_frame_images"].let { it != null && it !is kotlinx.serialization.json.JsonNull },
+                // 圖生影(首幀)能力:supported_frame_images 要真的含 "first_frame"(空陣列 / null = 不支援)
+                frameImages = "first_frame" in v.arr("supported_frame_images").strings(),
                 badge = "paid",
                 created = v.lng("created"),
             )

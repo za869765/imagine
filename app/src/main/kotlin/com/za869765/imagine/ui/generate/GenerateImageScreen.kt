@@ -235,7 +235,7 @@ fun GenerateImageScreen(
                             val bytes = img.bytes
                             val url = img.url
                             val saved = when {
-                                bytes != null -> MediaSaver.saveImage(ctx, bytes, capturedPrompt)
+                                bytes != null -> MediaSaver.saveImage(ctx, bytes, capturedPrompt, img.mediaType)
                                 !url.isNullOrBlank() -> MediaSaver.saveImageFromUrl(ctx, url, capturedPrompt)
                                 else -> null
                             }
