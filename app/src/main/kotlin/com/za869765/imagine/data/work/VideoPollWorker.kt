@@ -218,7 +218,7 @@ class VideoPollWorker(
                                 }
                                 if (saved != null) break
                                 if (isStopped) return Result.failure(workDataOf(KEY_ERROR to "已取消"))
-                                delay(attempt * 2_000L)
+                                if (attempt < 3) delay(attempt * 2_000L)   // 最後一次失敗直接回報,不多等
                             }
                             Notifications.cancelProgress(applicationContext, requestId)
                             return if (saved != null) {
