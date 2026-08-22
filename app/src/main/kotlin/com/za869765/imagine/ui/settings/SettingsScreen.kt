@@ -103,7 +103,6 @@ fun SettingsScreen(
     var defImgRes by remember { mutableStateOf(prefs.defImageResolution) }
     var defImgAspect by remember { mutableStateOf(prefs.defImageAspect) }
     var defImgCount by remember { mutableStateOf(prefs.defImageCount) }
-    var defImgQuality by remember { mutableStateOf(prefs.defImageQuality) }
     var defVidDur by remember { mutableStateOf(prefs.defVideoDuration) }
     var defVidAspect by remember { mutableStateOf(prefs.defVideoAspect) }
     var defVidRes by remember { mutableStateOf(prefs.defVideoResolution) }
@@ -332,14 +331,7 @@ fun SettingsScreen(
                         displayName = { "$it 張" },
                         modifier = Modifier.weight(1f),
                     )
-                    ParamPicker(
-                        label = "品質",
-                        value = defImgQuality,
-                        options = listOf("rapid", "quality"),
-                        onSelect = { defImgQuality = it; prefs.defImageQuality = it },
-                        displayName = { if (it == "quality") "高品質" else "快速" },
-                        modifier = Modifier.weight(1f),
-                    )
+                    // v1.8.4: 「品質」預設移除 — 快速/高品質就是生圖頁模型列的兩個 xAI 模型,在那裡選並自動記住
                 }
                 Text(
                     "影片",

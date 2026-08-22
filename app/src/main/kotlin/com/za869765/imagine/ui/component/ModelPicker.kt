@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,7 @@ import com.za869765.imagine.data.catalog.OpenRouterCatalog
 import com.za869765.imagine.data.catalog.XaiCatalog
 import com.za869765.imagine.data.catalog.badgeHint
 import com.za869765.imagine.data.catalog.badgeLabel
+import com.za869765.imagine.data.catalog.defaultModelFor
 import com.za869765.imagine.data.catalog.priceText
 import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
@@ -124,6 +126,13 @@ fun ModelPickerRow(
     val fetchedAt = remember(refreshKey) { OpenRouterCatalog.load(ctx).fetchedAt }
     val selected = models.firstOrNull { it.id == selectedId } ?: CatalogModel(id = selectedId, name = selectedId)
     val selectedProvider = ApiProvider.ofModel(selectedId)
+    // v1.8.4: 選到的模型已不在清單(例如那家 key 被移除)→ 自動退回預設,不留幽靈選項
+    LaunchedEffect(models, selectedId) {
+        if (models.isNotEmpty() && models.none { it.id == selectedId }) {
+            val fallback = defaultModelFor(mode, hasXai, hasOr, prefs.defImageQuality)
+            onSelect(models.firstOrNull { it.id == fallback }?.id ?: models.first().id)
+        }
+    }
     var showSheet by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)

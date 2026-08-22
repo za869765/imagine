@@ -378,7 +378,7 @@ fun GenerateImageScreen(
             if (!prefs.hasKeyFor(provider)) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
                     Text(
-                        "未設定 ${provider.label} API Key — 點此到設定填入、匯入備份,或切換供應商",
+                        "未設定 ${provider.label} API Key — 點此到設定填入／匯入備份,或在模型清單改選另一家的模型",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.error,
                         lineHeight = 19.sp,

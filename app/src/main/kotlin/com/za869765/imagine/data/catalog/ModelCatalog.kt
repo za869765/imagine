@@ -240,7 +240,8 @@ object OpenRouterCatalog {
         val data = root.jsonObject["data"]?.jsonArray ?: return emptyList()
         return data.mapNotNull { el ->
             val m = el as? JsonObject ?: return@mapNotNull null
-            val id = m.str("id") ?: return@mapNotNull null
+            // 契約:OpenRouter id 一律 vendor/model(ApiProvider.ofModel 靠斜線分家),不含斜線的直接略過
+            val id = m.str("id")?.takeIf { '/' in it } ?: return@mapNotNull null
             val pricing = m.obj("pricing")
             val pin = pricing?.num("prompt")
             val pout = pricing?.num("completion")
@@ -273,7 +274,7 @@ object OpenRouterCatalog {
         val data = root.jsonObject["data"]?.jsonArray ?: return@coroutineScope emptyList()
         data.mapNotNull { el ->
             val m = el as? JsonObject ?: return@mapNotNull null
-            val id = m.str("id") ?: return@mapNotNull null
+            val id = m.str("id")?.takeIf { '/' in it } ?: return@mapNotNull null
             async(Dispatchers.IO) {
                 val sp = m.obj("supported_parameters")
                 val epPath = m.str("endpoints")
@@ -324,7 +325,7 @@ object OpenRouterCatalog {
         val data = root.jsonObject["data"]?.jsonArray ?: return emptyList()
         return data.mapNotNull { el ->
             val v = el as? JsonObject ?: return@mapNotNull null
-            val id = v.str("id") ?: return@mapNotNull null
+            val id = v.str("id")?.takeIf { '/' in it } ?: return@mapNotNull null
             val sk = v.obj("pricing_skus")
             val sec = HashMap<String, Double>(); val tok = HashMap<String, Double>(); val mp = HashMap<String, Double>()
             val flat = ArrayList<Double>()   // 官方範例有 "generate": 固定單次價(每支)
