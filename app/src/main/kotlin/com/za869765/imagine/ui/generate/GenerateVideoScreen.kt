@@ -83,6 +83,7 @@ import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
+import com.za869765.imagine.data.storage.FailedJobs
 import com.za869765.imagine.data.storage.MediaEntry
 import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.storage.MediaExporter
@@ -312,6 +313,10 @@ fun GenerateVideoScreen(
                         // 其餘失敗(任務被拒/超時)→ 「重新生成」
                         retryKind = if (err?.contains("下載失敗") == true) "download" else "generate"
                         retryRequestId = rid
+                        // 失敗也留記錄(UI_REDESIGN_PLAN 6.5);下載失敗不算生成失敗(作品在服務端,可重新下載)
+                        if (retryKind == "generate") {
+                            FailedJobs.add(ctx, true, lastPrompt.ifBlank { prompt }, describeVideoSettings(effDuration, effAspect, effResolution), err ?: "影片任務失敗")
+                        }
                         resultVideoUrl = null // 失敗→清上次結果,避免誤會舊片是新結果
                         generating = false
                         trackedRequestId = null
@@ -499,6 +504,7 @@ fun GenerateVideoScreen(
                         lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
                         retryKind = "generate"   // 未取得 requestId → 確定要建立新請求
                         retryRequestId = null
+                        FailedJobs.add(ctx, true, capturedPrompt, describeVideoSettings(capturedDuration, capturedAspect, capturedResolution), tag)
                         resultVideoUrl = null // 400/被審核擋下→清上次結果,避免誤會是新結果
                         Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
                         return@launch
@@ -812,6 +818,16 @@ fun GenerateVideoScreen(
                     }
                 }
 
+                if (!isCombineExtend && resultVideoUrl == null && prompt.isBlank() && lastError.isBlank() && !generating) {
+                    ImagineCard(pad = 14) {
+                        Text(
+                            "描述畫面要怎麼動，或用提示詞欄上方的「套用範本」從現成範例開始；要讓圖片動起來，先在上方「製作方式」選「圖片動起來」。",
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 PromptInput(
                     value = prompt,
                     onValueChange = { prompt = it },

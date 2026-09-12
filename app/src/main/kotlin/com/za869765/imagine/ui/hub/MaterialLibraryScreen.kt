@@ -291,7 +291,7 @@ fun MaterialLibraryScreen(
                 ) {
                     Text(
                         text = if (cat == VIDEO_CAT) "課程影片載入中或無資料。"
-                        else "「$cat」還沒有素材。\n從相簿匯入,或在生成結果／歷史把圖設為此分類。",
+                        else "「$cat」還沒有素材。\n加入常用角色、場景或風格圖片，下次可直接使用：點上方「從相簿匯入」，或在生成結果／所有作品把圖加入素材庫。",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(32.dp),

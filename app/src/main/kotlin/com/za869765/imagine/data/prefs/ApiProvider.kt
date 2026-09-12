@@ -18,8 +18,8 @@ enum class ApiProvider(
         shortLabel = "xAI",
         keyPrefix = "xai-",
         keyHint = "xai-...",
-        billingUrl = "https://console.x.ai/team/02192454-54ee-4835-9680-212eda8ba708/usage?category=image",
-        keysUrl = "https://console.x.ai/team/default/api-keys",
+        billingUrl = com.za869765.imagine.Constants.XAI_USAGE_URL,
+        keysUrl = com.za869765.imagine.Constants.XAI_KEYS_URL,
     ),
     OPENROUTER(
         id = "openrouter",

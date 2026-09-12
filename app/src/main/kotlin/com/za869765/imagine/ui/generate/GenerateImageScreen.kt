@@ -56,6 +56,7 @@ import com.za869765.imagine.data.repo.ApiResult
 import com.za869765.imagine.data.repo.ErrorKind
 import com.za869765.imagine.data.repo.ImagineRepository
 import com.za869765.imagine.data.repo.userFriendlyTag
+import com.za869765.imagine.data.storage.FailedJobs
 import com.za869765.imagine.data.storage.MaterialLibrary
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
@@ -294,6 +295,7 @@ fun GenerateImageScreen(
                         // 不寫 lastError 的話 UI 看起來像「成功 0 張」沒解釋。
                         resultUrls = emptyList()
                         lastError = "未收到任何圖片 — 可能被審核擋下（費用以 xAI 後台為準）"
+                        FailedJobs.add(ctx, false, capturedPrompt, describeImageSettings(capturedRes, capturedAr, capturedN), "未收到任何圖片（可能被審核擋下）")
                         Toast.makeText(
                             ctx, "未收到任何圖片（可能被審核擋下）",
                             Toast.LENGTH_LONG,
@@ -352,6 +354,8 @@ fun GenerateImageScreen(
                     val tag = result.kind.userFriendlyTag()
                     // 只存 tag,body 太長使用者不需要 — 真要 debug 從 logcat 看
                     lastError = tag
+                    // 失敗也留記錄(UI_REDESIGN_PLAN 6.5):所有作品可篩「失敗」並「返回修改」
+                    FailedJobs.add(ctx, false, capturedPrompt, describeImageSettings(capturedRes, capturedAr, capturedN), tag)
                     lastErrorIsPolicy = (result.kind == ErrorKind.ContentPolicy)
                     resultUrls = emptyList() // 400/被審核擋下→清上次結果,避免誤會是新結果
                     Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
@@ -463,6 +467,17 @@ fun GenerateImageScreen(
             }
 
             if (imageFn == "gen") {
+                // 首次進入空白狀態給下一步(UI_REDESIGN_PLAN Phase 7)
+                if (resultUrls.isEmpty() && prompt.isBlank() && lastError.isBlank() && !loading) {
+                    ImagineCard(pad = 14) {
+                        Text(
+                            "描述你想製作的畫面，或用提示詞欄上方的「套用範本」從現成範例開始。",
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 PromptInput(
                     value = prompt,
                     onValueChange = { prompt = it },
@@ -698,14 +713,15 @@ fun GenerateImageScreen(
                                                 }
                                             }
                                         },
+                                        // 多張結果一次分享(ACTION_SEND_MULTIPLE,UI_REDESIGN_PLAN 6.4)
                                         MediaActionItem(MediaAction.SHARE) {
                                             com.za869765.imagine.ImagineApp.appScope.launch {
-                                                MediaExporter.share(ctx, resultUrls.first(), isVideo = false)
+                                                MediaExporter.shareMultiple(ctx, resultUrls, isVideo = false)
                                             }
                                         },
                                         MediaActionItem(MediaAction.SHARE_WITH_PROMPT) {
                                             com.za869765.imagine.ImagineApp.appScope.launch {
-                                                MediaExporter.share(ctx, resultUrls.first(), isVideo = false, text = lastPrompt)
+                                                MediaExporter.shareMultiple(ctx, resultUrls, isVideo = false, text = lastPrompt)
                                             }
                                         },
                                         MediaActionItem(MediaAction.COPY_PROMPT) {

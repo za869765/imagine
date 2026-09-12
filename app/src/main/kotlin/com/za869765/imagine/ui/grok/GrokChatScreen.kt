@@ -43,10 +43,8 @@ import com.za869765.imagine.ui.util.Clipboard
 
 private const val GROK_URL = "https://grok.com"
 
-// 假裝成真實 Chrome 的 UA — 降低部分 OAuth(Google/X)把內嵌 WebView 擋成「不安全瀏覽器」的機率。
-private const val UA =
-    "Mozilla/5.0 (Linux; Android 14; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/126.0.0.0 Mobile Safari/537.36"
+// UA 集中於 Constants(UI_REDESIGN_PLAN 3.5)
+private const val UA = com.za869765.imagine.Constants.GROK_WEBVIEW_UA
 
 /**
  * Grok 網頁諮詢 — 內嵌 grok.com「網頁版」(用帳號登入,不是 API)。

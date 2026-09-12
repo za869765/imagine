@@ -57,7 +57,7 @@ fun GenerateSettingsSummary(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.W500,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -54,6 +54,11 @@ import com.za869765.imagine.ui.component.MediaAction
 import com.za869765.imagine.ui.component.viewer
 import com.za869765.imagine.ui.component.ImagineChip
 import com.za869765.imagine.ui.component.ChipVariant
+import com.za869765.imagine.ui.component.ImagineCard
+import com.za869765.imagine.ui.component.ImagineIconButton
+import com.za869765.imagine.ui.component.MediaActionBar
+import com.za869765.imagine.ui.component.MediaActionItem
+import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
@@ -326,29 +331,6 @@ private fun GalleryList(
 
 
 @Composable
-private fun ActionRow(icon: String, label: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        ImagineIcon(name = icon, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.W600,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-@Composable
 private fun LessonCard(
     lesson: TutorialLesson,
     isOpen: Boolean,
@@ -366,14 +348,9 @@ private fun LessonCard(
     val visibleImages = lesson.images.filter {
         it !in com.za869765.imagine.data.storage.HiddenSeed.all(ctx)
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-    ) {
+    // 課程卡改用共用 ImagineCard(UI_REDESIGN_PLAN 3.4)
+    ImagineCard(pad = 14) {
+        Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
             verticalAlignment = Alignment.CenterVertically,
@@ -381,7 +358,7 @@ private fun LessonCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "第${lesson.sec}節",
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
@@ -452,12 +429,14 @@ private fun LessonCard(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                             )
-                            ActionRow(icon = MediaAction.EDIT_VIDEO.icon, label = MediaAction.EDIT_VIDEO.label) {
-                                onUseVideo(url, "video")
-                            }
-                            ActionRow(icon = MediaAction.EXTEND_VIDEO.icon, label = MediaAction.EXTEND_VIDEO.label) {
-                                onUseVideo(url, "extend")
-                            }
+                            // 動作列統一 MediaActionBar(UI_REDESIGN_PLAN 3.4)
+                            MediaActionBar(
+                                modifier = Modifier.padding(top = 8.dp),
+                                items = listOf(
+                                    MediaActionItem(MediaAction.EXTEND_VIDEO) { onUseVideo(url, "extend") },
+                                    MediaActionItem(MediaAction.EDIT_VIDEO) { onUseVideo(url, "video") },
+                                ),
+                            )
                         }
                     } else {
                         Row(
@@ -506,34 +485,38 @@ private fun LessonCard(
                             lineHeight = 19.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // 主要:套用提示詞(圖)/(影);複製收「更多」— 影片課程的提示詞多為運鏡/動作,給「・影」直送文生影頁
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            TextActionButton(
-                                label = MediaAction.COPY_PROMPT.label,
-                                icon = MediaAction.COPY_PROMPT.icon,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                onClick = { onCopyPrompt(p) },
-                            )
-                            TextActionButton(
+                            OutlinedActionButton(
                                 label = "${MediaAction.USE_PROMPT.label}・圖",
                                 icon = MediaAction.USE_PROMPT.icon,
                                 onClick = { onUsePrompt(p) },
+                                modifier = Modifier.weight(1f),
                             )
-                            // 影片課程的提示詞本身多為運鏡/動作,額外給「套用提示詞・影」直送文生影頁
                             if (lesson.videos.isNotEmpty()) {
-                                TextActionButton(
+                                OutlinedActionButton(
                                     label = "${MediaAction.USE_PROMPT.label}・影",
                                     icon = "movie",
                                     onClick = { onUsePromptVideo(p) },
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
+                            ImagineIconButton(
+                                name = MediaAction.COPY_PROMPT.icon,
+                                size = 20.dp,
+                                tint = MaterialTheme.colorScheme.primary,
+                                contentDescription = MediaAction.COPY_PROMPT.label,
+                                onClick = { onCopyPrompt(p) },
+                            )
                         }
                     }
                 }
             }
+        }
         }
     }
 }

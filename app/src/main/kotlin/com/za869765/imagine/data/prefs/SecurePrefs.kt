@@ -94,6 +94,11 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getBoolean(K_FLAG_SECURE, true)
         set(v) = prefs.edit().putBoolean(K_FLAG_SECURE, v).apply()
 
+    // 僅 Wi-Fi 下載影片成品(UI_REDESIGN_PLAN 6.3):預設關閉 = 允許行動數據;開啟時非 Wi-Fi 不下載、可稍後「重新下載」
+    var wifiOnlyDownload: Boolean
+        get() = prefs.getBoolean("wifi_only_download", false)
+        set(v) = prefs.edit().putBoolean("wifi_only_download", v).apply()
+
     // ── Theme + locale ──────────────────────────────────────────
     var themeMode: String
         get() = prefs.getString(K_THEME, "system")!!

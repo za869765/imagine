@@ -66,6 +66,7 @@ import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.OutlinedActionButton
+import com.za869765.imagine.ui.component.AppNotice
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.ParamPicker
@@ -386,7 +387,7 @@ fun SettingsScreen(
                     ImagineCard(pad = 0) {
                         Column {
                             SettingRow(divider = true, onClick = {
-                                val url = "https://console.x.ai/team/02192454-54ee-4835-9680-212eda8ba708/usage?category=image"
+                                val url = com.za869765.imagine.Constants.XAI_USAGE_URL
                                 ctx.startActivity(
                                     Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
                                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -480,6 +481,78 @@ fun SettingsScreen(
                 }
             }
             if (section == "data") {
+                // ── 空間與下載(UI_REDESIGN_PLAN 6.3):作品/快取佔用、清除快取(不動作品)、僅 Wi-Fi 下載(預設關=可用行動數據) ──
+                var stats by remember { mutableStateOf<com.za869765.imagine.data.storage.StorageStats.Stats?>(null) }
+                var statsTick by remember { mutableStateOf(0) }
+                LaunchedEffect(statsTick) { stats = com.za869765.imagine.data.storage.StorageStats.compute(ctx) }
+                var wifiOnly by remember { mutableStateOf(prefs.wifiOnlyDownload) }
+                var clearingCache by remember { mutableStateOf(false) }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionHeader("空間與下載")
+                    ImagineCard(pad = 0) {
+                        Column {
+                            SettingRow(divider = true) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("作品佔用", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("filesDir/media 內的圖片與影片", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(
+                                    stats?.let { com.za869765.imagine.data.storage.StorageStats.format(it.mediaBytes) } ?: "計算中…",
+                                    fontSize = 14.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            SettingRow(divider = true) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("快取", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("圖片快取與分享暫存；清除不影響已儲存的作品", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(
+                                    stats?.let { com.za869765.imagine.data.storage.StorageStats.format(it.cacheBytes) } ?: "計算中…",
+                                    fontSize = 14.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            SettingRow(divider = true) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("裝置剩餘空間", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("低於 200 MB 時影片成品不下載，可稍後重新下載", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(
+                                    stats?.let { com.za869765.imagine.data.storage.StorageStats.format(it.freeBytes) } ?: "計算中…",
+                                    fontSize = 14.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            SettingRow(divider = true) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("僅 Wi-Fi 下載影片成品", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(
+                                        if (wifiOnly) "已開啟：行動網路下先不下載，作品仍保留在服務端，可稍後重新下載"
+                                        else "已關閉：行動數據也會下載（預設）",
+                                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Switch(checked = wifiOnly, onCheckedChange = { wifiOnly = it; prefs.wifiOnlyDownload = it })
+                            }
+                            Box(modifier = Modifier.padding(12.dp)) {
+                                OutlinedActionButton(
+                                    label = if (clearingCache) "清除中…" else "清除快取",
+                                    icon = "delete",
+                                    enabled = !clearingCache && (stats?.cacheBytes ?: 0L) > 0L,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = {
+                                        clearingCache = true
+                                        scope.launch {
+                                            val freed = com.za869765.imagine.data.storage.StorageStats.clearCache(ctx)
+                                            clearingCache = false
+                                            statsTick++
+                                            AppNotice.show("已清除快取 ${com.za869765.imagine.data.storage.StorageStats.format(freed)}，作品不受影響")
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // ── 素材庫 ──
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionHeader("素材")

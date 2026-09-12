@@ -74,7 +74,7 @@ fun ModePicker(
         Column(verticalArrangement = Arrangement.Center) {
             Text(
                 text = label,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.W500,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -95,8 +95,8 @@ fun ModePicker(
                     if (!selected?.desc.isNullOrBlank()) {
                         Text(
                             text = selected!!.desc,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -177,8 +177,8 @@ fun ModePicker(
                 if (!footnote.isNullOrBlank()) {
                     Text(
                         text = footnote,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                     )

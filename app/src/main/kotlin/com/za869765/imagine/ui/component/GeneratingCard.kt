@@ -66,8 +66,8 @@ fun GeneratingCard(
             if (!hint.isNullOrBlank()) {
                 Text(
                     text = hint,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )

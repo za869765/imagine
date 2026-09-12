@@ -108,6 +108,7 @@ class VideoPollWorker(
                         status in successStatuses -> {
                             val url = poll.value.video?.url
                             return if (url != null) {
+                                downloadBlockReason()?.let { reason -> return blockedDownload(requestId, reason) }
                                 setProgress(workDataOf(KEY_STAGE to STAGE_DOWNLOADING))
                                 val saved = MediaSaver.saveVideoFromUrl(applicationContext, url, prompt)
                                 // 組合延長:帶了 extendBase 就把原片＋新片自動串成長片(MediaMuxer,需同解析度/編碼)
@@ -214,6 +215,7 @@ class VideoPollWorker(
                     when (poll.value.status.lowercase()) {
                         "completed", "succeeded", "done" -> {
                             // 成品已付費且可重抓 → 下載最多試 3 次(短暫 timeout/502 不要直接判失敗)
+                            downloadBlockReason()?.let { reason -> return blockedDownload(requestId, reason) }
                             setProgress(workDataOf(KEY_STAGE to STAGE_DOWNLOADING))
                             var saved: String? = null
                             for (attempt in 1..3) {
@@ -300,6 +302,30 @@ class VideoPollWorker(
             message = "等待超時(${MAX_ATTEMPTS * POLL_INTERVAL_SEC / 60} 分鐘)— 任務可能仍在 OpenRouter 後台執行",
         )
         return Result.failure(workDataOf(KEY_ERROR to "等待超時"))
+    }
+
+    // 下載前檢查(UI_REDESIGN_PLAN 6.3):僅 Wi-Fi 下載已開啟且非 Wi-Fi / 剩餘空間不足 → 不下載,作品留在服務端,
+    // 錯誤含「下載失敗」讓生成頁顯示「重新下載」(同 requestId 再輪詢即重抓,不重複扣費)
+    private fun downloadBlockReason(): String? {
+        val prefs = SecurePrefs.get(applicationContext)
+        if (prefs.wifiOnlyDownload && !com.za869765.imagine.data.storage.StorageStats.isOnWifi(applicationContext)) {
+            return "僅 Wi-Fi 下載已開啟，目前非 Wi-Fi"
+        }
+        val free = com.za869765.imagine.data.storage.StorageStats.freeBytes(applicationContext)
+        if (free < com.za869765.imagine.Constants.MIN_FREE_BYTES_FOR_DOWNLOAD) {
+            return "裝置空間不足（剩餘 ${com.za869765.imagine.data.storage.StorageStats.format(free)}）"
+        }
+        return null
+    }
+
+    private fun blockedDownload(requestId: String, reason: String): Result {
+        Notifications.cancelProgress(applicationContext, requestId)
+        Notifications.postComplete(
+            applicationContext, requestId,
+            success = false,
+            message = "影片已生成但未下載：$reason。作品仍在服務端，可到生成影片頁按「重新下載」",
+        )
+        return Result.failure(workDataOf(KEY_ERROR to "完成但下載失敗：$reason"))
     }
 
     private fun buildForegroundInfo(elapsedSec: Int): ForegroundInfo {

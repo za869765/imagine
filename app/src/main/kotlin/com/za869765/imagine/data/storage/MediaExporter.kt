@@ -37,11 +37,19 @@ object MediaExporter {
             File(Uri.parse(src).path ?: src).inputStream()
         }
 
+    // 匯出檔名可讀(UI_REDESIGN_PLAN 6.4):Imagine_2026-09-12_1432_圖片.png;同分鐘多檔加序號避免衝突
+    private val exportSeq = java.util.concurrent.atomic.AtomicInteger(0)
+    private fun exportName(isVideo: Boolean): String {
+        val stamp = java.text.SimpleDateFormat("yyyy-MM-dd_HHmm", java.util.Locale.US).format(java.util.Date())
+        val seq = exportSeq.incrementAndGet() % 1000
+        return "Imagine_${stamp}_${if (isVideo) "影片" else "圖片"}_$seq." + if (isVideo) "mp4" else "png"
+    }
+
     /** 存進系統相簿。回傳是否成功。 */
     suspend fun saveToGallery(ctx: Context, src: String, isVideo: Boolean): Boolean =
         withContext(Dispatchers.IO) {
             runCatching {
-                val name = "imagine_${System.currentTimeMillis()}." + if (isVideo) "mp4" else "png"
+                val name = exportName(isVideo)
                 val resolver = ctx.contentResolver
                 val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     if (isVideo) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -71,6 +79,39 @@ object MediaExporter {
         }
 
     /** 叫出系統分享單。遠端網址先下載到 cacheDir/share/ 再以 FileProvider 分享。回傳是否成功送出 intent。 */
+    /** 多張結果一次分享(ACTION_SEND_MULTIPLE),UI_REDESIGN_PLAN 6.4;單張仍走 share()。 */
+    suspend fun shareMultiple(ctx: Context, srcs: List<String>, isVideo: Boolean, text: String? = null): Boolean {
+        if (srcs.size <= 1) return share(ctx, srcs.firstOrNull() ?: return false, isVideo, text)
+        val locals: List<File> = withContext(Dispatchers.IO) {
+            srcs.mapNotNull { src ->
+                runCatching {
+                    if (src.startsWith("http")) {
+                        val dir = File(ctx.cacheDir, "share").apply { if (!exists()) mkdirs() }
+                        val f = File(dir, "imagine_${System.currentTimeMillis()}_${srcs.indexOf(src)}." + if (isVideo) "mp4" else "png")
+                        openStream(src).use { input -> f.outputStream().use { input.copyTo(it) } }
+                        f
+                    } else {
+                        File(Uri.parse(src).path ?: src)
+                    }
+                }.getOrNull()?.takeIf { it.exists() && it.length() > 0L }
+            }
+        }
+        if (locals.isEmpty()) return false
+        return withContext(Dispatchers.Main) {
+            runCatching {
+                val uris = ArrayList<Uri>(locals.map { FileProvider.getUriForFile(ctx, authority(ctx), it) })
+                val send = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                    type = if (isVideo) "video/*" else "image/*"
+                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                    if (!text.isNullOrBlank()) putExtra(Intent.EXTRA_TEXT, text)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                ctx.startActivity(Intent.createChooser(send, "分享 ${locals.size} 個檔案").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                true
+            }.getOrDefault(false)
+        }
+    }
+
     // text 非 null → 一併附上提示詞文字(EXTRA_TEXT),UI_REDESIGN_PLAN 6.4「分享（附提示詞）」
     suspend fun share(ctx: Context, src: String, isVideo: Boolean, text: String? = null): Boolean {
         val local: File? = withContext(Dispatchers.IO) {

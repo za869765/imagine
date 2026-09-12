@@ -230,9 +230,10 @@ fun ImagineIconButton(
     tint: Color = MaterialTheme.colorScheme.onSurface,
     contentDescription: String? = defaultDescription(name),
 ) {
+    // 觸控區 48dp(UI_REDESIGN_PLAN Phase 7);圖示本身維持 size
     androidx.compose.foundation.layout.Box(
         modifier = modifier
-            .size(40.dp)
+            .size(48.dp)
             .background(Color.Transparent, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,

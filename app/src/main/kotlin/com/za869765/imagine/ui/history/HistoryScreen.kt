@@ -58,8 +58,13 @@ import com.za869765.imagine.data.storage.PromptIndex
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
-import com.za869765.imagine.ui.component.SegmentedOption
-import com.za869765.imagine.ui.component.SegmentedTab
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import com.za869765.imagine.data.storage.FailedJobs
+import com.za869765.imagine.ui.component.ChipVariant
+import com.za869765.imagine.ui.component.ImagineCard
+import com.za869765.imagine.ui.component.ImagineChip
+import com.za869765.imagine.ui.component.ImagineIconButton
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.component.AppNotice
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +88,8 @@ fun HistoryScreen(
     onItemClick: (HistoryItem) -> Unit,
     // UI_REDESIGN_PLAN 3.2:所有作品 ↔ 素材庫 互相前往
     onOpenLibrary: () -> Unit = {},
+    // UI_REDESIGN_PLAN 6.5:失敗記錄「返回修改」→ 帶回當次提示詞到對應生成頁
+    onRetryFailed: (FailedJobs.FailedJob) -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -91,6 +98,9 @@ fun HistoryScreen(
     var filter by remember { mutableStateOf("all") }
     var query by remember { mutableStateOf("") }
     var characters by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // 失敗記錄 + 排序(UI_REDESIGN_PLAN 6.5)
+    var failed by remember { mutableStateOf<List<FailedJobs.FailedJob>>(emptyList()) }
+    var sortAsc by remember { mutableStateOf(false) }
     // B8 多選刪除
     var selectMode by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -100,6 +110,7 @@ fun HistoryScreen(
     LaunchedEffect(reloadKey) {
         entries = MediaHistory.loadAll(ctx)
         characters = MaterialLibrary.all(ctx).keys.toSet()
+        failed = FailedJobs.all(ctx)
         loaded = true
     }
 
@@ -109,11 +120,14 @@ fun HistoryScreen(
             "img" -> !e.isVideo
             "vid" -> e.isVideo
             "char" -> !e.isVideo && e.displayName in characters
+            "failed" -> false
             else -> true
         }
         val byQuery = q.isEmpty() || (e.prompt?.contains(q, true) == true)
         byFilter && byQuery
-    }
+    }.let { if (sortAsc) it.sortedBy { e -> e.addedAtSec } else it }
+    val failedItems = failed.filter { q.isEmpty() || it.prompt.contains(q, true) }
+        .let { if (sortAsc) it.sortedBy { f -> f.atSec } else it }
     val grouped = items.groupBy { formatDate(it.addedAtSec) }
     val imgCount = entries.count { !it.isVideo }
     val vidCount = entries.count { it.isVideo }
@@ -188,24 +202,50 @@ fun HistoryScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            SegmentedTab(
-                options = listOf(
-                    SegmentedOption("all", "全部 ${entries.size}"),
-                    SegmentedOption("img", "圖片 $imgCount"),
-                    SegmentedOption("vid", "影片 $vidCount"),
-                    SegmentedOption("char", "素材庫 $charCount"),
-                ),
-                activeId = filter,
-                onSelected = {
-                    // 切換篩選即清空選取並提示(UI_REDESIGN_PLAN 0.5):畫面數量與實際刪除範圍一致
-                    if (selectMode && selected.isNotEmpty() && it != filter) {
-                        selected = emptySet()
-                        AppNotice.show("已清除選取")
-                    }
-                    filter = it
-                },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-            )
+            // 篩選 chips(可橫滑)+ 排序 最新/最舊(UI_REDESIGN_PLAN 6.5);篩選狀態常駐可見
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                listOf(
+                    "all" to "全部 ${entries.size}",
+                    "img" to "圖片 $imgCount",
+                    "vid" to "影片 $vidCount",
+                    "char" to "已加入素材庫 $charCount",
+                    "failed" to "失敗 ${failed.size}",
+                ).forEach { (id, label) ->
+                    ImagineChip(
+                        label = label,
+                        variant = if (filter == id) ChipVariant.Tonal else ChipVariant.Outlined,
+                        onClick = {
+                            // 切換篩選即清空選取並提示(UI_REDESIGN_PLAN 0.5):畫面數量與實際刪除範圍一致
+                            if (selectMode && selected.isNotEmpty() && id != filter) {
+                                selected = emptySet()
+                                AppNotice.show("已清除選取")
+                            }
+                            filter = id
+                        },
+                    )
+                }
+                ImagineChip(
+                    label = if (sortAsc) "最舊在前" else "最新在前",
+                    icon = "swap_horiz",
+                    variant = ChipVariant.Outlined,
+                    onClick = { sortAsc = !sortAsc },
+                )
+            }
+            if (filter != "all" || q.isNotEmpty()) {
+                Text(
+                    text = "${if (filter == "failed") failedItems.size else items.size} 件（已篩選）",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+                )
+            }
 
             if (selectMode && visibleSelected.isNotEmpty()) {
                 Row(
@@ -227,6 +267,44 @@ fun HistoryScreen(
                         color = MaterialTheme.colorScheme.onErrorContainer,
                     )
                 }
+            }
+
+            if (filter == "failed") {
+                // 失敗記錄(UI_REDESIGN_PLAN 6.5):文字標示「失敗・原因」,返回修改帶回當次設定;可個別/批次清除
+                if (failedItems.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("沒有失敗記錄", fontSize = 16.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    return@Column
+                }
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextActionButton(
+                                label = "清除全部失敗記錄",
+                                icon = "delete",
+                                color = MaterialTheme.colorScheme.error,
+                                onClick = { FailedJobs.clear(ctx); reloadKey++ },
+                            )
+                        }
+                    }
+                    items(failedItems.size, key = { failedItems[it].id }) { i ->
+                        val job = failedItems[i]
+                        FailedJobCard(
+                            job = job,
+                            onRetry = { onRetryFailed(job) },
+                            onRemove = { FailedJobs.remove(ctx, job.id); reloadKey++ },
+                        )
+                    }
+                }
+                return@Column
             }
 
             if (loaded && items.isEmpty()) {
@@ -458,6 +536,48 @@ private fun decodeFirstFrame(ctx: Context, uri: Uri): Bitmap? {
         runCatching { r.release() }
     }
 }
+
+@Composable
+private fun FailedJobCard(job: FailedJobs.FailedJob, onRetry: () -> Unit, onRemove: () -> Unit) {
+    ImagineCard(pad = 14) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ImagineIcon(name = "warning", size = 18.dp, fill = 1, tint = MaterialTheme.colorScheme.error)
+                Text(
+                    text = "失敗・${job.reason}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                ImagineIconButton(name = "close", size = 18.dp, contentDescription = "移除這筆失敗記錄", onClick = onRemove)
+            }
+            Text(
+                text = "${if (job.isVideo) "影片" else "圖片"}・${job.settings}・${formatDateTime(job.atSec)}",
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = job.prompt,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextActionButton(label = "返回修改", icon = "edit", onClick = onRetry)
+            }
+        }
+    }
+}
+
+private fun formatDateTime(epochSec: Long): String =
+    java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")
+        .format(Instant.ofEpochSecond(epochSec).atZone(ZoneId.systemDefault()))
 
 @Composable
 private fun EmptyState(filtered: Boolean, onClearFilters: () -> Unit) {

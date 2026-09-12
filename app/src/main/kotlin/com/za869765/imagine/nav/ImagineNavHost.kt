@@ -426,6 +426,11 @@ fun ImagineRoot() {
                 HistoryScreen(
                     onBack = { navController.popBackStack() },
                     onOpenLibrary = { navController.navigate(Routes.MATERIAL_LIBRARY) },
+                    // 失敗記錄「返回修改」:帶回當次提示詞到對應生成頁(UI_REDESIGN_PLAN 6.5)
+                    onRetryFailed = { job ->
+                        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_INIT_PROMPT, job.prompt)
+                        navController.navigate(if (job.isVideo) Routes.GENERATE_VIDEO else Routes.GENERATE_IMAGE)
+                    },
                     onItemClick = { item ->
                         navController.currentBackStackEntry
                             ?.savedStateHandle?.set(KEY_HISTORY_URI, item.id)
