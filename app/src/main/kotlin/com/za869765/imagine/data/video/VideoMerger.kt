@@ -58,6 +58,30 @@ object VideoMerger {
 
     private const val FRAME_GAP_US = 40_000L
 
+    /** 片段格式摘要 — 長片組合「加入前先檢查相容」用(UI_REDESIGN_PLAN 3.3),不等合成失敗才報。 */
+    data class ClipFormat(val mime: String?, val width: Int, val height: Int, val hasAudio: Boolean)
+
+    suspend fun probe(ctx: Context, uri: Uri): ClipFormat? = withContext(Dispatchers.IO) {
+        runCatching {
+            val (v, a) = probeFormats(ctx, uri)
+            ClipFormat(
+                mime = v.getString(MediaFormat.KEY_MIME),
+                width = optInt(v, MediaFormat.KEY_WIDTH),
+                height = optInt(v, MediaFormat.KEY_HEIGHT),
+                hasAudio = a != null,
+            )
+        }.getOrNull()
+    }
+
+    /** 與組裝條第一段相比不能直接串接的原因(與 copyTrack 的判斷一致);null = 相容。 */
+    fun incompatibleReason(base: ClipFormat, other: ClipFormat): String? = when {
+        base.width != other.width || base.height != other.height ->
+            "解析度不同（${other.width}×${other.height}），需先轉檔或延長"
+        base.mime != other.mime -> "編碼不同，需先轉檔"
+        base.hasAudio && !other.hasAudio -> "缺音軌，無法與有聲片段直接串接"
+        else -> null
+    }
+
     // 探第一段:影像軌必須有(否則丟例外);音軌可有可無。
     private fun probeFormats(ctx: Context, uri: Uri): Pair<MediaFormat, MediaFormat?> {
         val ex = MediaExtractor()

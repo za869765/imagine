@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -213,7 +214,7 @@ fun SourceThumb(uri: Uri, isVideo: Boolean, modifier: Modifier = Modifier) {
                 bitmap = f.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(96.dp),
+                modifier = Modifier.fillMaxSize(),
             )
         } else {
             ImagineIcon(name = "movie", size = 28.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)

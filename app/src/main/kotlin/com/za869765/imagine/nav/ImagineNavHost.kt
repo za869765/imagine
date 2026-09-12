@@ -129,11 +129,24 @@ fun ImagineRoot() {
                     onOpenGrok = { navController.navigate(Routes.GROK_CHAT) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
+                    // UI_REDESIGN_PLAN 3.1:最近成果 → 作品詳情;所有作品 → 歷史清單
+                    onOpenRecent = { uri ->
+                        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_HISTORY_URI, uri)
+                        navController.navigate(Routes.HISTORY_DETAIL)
+                    },
+                    onOpenAllWorks = { navController.navigate(Routes.HISTORY) },
                 )
             }
 
             composable(Routes.GROK_CHAT) {
-                GrokChatScreen(onBack = { navController.popBackStack() })
+                GrokChatScreen(
+                    onBack = { navController.popBackStack() },
+                    // UI_REDESIGN_PLAN 3.6:使用者主動按「貼上提示詞」→ 帶回生成圖片頁(走 initialPrompt)
+                    onPastePrompt = { text ->
+                        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_INIT_PROMPT, text)
+                        navController.navigate(Routes.GENERATE_IMAGE)
+                    },
+                )
             }
 
             // v1.8.0 API 對話(xAI / OpenRouter);與生圖/生影頁用同一個 MATERIAL_HUB 錨點互切
@@ -170,6 +183,7 @@ fun ImagineRoot() {
                 MaterialLibraryScreen(
                     onBack = { navController.popBackStack() },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onOpenHistory = { navController.navigate(Routes.HISTORY) },
                     // 沿用 KEY_INIT_MEDIA:false → 編輯/圖生圖(EDIT image),true → 圖生影(GENERATE_VIDEO)。
                     onUseImage = { url, asVideo ->
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
@@ -402,6 +416,7 @@ fun ImagineRoot() {
             composable(Routes.HISTORY) {
                 HistoryScreen(
                     onBack = { navController.popBackStack() },
+                    onOpenLibrary = { navController.navigate(Routes.MATERIAL_LIBRARY) },
                     onItemClick = { item ->
                         navController.currentBackStackEntry
                             ?.savedStateHandle?.set(KEY_HISTORY_URI, item.id)

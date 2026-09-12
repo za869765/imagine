@@ -77,6 +77,10 @@ import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.VideoFramePicker
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.ui.component.TextActionButton
+import com.za869765.imagine.ui.component.UndoBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateMapOf
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -111,10 +115,27 @@ fun LongVideoScreen(
     var assemblyPreview by remember { mutableStateOf(false) }
     var framePickerEntry by remember { mutableStateOf<MediaEntry?>(null) }
     val sequence = remember { mutableStateListOf<MediaEntry>() }
+    // 銜接技巧改成 AppBar「說明」入口(UI_REDESIGN_PLAN 3.3),不再常駐卡片
+    var showTips by remember { mutableStateOf(false) }
+    // 片段格式(解析度/編碼/音軌)快取:加入前就能判斷能否與組裝條第一段直接串接
+    val formats = remember { mutableStateMapOf<String, VideoMerger.ClipFormat?>() }
 
     LaunchedEffect(reloadKey) {
         allVideos = MediaHistory.loadAll(ctx).filter { it.isVideo }
         loaded = true
+    }
+    LaunchedEffect(allVideos) {
+        allVideos.forEach { e ->
+            val k = e.uri.toString()
+            if (k !in formats) formats[k] = VideoMerger.probe(ctx, e.uri)
+        }
+    }
+    val baseFormat = sequence.firstOrNull()?.let { formats[it.uri.toString()] }
+    // 與組裝條第一段不相容的原因;組裝條空或尚未探測完 → null(可加入)
+    fun blockReason(e: MediaEntry): String? {
+        val b = baseFormat ?: return null
+        val f = formats[e.uri.toString()] ?: return null
+        return VideoMerger.incompatibleReason(b, f)
     }
 
     fun isMerged(e: MediaEntry) = (e.prompt ?: "").startsWith(MERGED_PREFIX)
@@ -123,7 +144,17 @@ fun LongVideoScreen(
     val totalMs = sequence.sumOf { it.durationMs ?: 0L }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "長片組合", onSettingsClick = onSettingsClick) },
+        appBar = {
+            ImagineTopAppBar(
+                title = "長片組合",
+                trailing = {
+                    Row {
+                        ImagineIconButton(name = "help", onClick = { showTips = true })
+                        ImagineIconButton(name = "settings", onClick = onSettingsClick)
+                    }
+                },
+            )
+        },
         bottomNav = { ImagineBottomNav(active = NavTab.LONG_VIDEO, onTabSelected = onNavSelected) },
     ) {
         Column(
@@ -132,33 +163,12 @@ fun LongVideoScreen(
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionHeader("長片組合")
             Text(
-                text = "把素材庫裡的短片串成一支長片。點縮圖可預覽播放；片段需同解析度/編碼才能直接串接，本機處理不花 API。",
+                text = "把素材庫裡的短片串成一支長片。點縮圖可預覽播放；加入前會先檢查能否與第一段直接串接，本機處理不花 API。",
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            // 長片銜接技巧 (來自 super-i 第58節「AI 長影片」四銜接法) — 生成階段先把銜接設計好，比硬接更順。
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-            ) {
-                Text(
-                    text = "銜接技巧（生成階段先設計，比硬接更順）\n" +
-                        "①拆段：60s 劇本拆成每 15s 一段（開場→推進→衝突→收束），逐段生再串。\n" +
-                        "②影片延續影片：截上段尾 2–3s 當下段生成參考，動作慣性才接得上。\n" +
-                        "③重疊銜接：下段開頭重複上段結尾情節，多一個可切點、挑最順處接。\n" +
-                        "④藏卡頓：卡頓常只在一兩幀就剪掉，必要時加疊化轉場或反應鏡頭蓋過。",
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
             if (!loaded) {
                 Text(
@@ -169,7 +179,7 @@ fun LongVideoScreen(
                 )
             } else {
                 // ── ① 已選順序 (P1 排序 + P2 預覽) ──
-                SectionHeader("① 主組裝條（${sequence.size}）")
+                SectionHeader("主組裝條（${sequence.size}）")
                 AssemblyTrack(
                     sequence = sequence,
                     onPreviewClip = { previewUri = it },
@@ -184,6 +194,12 @@ fun LongVideoScreen(
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
+                        )
+                        // 合成後排列保留(可繼續調整);要重來才手動清空
+                        TextActionButton(
+                            label = "開始新組合",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            onClick = { sequence.clear() },
                         )
                         Box(
                             modifier = Modifier
@@ -218,9 +234,8 @@ fun LongVideoScreen(
                             val result = VideoMerger.merge(ctx, clips, "$MERGED_PREFIX $count 段")
                             merging = false
                             if (result != null) {
-                                Toast.makeText(ctx, "已合成 $count 段並存到素材庫", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, "已合成 $count 段並存到作品；排列保留，可繼續調整", Toast.LENGTH_SHORT).show()
                                 previewUri = Uri.parse(result)   // #5 合成完即時跳預覽
-                                sequence.clear()
                                 reloadKey++
                             } else {
                                 Toast.makeText(
@@ -234,7 +249,7 @@ fun LongVideoScreen(
                 )
 
                 // ── ② 可用片段 (智慧整理:相似/最新/時長) ──
-                SectionHeader("② 可用片段（${rawAvailable.size}）")
+                SectionHeader("可用片段（${rawAvailable.size}）")
                 if (allVideos.none { !isMerged(it) }) {
                     Text(
                         text = "素材庫還沒有短片 — 先到「素材生成 → 影片」做幾段。",
@@ -274,6 +289,7 @@ fun LongVideoScreen(
                                         onAdd = { sequence.add(entry) },
                                         onPreview = { previewUri = entry.uri },
                                         onRedo = { framePickerEntry = entry },
+                                        blockReason = blockReason(entry),
                                     )
                                 }
                             }
@@ -290,6 +306,7 @@ fun LongVideoScreen(
                                     onAdd = { sequence.add(entry) },
                                     onPreview = { previewUri = entry.uri },
                                     onRedo = { framePickerEntry = entry },
+                                    blockReason = blockReason(entry),
                                 )
                             }
                         }
@@ -307,7 +324,7 @@ fun LongVideoScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "③ 已合成的長片（${merged.size}）",
+                            text = "已合成的長片（${merged.size}）",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W700,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -326,11 +343,32 @@ fun LongVideoScreen(
                                 onAdd = { sequence.add(entry) },
                                 onPreview = { previewUri = entry.uri },
                                 onRedo = { framePickerEntry = entry },
+                                blockReason = blockReason(entry),
                             )
                         }
                     }
                 }
             }
+        }
+
+        // 銜接技巧說明(來自 super-i 第58節「AI 長影片」四銜接法)
+        if (showTips) {
+            AlertDialog(
+                onDismissRequest = { showTips = false },
+                title = { Text("銜接技巧", fontWeight = FontWeight.W700) },
+                text = {
+                    Text(
+                        "生成階段先設計，比硬接更順：\n" +
+                            "① 拆段：60s 劇本拆成每 15s 一段（開場→推進→衝突→收束），逐段生再串。\n" +
+                            "② 影片延續影片：截上段尾 2–3s 當下段生成參考，動作慣性才接得上。\n" +
+                            "③ 重疊銜接：下段開頭重複上段結尾情節，多一個可切點、挑最順處接。\n" +
+                            "④ 藏卡頓：卡頓常只在一兩幀就剪掉，必要時加疊化轉場或反應鏡頭蓋過。",
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                    )
+                },
+                confirmButton = { TextButton(onClick = { showTips = false }) { Text("知道了") } },
+            )
         }
 
         // 預覽播放 Dialog (合成短片/已選/結果共用,一次一支,關閉即釋放)
@@ -387,6 +425,7 @@ private fun AssemblyTrack(
     val stepPx = with(density) { (cellW + gap).toPx() }
     var draggingName by remember { mutableStateOf<String?>(null) }
     var dragDx by remember { mutableStateOf(0f) }
+    val undoScope = rememberCoroutineScope()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -427,7 +466,13 @@ private fun AssemblyTrack(
                     },
                 onRemove = {
                     val idx = sequence.indexOfFirst { it.displayName == entry.displayName }
-                    if (idx >= 0) sequence.removeAt(idx)
+                    if (idx >= 0) {
+                        sequence.removeAt(idx)
+                        // 移除可復原(UI_REDESIGN_PLAN 3.3/5.4)
+                        UndoBar.show(undoScope, "已移除第 ${idx + 1} 段") {
+                            sequence.add(idx.coerceAtMost(sequence.size), entry)
+                        }
+                    }
                 },
             )
         }
@@ -459,16 +504,22 @@ private fun TrackCell(
         ) {
             Text(text = "$order", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.W700)
         }
+        // 移除鈕觸控區 32dp(與縮圖點播放分開,避免想預覽卻刪掉)
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(2.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(onClick = onRemove)
-                .padding(2.dp),
+                .size(32.dp)
+                .clickable(onClick = onRemove),
+            contentAlignment = Alignment.Center,
         ) {
-            ImagineIcon(name = "close", size = 14.dp, tint = Color.White)
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(3.dp),
+            ) {
+                ImagineIcon(name = "close", size = 14.dp, tint = Color.White)
+            }
         }
     }
 }
@@ -540,6 +591,8 @@ private fun AvailRow(
     onAdd: () -> Unit,
     onPreview: () -> Unit,
     onRedo: () -> Unit = {},
+    // 非 null = 與組裝條第一段不相容,加入鈕停用並顯示原因(UI_REDESIGN_PLAN 3.3)
+    blockReason: String? = null,
 ) {
     val ctx = LocalContext.current
     val p = entry.prompt?.trim().orEmpty()
@@ -569,6 +622,14 @@ private fun AvailRow(
             if (d.isNotEmpty()) {
                 Text(text = d, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (blockReason != null) {
+                Text(
+                    text = blockReason,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
         if (p.isNotEmpty()) {
             // 複製此片段的提示詞
@@ -586,18 +647,19 @@ private fun AvailRow(
             tint = MaterialTheme.colorScheme.primary,
             onClick = { onRedo() },
         )
+        val canAdd = blockReason == null
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF56E0D2).copy(alpha = 0.14f))
-                .clickable(onClick = onAdd)
+                .background(Color(0xFF56E0D2).copy(alpha = if (canAdd) 0.14f else 0.05f))
+                .let { if (canAdd) it.clickable(onClick = onAdd) else it }
                 .padding(horizontal = 14.dp, vertical = 6.dp),
         ) {
             Text(
-                text = "加入",
+                text = if (canAdd) "加入" else "不相容",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.W600,
-                color = Color(0xFF7FE9DD),
+                color = if (canAdd) Color(0xFF7FE9DD) else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -706,13 +768,18 @@ private fun VideoPreviewDialog(uri: Uri, onDismiss: () -> Unit) {
     }
 }
 
+// 首格縮圖快取(組裝條/可用片段/已合成 三處共用;重組不重抽,UI_REDESIGN_PLAN 3.3)
+private val frameCache = android.util.LruCache<String, Bitmap>(32)
+
 // 內部 file:// 用絕對路徑開最穩;其餘走 ContentResolver。抽第 0 楨。
 private fun decodeFirstFrame(ctx: Context, uri: Uri): Bitmap? {
+    val key = uri.toString()
+    frameCache.get(key)?.let { return it }
     val r = MediaMetadataRetriever()
     return try {
         val path = if (uri.scheme == "file") uri.path else null
         if (path != null) r.setDataSource(path) else r.setDataSource(ctx, uri)
-        r.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+        r.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)?.also { frameCache.put(key, it) }
     } catch (_: Throwable) {
         null
     } finally {

@@ -193,6 +193,12 @@ fun GenerateVideoScreen(
     val sourceImages = sourceImageStrings.map { Uri.parse(it) }
     // 圖生影「從素材庫選」：true 時彈出素材庫圖片 grid sheet
     var showLibraryPicker by remember { mutableStateOf(false) }
+    // 教學 i2v 範本「使用範本」進來且尚無來源圖 → 直接開選圖(UI_REDESIGN_PLAN 3.4)
+    LaunchedEffect(Unit) {
+        if (initialVideoMode == "i2v" && initialImageUri == null && sourceImageStrings.isEmpty() && initialExtendBase == null) {
+            showLibraryPicker = true
+        }
+    }
     // 參考圖生影「帶入角色」：true 時彈出角色資產 sheet(v1.7.2)
     var showCharacterPicker by remember { mutableStateOf(false) }
 

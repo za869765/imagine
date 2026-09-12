@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -19,22 +20,36 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.za869765.imagine.data.storage.MediaEntry
+import com.za869765.imagine.data.storage.MediaHistory
+import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SectionHeader
+import com.za869765.imagine.ui.component.SourceThumb
+import com.za869765.imagine.ui.component.TextActionButton
 
-// 素材生成首頁(重設計 Frame 1):三張主卡(對話/生圖/生影)+ 工具列(素材庫/去留審查/Grok,次要)。
+// 素材生成首頁:三張主卡(對話/生圖/生影)+ 進行中的任務 + 最近成果(UI_REDESIGN_PLAN 3.1)+ 工具列(素材庫/去留審查/Grok)。
 @Composable
 fun MaterialHubScreen(
     onPickImage: () -> Unit,
@@ -45,7 +60,19 @@ fun MaterialHubScreen(
     onNavSelected: (NavTab) -> Unit,
     onPickChat: () -> Unit = {},
     onOpenReview: () -> Unit = {},
+    // 最近成果:點縮圖開作品詳情(uri 字串);「所有作品」開歷史清單
+    onOpenRecent: (String) -> Unit = {},
+    onOpenAllWorks: () -> Unit = {},
 ) {
+    val ctx = LocalContext.current
+    // 進行中的影片任務:直接讀 WorkManager(trackedRequestId 的 SSOT 仍在生成頁,這裡只做入口)
+    val workManager = remember(ctx) { WorkManager.getInstance(ctx.applicationContext) }
+    val works by workManager.getWorkInfosByTagFlow(VideoPollWorker.TAG_VIDEO_POLL)
+        .collectAsState(initial = emptyList())
+    val active = works.filter { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+    var recent by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
+    LaunchedEffect(active.size) { recent = MediaHistory.loadAll(ctx).take(6) }
+
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
@@ -89,13 +116,69 @@ fun MaterialHubScreen(
                     onClick = onPickVideo,
                 )
             }
+
+            // 進行中的任務:精簡狀態入口(真實階段),點擊回生成影片頁;沒有任務整區不顯示
+            if (active.isNotEmpty()) {
+                SectionHeader("進行中的任務")
+                active.forEach { info ->
+                    ToolTile(
+                        icon = "movie",
+                        iconColor = Color(0xFF56E0D2),
+                        iconBg = Color(0xFF2BD4C6).copy(alpha = 0.15f),
+                        title = "影片處理中・" + VideoPollWorker.stageLabel(info.progress.getString(VideoPollWorker.KEY_STAGE)),
+                        subtitle = "點擊回到生成影片頁查看；完成會發通知",
+                        trailing = "chevron_right",
+                        onClick = onPickVideo,
+                    )
+                }
+            }
+
+            // 最近成果:最新 6 件,3 欄縮圖,點開作品詳情
+            if (recent.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SectionHeader("最近成果", modifier = Modifier.weight(1f))
+                    TextActionButton(label = "所有作品", icon = "chevron_right", onClick = onOpenAllWorks)
+                }
+                recent.chunked(3).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { e ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onOpenRecent(e.uri.toString()) },
+                            ) {
+                                SourceThumb(uri = e.uri, isVideo = e.isVideo, modifier = Modifier.fillMaxSize())
+                                if (e.isVideo) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.Center)
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(Color.Black.copy(alpha = 0.55f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        ImagineIcon(name = "play_arrow", size = 18.dp, fill = 1, tint = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                        repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+                    }
+                }
+            }
+
             SectionHeader("工具")
             ToolTile(
                 icon = "photo_library",
                 iconColor = Color(0xFFEC8BD2),
                 iconBg = Color(0xFFE06AC0).copy(alpha = 0.15f),
                 title = "素材庫",
-                subtitle = "角色・環境・物件・風格 參考圖庫",
+                subtitle = "可重複使用的參考圖片：角色・環境・物件・風格",
                 trailing = "chevron_right",
                 onClick = onOpenLibrary,
             )
@@ -112,9 +195,9 @@ fun MaterialHubScreen(
                 icon = "forum",
                 iconColor = Color(0xFFAEB6C6),
                 iconBg = Color(0xFF8A94A6).copy(alpha = 0.16f),
-                title = "提示詞諮詢",
-                badge = "Grok",
-                subtitle = "開啟 grok.com 網頁版（帳號登入）",
+                title = "Grok 網頁諮詢",
+                badge = "外部網頁",
+                subtitle = "開啟 grok.com 網頁版，使用網頁登入帳號（非 App 的 API Key）",
                 trailing = "language",
                 onClick = onOpenGrok,
             )

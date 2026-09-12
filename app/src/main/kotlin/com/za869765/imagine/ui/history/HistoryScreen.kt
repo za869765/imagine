@@ -60,6 +60,7 @@ import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -80,6 +81,8 @@ data class HistoryItem(
 fun HistoryScreen(
     onBack: () -> Unit,
     onItemClick: (HistoryItem) -> Unit,
+    // UI_REDESIGN_PLAN 3.2:所有作品 ↔ 素材庫 互相前往
+    onOpenLibrary: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -140,22 +143,28 @@ fun HistoryScreen(
     ImagineScreen(
         appBar = {
             ImagineTopAppBar(
-                title = if (selectMode) "已選 ${visibleSelected.size}" else "歷史",
+                // 「歷史」→「所有作品」(UI_REDESIGN_PLAN 3.2):含成功作品;與「素材庫」(可重複使用的參考圖)區分
+                title = if (selectMode) "已選 ${visibleSelected.size}" else "所有作品",
                 showBack = true,
                 onBackClick = { if (selectMode) exitSelect() else onBack() },
                 trailing = {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { if (selectMode) exitSelect() else selectMode = true }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        Text(
-                            text = if (selectMode) "完成" else "選取",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!selectMode) {
+                            TextActionButton(label = "素材庫", icon = "photo_library", onClick = onOpenLibrary)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { if (selectMode) exitSelect() else selectMode = true }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                text = if (selectMode) "完成" else "選取",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 },
             )
@@ -185,7 +194,7 @@ fun HistoryScreen(
                     SegmentedOption("all", "全部 ${entries.size}"),
                     SegmentedOption("img", "圖片 $imgCount"),
                     SegmentedOption("vid", "影片 $vidCount"),
-                    SegmentedOption("char", "⭐ $charCount"),
+                    SegmentedOption("char", "素材庫 $charCount"),
                 ),
                 activeId = filter,
                 onSelected = { filter = it },
@@ -215,7 +224,11 @@ fun HistoryScreen(
             }
 
             if (loaded && items.isEmpty()) {
-                EmptyState()
+                // 搜尋/篩選無結果 與 全空 分開(UI_REDESIGN_PLAN 6.5)
+                EmptyState(
+                    filtered = q.isNotEmpty() || filter != "all",
+                    onClearFilters = { query = ""; filter = "all" },
+                )
                 return@Column
             }
 
@@ -321,16 +334,20 @@ private fun HistoryThumbnail(
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        // 「已加入素材庫」標記(UI_REDESIGN_PLAN 3.2):圖示 + 文字,不再用 ⭐ 以免與範本收藏混淆
         if (isCharacter) {
-            Box(
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(4.dp)
                     .clip(RoundedCornerShape(6.dp))
                     .background(Color.Black.copy(alpha = 0.55f))
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(text = "⭐", fontSize = 11.sp)
+                ImagineIcon(name = "photo_library", size = 11.dp, fill = 1, tint = Color(0xFFEC8BD2))
+                Text(text = "素材庫", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.W600)
             }
         }
         if (!entry.prompt.isNullOrBlank()) {
@@ -437,7 +454,7 @@ private fun decodeFirstFrame(ctx: Context, uri: Uri): Bitmap? {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(filtered: Boolean, onClearFilters: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -446,16 +463,19 @@ private fun EmptyState() {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            "沒有符合的紀錄",
+            if (filtered) "找不到符合條件的作品" else "還沒有作品",
             fontSize = 16.sp,
             fontWeight = FontWeight.W600,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            "生成圖片或影片後會自動出現在這裡",
+            if (filtered) "換個關鍵字，或清除搜尋與篩選" else "完成生成後，作品會出現在這裡",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (filtered) {
+            TextActionButton(label = "清除搜尋與篩選", icon = "close", onClick = onClearFilters)
+        }
     }
 }
 

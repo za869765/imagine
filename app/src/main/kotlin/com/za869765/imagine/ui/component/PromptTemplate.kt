@@ -2676,7 +2676,11 @@ fun ReadyPromptCard(
     onUse: () -> Unit,
     isFavorite: Boolean = false,
     onToggleFavorite: (() -> Unit)? = null,
+    // UI_REDESIGN_PLAN 3.4(教學範本頁):先展示名稱 + 適用類型 + 「使用範本」,完整提示詞預設摺疊
+    expandable: Boolean = false,
+    usageLabel: String? = null,
 ) {
+    var expanded by remember { mutableStateOf(!expandable) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2702,6 +2706,18 @@ fun ReadyPromptCard(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
+            if (usageLabel != null) {
+                Text(
+                    text = usageLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
             if (onToggleFavorite != null) {
                 ImagineIconButton(
                     name = "star",
@@ -2718,6 +2734,8 @@ fun ReadyPromptCard(
             fontSize = 13.sp,
             lineHeight = 19.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (expanded) Int.MAX_VALUE else 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp),
         )
         Row(
@@ -2727,6 +2745,14 @@ fun ReadyPromptCard(
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (expandable) {
+                TextActionButton(
+                    label = if (expanded) "收起" else "查看提示詞",
+                    icon = if (expanded) "expand_less" else "expand_more",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = { expanded = !expanded },
+                )
+            }
             TextActionButton(
                 label = "複製",
                 icon = "content_copy",
@@ -2734,7 +2760,7 @@ fun ReadyPromptCard(
                 onClick = onCopy,
             )
             TextActionButton(
-                label = "使用",
+                label = if (expandable) "使用範本" else "使用",
                 icon = "check",
                 onClick = onUse,
             )

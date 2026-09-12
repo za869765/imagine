@@ -52,6 +52,8 @@ import com.za869765.imagine.ui.component.EXTRA_PROMPTS
 import com.za869765.imagine.ui.component.ReadyPromptCard
 import com.za869765.imagine.ui.component.MediaAction
 import com.za869765.imagine.ui.component.viewer
+import com.za869765.imagine.ui.component.ImagineChip
+import com.za869765.imagine.ui.component.ChipVariant
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
@@ -196,8 +198,13 @@ private fun ReadyList(
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // CatChip 併入 ImagineChip(UI_REDESIGN_PLAN 3.4)
             cats.forEach { c ->
-                CatChip(label = c, selected = cat == c) { cat = c }
+                ImagineChip(
+                    label = c,
+                    variant = if (cat == c) ChipVariant.Tonal else ChipVariant.Outlined,
+                    onClick = { cat = c },
+                )
             }
         }
         LazyColumn(
@@ -223,6 +230,12 @@ private fun ReadyList(
                     onUse = { onUsePrompt(ex.text, usageOf(ex)) },
                     isFavorite = ex.tag in favorites,
                     onToggleFavorite = { onToggleFavorite(ex.tag) },
+                    expandable = true,
+                    usageLabel = when (usageOf(ex)) {
+                        "t2v" -> "文生影"
+                        "i2v" -> "圖片動起來"
+                        else -> "文生圖"
+                    },
                 )
             }
         }
@@ -311,33 +324,6 @@ private fun GalleryList(
     }
 }
 
-@Composable
-private fun CatChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(100.dp))
-            .background(
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                else MaterialTheme.colorScheme.surfaceContainerHighest,
-            )
-            .border(
-                1.dp,
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                else MaterialTheme.colorScheme.outline,
-                RoundedCornerShape(100.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
-            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
 
 @Composable
 private fun ActionRow(icon: String, label: String, onClick: () -> Unit) {

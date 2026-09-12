@@ -66,6 +66,8 @@ import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.MediaAction
 import com.za869765.imagine.ui.component.UndoBar
 import com.za869765.imagine.ui.component.viewer
+import com.za869765.imagine.ui.component.ImagineIconButton
+import com.za869765.imagine.ui.component.TextActionButton
 import kotlinx.coroutines.launch
 
 // 素材庫 — 角色/環境/物件/風格 四分頁。每頁顯示「我的素材」(自己生成/匯入,可標分類) +
@@ -77,6 +79,8 @@ fun MaterialLibraryScreen(
     onUseImage: (String, Boolean) -> Unit,
     onBack: () -> Unit,
     onSettingsClick: () -> Unit = {},
+    // UI_REDESIGN_PLAN 3.2:素材庫 ↔ 所有作品 互相前往
+    onOpenHistory: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -147,12 +151,32 @@ fun MaterialLibraryScreen(
     }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "素材庫", showBack = true, onBackClick = onBack, onSettingsClick = onSettingsClick) },
+        appBar = {
+            ImagineTopAppBar(
+                title = "素材庫",
+                showBack = true,
+                onBackClick = onBack,
+                trailing = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextActionButton(label = "所有作品", icon = "history", onClick = onOpenHistory)
+                        ImagineIconButton(name = "settings", onClick = onSettingsClick)
+                    }
+                },
+            )
+        },
         showBalanceBar = false,
         bottomNav = null,
         scroll = false,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            // 素材庫 vs 所有作品 說清楚(UI_REDESIGN_PLAN 3.2)
+            Text(
+                text = "可重複使用的參考圖片，供修改圖片／圖片動起來／參考圖生影時選用。所有生成結果請看「所有作品」。",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+            )
             // 分類改成可橫滑的計數膠囊(角色 12 / 環境 8 …),取代等寬分段控制
             Row(
                 modifier = Modifier
