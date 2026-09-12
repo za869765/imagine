@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -124,6 +126,8 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "visibility_off" to true -> Icons.Outlined.VisibilityOff
     "more_horiz" to false -> Icons.Outlined.MoreHoriz
     "more_horiz" to true -> Icons.Outlined.MoreHoriz
+    "more_vert" to false -> Icons.Outlined.MoreVert
+    "more_vert" to true -> Icons.Filled.MoreVert
     "sell" to false -> Icons.Outlined.Sell
     "sell" to true -> Icons.Outlined.Sell
     "warning" to false -> Icons.Outlined.Warning
