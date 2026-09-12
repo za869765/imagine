@@ -457,3 +457,278 @@ Imagine 採用 **Jetpack Compose + Material 3** 自建的 token 化設計系統�
 6. **單一裝置鎖定**：維持單裝置、單帳號、本機儲存（filesDir/History/素材庫）模型；不引入雲端同步或多帳號。Keys 備份僅走系統分享面板的 CSV 匯出/入。
 
 7. **不新增重型相依**：長片串接維持本機 `MediaMuxer`/`VideoMerger`（不花 API）、影片預覽維持 Media3 ExoPlayer、圖片載入維持 Coil；不為了視覺重設計引入大型新函式庫或服務。版本號維持 `BuildConfig.VERSION_NAME` 單處 bump、動態顯示。
+
+---
+
+## v1.7～v1.8.5 增補（2026-09-12）
+
+本節補記 v1.7.0～v1.8.5 新增或改版的畫面與元件，寫法沿用前文（用途 / 版面結構 / 主要元件與狀態 / 互動 / 痛點），只描述程式碼裡確實存在的東西；標「觀察」者為從程式碼與版面推斷，標「待確認」者為程式碼中找不到明確依據。主要變化：App 從「xAI 單一供應商」變成「xAI + OpenRouter 雙供應商、依模型 id 決定走哪家」；新增 API 對話頁、模型列、素材去留審查、角色資產（名字＋定妝圖組）、三視圖工坊、鎖臉流程、app 內浮層通知；首頁改為三主卡＋工具列；全 App 改為強制深色（`Theme.kt`，`darkTheme` 參數保留但不再使用）。
+
+
+### 舊章節與現況不符處（以本增補為準）
+
+| # | 舊章節位置 | 舊寫法 | 現況 |
+|---|---|---|---|
+| 1 | 導覽地圖、素材生成首頁、痛點 | `MaterialHubScreen` 四卡分流、`HubCard` 漸層 | 三張 `PrimaryGenCard`（對話/生圖/生影）+ 三列 `ToolTile`；`HubCard` 與四組 `Brush.linearGradient` 已不存在 |
+| 2 | 設計系統 | 深淺色由 `isSystemInDarkTheme()` 自動切換 | 全 App 強制深色（`Theme.kt`），系統列固定 dark style |
+| 3 | 圖示集 | 圖示清單 | 缺 `chat, chevron_right, cloud_download, delete, forum, more_horiz, open_in_new, photo_library, receipt_long, sell, send, swap_horiz, thumb_up, thumb_down, visibility_off` |
+| 4 | 生成圖片頁、痛點 #2 | 色彩標頭 + 圖片/影片 + 生圖/編輯 + 品質三層 SegmentedTab | L1「對話｜生圖｜生影」+ L2 `UnderlineTab` + `ModelPickerRow`；品質併入模型列；參數改 2 列 |
+| 5 | 生成影片頁、痛點 #1 | 兩排各 2 段、只有一排高亮 | 單排橫滑 `ModePill` 5 選 1（含新「參考圖生影」）；OpenRouter 下縮成 3 選 1 |
+| 6 | 導覽地圖、生成影片頁 | 組合延長是 `GenerateVideoScreen` 內分支 | 獨立路由 `COMBINE_EXTEND`，AppBar 帶返回鍵、無底欄，唯一入口為長片組合的 `VideoFramePicker` |
+| 7 | 可重用元件、素材庫、痛點 #3/#4 | Viewer 底部可水平捲動膠囊列；素材庫 5 顆膠囊 | 固定列（≤4 全顯示、>4 前 3 + 「更多」浮層）；「移出素材庫」改 `visibility_off` 圖示標 destructive |
+| 8 | 設定頁 | 生成預設含「品質」；API 卡單一 key；「xAI 後台」 | 「品質」已移除（v1.8.4）；API 卡列 xAI + OpenRouter 兩把 key；改名「帳單 / 後台」多 OpenRouter 餘額/活動紀錄；關於副標「xAI Imagine ／ OpenRouter API 客戶端」 |
+| 9 | 導覽地圖路由表 | — | 缺 `SPLASH`、`CHAT`、`MATERIAL_REVIEW`、`COMBINE_EXTEND`；`VIDEO_GENERATING` 定義存在但無人使用 |
+
+### 導覽地圖變更
+
+底部三 tab（`material` / `long_video` / `tutorial`）不變。`Routes.SPLASH`（`SplashScreen`，800ms 後直接進 `MATERIAL_HUB`，PIN 已移除）為起點。新增三條路由（`nav/Routes.kt`）：`CHAT`（API 對話）、`MATERIAL_REVIEW`（素材總覽・去留審查）、`COMBINE_EXTEND`（組合延長獨立頁）。`VIDEO_GENERATING` 常數存在但全專案無人導向（觀察：死路由）。
+
+```
+Splash ─→ 素材生成 MaterialHubScreen（三主卡 + 工具列）
+           ├─ 💬 對話 → ChatScreen ─────────┐
+           ├─ 🖼 生圖 → GenerateImageScreen ─┤ 頂部 L1 SegmentedTab「對話｜生圖｜生影」三頁互切
+           ├─ 🎬 生影 → GenerateVideoScreen ─┘ （popUpTo MATERIAL_HUB + saveState/restoreState）
+           ├─ 工具：素材庫 → MaterialLibraryScreen
+           ├─ 工具：素材總覽・去留審查 → MaterialReviewScreen（亦可從設定「素材」區進）
+           └─ 工具：提示詞諮詢 Grok → GrokChatScreen（WebView，未變）
+長片組合 LongVideoScreen → AvailRow movie 圖示 → VideoFramePicker
+           └─ 「組合延長：接此片後」→ Routes.COMBINE_EXTEND（GenerateVideoScreen + onBack，無底欄）
+設定 → API Key → ApiKeyEditScreen（xAI / OpenRouter 兩分頁）
+```
+
+三頁互切都錨定 `MATERIAL_HUB`（註解：不可錨 `GENERATE_IMAGE`，從 hub 直進影片頁時它不在 stack，`popUpTo` 不可達會讓 `saveState` 失效並一直疊頁）。`COMBINE_EXTEND` 刻意不走這個錨點，是「進階獨立頁」（註解原文），返回鍵 `popBackStack`。
+
+### 1. API 對話頁 `ChatScreen`（`ui/chat/ChatScreen.kt`，`Routes.CHAT`）
+
+**用途**：直接打 chat completions（xAI 或 OpenRouter，由所選模型 id 判斷供應商），非 WebView。與 Grok 諮詢頁並存。
+
+**版面（`ImagineScreen`，`scroll = false`，內容 `padding(h16, v12)` / `spacedBy(10)`）**：
+```
+AppBar「對話」                      [receipt_long 帳單] [settings]
+┌ SegmentedTab 對話｜生圖｜生影（activeColor 0xFF4A2E6E 紫）┐
+┌ ModelPickerRow（模式 CHAT）                              ┐
+（未設該家 key → 紅字 ImagineCard，點跳設定）
+費用列 11sp mono：OpenRouter「本次對話 $x · 餘額 $y」/ xAI「費用以 console.x.ai 為準」  [帳單][清除]
+LazyColumn（weight 1f）ChatBubble…；空時灰字說明；送出中 16dp spinner「思考中…」
+┌ OutlinedTextField（maxLines 5，48–140dp）─────────┐ [48dp 送出方鈕 radius 14]
+```
+
+**主要元件與狀態**：`model`（`rememberSaveable`，寫回 `prefs.chatModel`）、`turns: List<ChatTurn(role,content,meta)>`（自訂 `listSaver`）、`sessionCost`、`balanceText`（OpenRouter `GET /credits`，進頁與每次回覆後刷新）。`ChatBubble`：`widthIn(max 320dp)`、半徑 14dp；user 靠右 `primaryContainer`、assistant 靠左 `surfaceContainerHigh`、error `errorContainer`；內文 `SelectionContainer` 14sp/20sp；非 user 泡泡下方 10sp mono meta（模型 · 本則 $ · tokens）＋ 14dp `content_copy`。
+
+**互動**：送出鈕只在 `input` 非空、非送出中、且 `prefs.hasKeyFor(provider)` 時為 primary 色；新一輪自動 `animateScrollToItem` 到最後；「清除」直接清空對話與累計費用（無確認）；「帳單」用系統瀏覽器開 `provider.billingUrl`。
+
+**觀察**：回覆非串流，整段一次落下；帳單入口重複兩處（AppBar icon + chip）；泡泡上限 320dp 在 384dp 寬機上幾乎滿版；金額 `$` 與 mono 字硬寫、無在地化；xAI 路徑沒有費用資料只顯示提示字。
+
+### 2. 模型列 `ModelPickerRow` + `BadgePill`（`ui/component/ModelPicker.kt`）
+
+**用途**：對話 / 生圖 / 生影三頁共用的模型選擇器。v1.8.3 起「有 key 的供應商合併成一份清單」（xAI 在前，OpenRouter 免費款排前；兩家都沒 key 時全列，生成鈕另擋）。
+
+**列本體**：滿寬、半徑 12、`surfaceContainerHigh` 底 + 1dp `outline` 邊、內距 h12/v10。上「模型 · xAI/OpenRouter」11sp；中模型名 15sp/W600 最多 2 行（註解：384dp 大字體不擠）；下一排 `BadgePill` + 價格 11sp mono；右 22dp `expand_more`。
+
+**`BadgePill`**（10sp/W700，半徑 6，內距 h6/v2，顏色硬編非 token）：`free` 綠 `#2E7D32 α0.28`/字 `#8BE08F`、`limited_free` 橘 `#E65100 α0.30`/`#FFB74D`、`conditional_free` 藍 `#1565C0 α0.30`/`#7EB8F5`、`variable` 灰、`paid` 透明底 + 1dp `outline` 框。文字由 `badgeLabel()` 給（免費 / 限時 / 條件 / 付費等）。`ProviderTag`（私有）：`surfaceContainerHighest` 底 10sp 供應商小標。
+
+**底部清單**：`ModalBottomSheet`（`skipPartiallyExpanded`），內容 `fillMaxHeight(0.92f)`。標頭：「選對話/生圖/生影模型」15sp/W700 + 副標「N 個 · xAI 官方價 · OpenRouter 快照 {日期|內建}」；有 OpenRouter key 時右側「更新」`TextActionButton`（`OpenRouterCatalog.refresh` → `AppNotice`）。搜尋框 `OutlinedTextField`「搜尋名稱 / id / 免費」。`LazyColumn(weight 1f)` 每列三行：名稱（2 行）+ 選中勾／`ProviderTag` + `BadgePill` + 價格／id `· NK ctx`（對話）10sp mono + `badgeHint` 說明。選中列底 `primary α0.08`。
+
+**狀態**：v1.8.4 `LaunchedEffect(models, selectedId)` — 選到的模型已不在清單（那家 key 被移除）時自動退回 `defaultModelFor(...)`，不留幽靈選項。
+
+**觀察**：清單只靠 `ProviderTag` 區分兩家，無分組標題；價格字串長時單行省略；三頁都各自 `remember` 一份 catalog，切頁重算；badge 色與主題無關。
+
+### 3. API Key 頁 `ApiKeyEditScreen`（`ui/settings/ApiKeyEditScreen.kt`）
+
+**用途**：xAI / OpenRouter 各一把 key 的輸入 / 貼上 / 顯示 / 複製 / 移除。v1.8.3 拿掉「目前使用 / 改用」供應商切換——有 key 的供應商模型直接合併列在各頁模型清單。
+
+**版面（AppBar「API Key」+ 返回，trailing 48dp 佔位，無底欄；區塊 `spacedBy(20)`）**：
+1. `SegmentedTab`（`ApiProvider.entries`：「xAI (Grok)」/「OpenRouter」）。
+2. 說明卡 `ImagineCard(pad 12)` 11sp：兩家價格 / 能力差異（圖片編輯・影片延長・影片編輯目前只有 xAI）。
+3. 目前 Key 卡：「{label} KEY」12sp → 遮罩 key 15sp mono（`maskKey` 前 4 + 13 點 + 後 3）→ 綠色 `budgetColors.ok`「已設定 · 日期」→ `TextActionButton`「複製」「顯示完整/遮蔽」→「取得 Key」(`keysUrl`) 「查帳單 / 用量」(`billingUrl`)。
+4. `SectionHeader("變更為新 Key（xAI）")` + 56dp `BasicTextField` mono（placeholder `keyHint`）+ 右對齊「從剪貼簿貼上」（`extractKeyFrom` 依前綴 `xai-` / `sk-or-` 從整段文字抽 key，忽略大小寫）+ 10sp 註「只讀最近一次複製；Samsung 剪貼簿歷史讀不到」。
+5. `PrimaryButton`「儲存 {label} Key」— `canSave` = 前綴符合且長度 > 8；儲存即 `AppNotice.show` 並 `onSaved()` 退頁。
+6. 移除區（有 key 才顯示）：`errorContainer` 圓角 16 盒，key 圖示 + 標題 + 「移除後這家的模型會從各頁模型清單消失」，**只有右側 `chevron_right` 是 clickable**，點下立即清 prefs、`AppNotice`、`onRemove()` 退頁，無確認框。
+7. 底部置中 12sp「Key 由 Android Keystore 加密儲存於本機…」。
+
+**狀態**：`tabId`（`rememberSaveable`，只有 OpenRouter key 時預設開 OpenRouter 頁）、`showFull` / `newKey` 綁 `remember(tabId)` 切頁即重設、`keyTick` 存/移除後刷新。
+
+**觀察**：移除無二次確認且點擊區只有小箭頭（16dp 視覺、無 40dp 觸控盒）；貼上失敗走系統 `Toast`、儲存走 `AppNotice`，同頁兩套回饋；儲存後立刻退頁，浮層其實顯示在設定頁上。
+
+### 4. 素材總覽・去留審查 `MaterialReviewScreen`（`ui/hub/MaterialReviewScreen.kt`）
+
+**用途**：把 1000+ 內建素材（`MaterialSeed`）攤成可篩選格子，逐張點一下決定去留。丟棄 = `HiddenSeed.hide`（素材庫與課程圖庫同步消失，可復原）；保留 = `SeedReview.keep`（只為了之後能篩「未決定」把沒看過的挑完）。
+
+**版面（AppBar「素材總覽・去留」+ 返回 + 齒輪，無底欄，`scroll = false`）**：
+```
+分類列（horizontalScroll）：全部 N ｜ 角色 N ｜ 環境 N ｜ 物件 N ｜ 風格 N        ← FilterPill
+狀態列（horizontalScroll）：全部狀態 ｜ 未決定 N ｜ ✓ 保留 N(綠) ｜ ✕ 丟棄 N(紅)
+動作列 FlowRow：[雲端更新 Tonal] [全保留 Outlined] [全丟棄 Outlined]   （v1.8.3 改 FlowRow，384dp 大字體自動換行）
+10sp 提示：點一下:未決定 → ✓保留 → ✕丟棄;長按放大 · 素材更新於 {日期}
+LazyVerticalGrid 3 欄（間距 6）ReviewCell…；空狀態置中「此篩選沒有圖片 / 沒有內建素材資料」
+```
+
+**`FilterPill`**（私有）：12sp、半徑 100 全圓、選中 `primary α0.16` 底 + `primary α0.4` 邊、否則透明 + `outline` 邊；保留/丟棄用固定色 `#5BD47A` / `#FF7B7B`。**`ReviewCell`**：正方、半徑 12、未決定 1dp `White α0.06` 邊，保留/丟棄 2dp 綠/紅邊；丟棄疊 `Black α0.55` 遮罩；右上 22dp 圓徽章（`#2E7D32` check / `#C62828` close）。
+
+**互動**：點一格循環 未決定→保留→丟棄→未決定；長按開 `FullscreenImageViewer`（動作「保留」「丟棄(destructive)」，作用在當頁）；「全丟棄」先 `AlertDialog` 確認；「雲端更新」`SeedUpdater.update`（拉 repo main 的 `material_seed.json` / `tutorial_lessons.json`），成功 / 失敗皆 `AppNotice`。
+
+**觀察**：兩條水平捲動列疊在一起，窄機上第二列的「丟棄」常在畫面外；`FilterPill` 是又一套自製 chip；循環式狀態要「按兩下」才能從保留回到未決定，無直接取消；1000+ CDN 圖走 Coil 無縮圖尺寸限制；狀態色硬編。
+
+### 5. 首頁改版 `MaterialHubScreen`（v1.8）
+
+**用途**：由四張同權重 `HubCard` 改為「三張主卡（對話 / 生圖 / 生影）+ 三列工具」，明確分主次（對應舊痛點 #11）。舊的 `HubCard` 與四組 `Brush.linearGradient` 已不存在。
+
+**版面（`padding 16`，`spacedBy(14)`）**：
+```
+SectionHeader「要做什麼？」
+┌ 對話 ┐┌ 生圖 ┐┌ 生影 ┐   ← Row，三張 PrimaryGenCard 各 weight 1f，間距 10
+│ icon ││ icon ││ icon │     heightIn(min 168)、半徑 20、實色底 + 1dp base α0.32 邊
+│      ││      ││      │     右上 90dp 徑向光暈（base α0.22 → 透明，offset 28/-28）
+│ 標題 ││ 標題 ││ 標題 │     46dp icon 磚（半徑 14，base α0.16）/ 標題 20sp W900 #ECECF0
+│ tags ││ tags ││ tags │     FlowRow 標籤 11sp（半徑 8，base α0.12）
+SectionHeader「工具」
+[photo_library] 素材庫  副標…                              ›   ← ToolTile
+[thumb_up]      素材總覽・去留審查  1000+ 內建素材…         ›
+[forum]         提示詞諮詢 ⌜Grok⌟  開啟 grok.com 網頁版    🌐
+```
+
+**顏色（全硬編）**：對話 `cardBg #1C1430 / base #B07CFF / icon #CFA8FF`；生圖 `#14182A / #6E8BFF / #9DB0FF`；生影 `#0F2422 / #2BD4C6 / #56E0D2`。`ToolTile`：底 `#17181D`、半徑 16、1dp `White α0.07` 邊、內距 14、icon 磚 46dp 半徑 13、標題 16sp/W700、badge 10sp 外框膠囊、副標 12sp `#9A9AA6`、右側 `chevron_right` 16dp 或 `language` 20dp，tint `#5A5B66`。生圖藍 `#9DB0FF` / 生影青 `#56E0D2` 同時被 `FullscreenImageViewer` 的動作 tint 與設定頁「圖片 / 影片」小標沿用，形成分區色。
+
+**觀察**：三張卡在 384dp 寬只剩約 110dp 一張，標籤 `FlowRow` 必換行、卡高由 `heightIn(min)` 撐，三卡高度可能不齊；所有色值硬編、完全依賴強制深色；`onPickChat` / `onOpenReview` 為預設空 lambda 參數。
+
+### 6. 設定頁新區塊 `SettingsScreen`
+
+仍是 12 段，但內容有變（僅列 v1.7 後新增 / 改動）：
+- **素材**：原「素材庫」卡（`history` 圖示，實際導向 `HistoryScreen`）下方新增一張 `ImagineCard(pad 0)` 兩列 `SettingRow`：「素材總覽・去留審查」→ `onReviewClick`；「從雲端更新素材（super-i 新課程）」（`cloud_download`，副標帶「上次 {日期}」，更新中標題改「更新中…」）。此列回饋走系統 `Toast`，與審查頁的 `AppNotice` 不一致。
+- **生成預設**：v1.8.4 拿掉「品質」picker（快速 / 高品質就是生圖頁模型列的兩個 xAI 模型）；「圖片」「影片」小標改用分區色 `#9DB0FF` / `#56E0D2`。
+- **API**：卡片改列兩行 mono「xAI  {遮罩}」「OpenRouter {遮罩}」，任一有 key 顯示綠字「有 key 的供應商模型會一起列出 · 點此管理」，否則紅字「尚未設定任何 Key」；右側 `expand_more`。
+- **帳單 / 後台**（原「xAI 後台」）：四列 `SettingRow`：console.x.ai 用量/帳單（team id 仍硬編，且同一 URL 又複製一份在 `ApiProvider.XAI.billingUrl`）、openrouter.ai 餘額/帳單（`receipt_long`）、OpenRouter 活動紀錄（`https://openrouter.ai/activity`）、開啟 grok.com。
+- **關於**：副標改「xAI Imagine ／ OpenRouter API 客戶端」。
+
+### 7. 角色資產 `CharacterPickerSheet` / `SaveToCharacterDialog`（`ui/component/CharacterPickerSheet.kt`，v1.7.2）
+
+**用途**：「角色資產」= 名字 + 一組定妝圖（`CharacterAssets`，只存名字與圖檔名的組合，圖檔仍在歷史/素材庫）。生成時一鍵帶入整組當參考圖（鎖臉 / 鎖造型）。
+
+**`CharacterPickerSheet`**：`ModalBottomSheet`，內容 `heightIn(max 520)` + `verticalScroll`。`SectionHeader("選擇角色（帶入整組定妝圖）")`；無角色時 13sp 說明「生圖成功後在結果卡點『🎭 存成角色資產』…」；有角色時 11sp「點角色帶入…長按可刪除」+ 每角色一列（半徑 14、`surface` 底、`combinedClickable`）：「🎭 名字」14sp/W700 + 「N 張」→ 最多 4 張 52dp 縮圖 + 「+n」盒 → `chevron_right`。長按 → `AlertDialog`「刪除角色」（只刪組合不刪圖）。
+
+**`SaveToCharacterDialog`**：`AlertDialog`「存成角色資產」：說明文（同角色多套定妝建議用「名字·定妝」）+ `OutlinedTextField`「角色名」+「或加進既有角色:」`FlowRow` `ImagineChip`（選中 Tonal）；「儲存」需非空。
+
+**三個入口**：
+1. `GenerateImageScreen` 結果卡「🎭 存成角色資產」chip：先跟 `imagine_batch_saved` 帳本對帳（`batchToken` UUID 對齊），整批都存好才開對話框，否則 `Toast`「圖片儲存中(n/N)」；確認後 `CharacterAssets.addImages` + 標素材庫「角色」分類。對話框用開啟當下的 `saveCharacterNames` 快照，防新批完成把清單換掉。
+2. `GenerateVideoScreen` 參考圖生影模式「🎭 帶入角色定妝圖」chip：整組**取代**目前參考圖，最多 `maxImages`=3，超過 `Toast` 提示。
+3. `EditPane(ImageEdit)`「🎭 加角色參考（鎖臉）」：取前 2 張，與來源共 3 張送 `/images/edits`。
+
+**觀察**：長按刪除無視覺提示；三處帶入上限（3 / 2）與取代 / 追加語意不同，靠 `Toast` 說明；標籤全帶 emoji；每次開 sheet 重讀 `CharacterAssets.names`。
+
+### 8. 三視圖工坊 `TurnaroundTab`（`ui/component/TurnaroundLab.kt`）
+
+**用途**：參數化三視圖（正面 / ¾ 側 / 背面）prompt 生成器，掛在 `PromptTemplateSheet` 的「三視圖工坊」分頁（僅圖片模式 `!forVideo`；影片模式該位置是「分鏡」）。全女角、photorealistic 版式。資料字典 + 拼裝引擎 + UI 同檔。
+
+**版面（父層 sheet 已 `verticalScroll`，本 tab 不自帶捲動）**：
+```
+① 畫幅            ← 5 顆 TurnChip 水平捲動（16:9 / 21:9 / 3:4 / 9:16 / 1:1）
+② 人種／族裔 · 留「隨機」自動配   ← 14 顆（含隨機）
+③ 角色原型 · 點一張立即生成       ← 6 大類 chip；下方 2 欄角色卡（半徑 12，選中 primaryContainer，13.5sp 名 + 11sp 描述 2 行）
+④ 自助細節 · 留「隨機」每次擲新的 ← 年齡 / 體型 / 氣質 / 光線氛圍 四列，點列展開一排 chip，值前綴 🎲
+[🎲 完全隨機一鍵出]（滿寬 primaryContainer）
+附英文結構詞（出圖更穩）                       [Switch]
+生成的三視圖提示詞                 [文字][JSON]
+┌ 輸出框（surface，半徑 12，13sp/20sp）┐
+                     [換細節重生] [複製] [使用]
+```
+
+**狀態**：`resolved: TurnResolved` — 隨機欄在 `resolveTurnaround` 當下擲定，之後切「文字 / JSON」、開關英文只重渲染不重擲（註解強調「內容不會跳」）。JSON 走共用 `PRETTY_JSON`，中文 key。「使用」→ `onPick(result)` 回填 `PromptInput` 並關 sheet。
+
+**觀察**：`TurnChip` / `TurnSectionLabel` 又是一套私有 chip / 標題；區段編號 ①② 硬寫在字串；四排水平捲動列疊在一個垂直捲動 sheet 裡；狀態只用 `remember`，關 sheet 即遺失設定；輸出可能超長，輸出框無高度上限。
+
+### 9. 生成頁 v1.7～1.8 變更（`GenerateImageScreen` / `GenerateVideoScreen`）
+
+**共同**：
+- 頂部「模式色彩標頭 + 圖片/影片 2 段」改為 **L1 `SegmentedTab` 三段「對話｜生圖｜生影」**，各頁 `activeColor` 不同（生圖 `#2E3A6E`、生影 `#14463F`、對話 `#4A2E6E`）。
+- **`ModelPickerRow`** 放在 `PromptInput` 之後、參數列之前（對話頁則在最上方）；模型寫回 `prefs.imageModel` / `prefs.videoModel`。
+- 生成鈕 `enabled` 改看 `prefs.hasKeyFor(provider)`；未設該家 key 顯示紅字卡「…或在模型清單改選另一家的模型」。
+- 「存相簿」回饋改 `AppNotice`；其餘（生成完成、錯誤、角色帶入）仍是系統 `Toast`。
+
+**生圖頁**：
+- L2 子模式改 **`UnderlineTab`**（私有：14sp、2dp `primary` 底線、段距 24dp）「生圖 / 圖片編輯」，取代原 `SegmentedTab`（註解：與 L1 pill 視覺區隔，痛點 #1）。OpenRouter + 圖片編輯時多一行 11sp 提示「圖片編輯目前只接 xAI」。
+- 品質 `SegmentedTab` 移除：快速 / 高品質就是模型列裡兩個 xAI 模型 id。
+- 參數：xAI 走 2 列 `ParamPicker`（解析度 / 長寬比；數量 1–10 單獨一列佔半寬）；OpenRouter 分支選項來自模型 `supported_parameters`（`orResolutions` / `orAspects` / `orNMax`，`displayName` 加「（此模型一次 1 張）」），結果以 base64 直接落地成 `file://`。
+- 結果 meta 在 OpenRouter 多帶模型 id 與「本次 $」；動作 `FlowRow` 後新增「🎭 存成角色資產」+「或設為其他分類」分類 chip 群。
+- `FullscreenImageViewer` 動作：存相簿 / 分享 / 編輯 / 動起來（剛好 4 顆，全部固定顯示）。
+
+**生影頁**：
+- 「模式」改 **單排可橫滑 `ModePill`**（私有：半徑 100、選中 `#16433D` 底 + `#56E0D2 α0.5` 邊 + `#7FE9DD` check 與字），`SectionHeader` 動態標「模式・5 選 1」（xAI）/「模式・3 選 1」（OpenRouter）。選項：文生影 / 圖生影（OpenRouter 依模型 `frameImages` 才顯示）/ **參考圖生影（新 `VideoMode.Ref2Vid`）** / 影片延長 / 影片編輯（後兩者僅 xAI）。OpenRouter 下方多一行 11sp 支援度說明。
+- 來源區標題依模式「起始圖」/「參考圖（可多張，不會被當成第一幀）」；`maxImages` 圖生影 1、其餘 3；參考圖生影多「🎭 帶入角色定妝圖」chip。
+- 三顆 `ParamPicker`（秒數 / 長寬比 / 解析度）選項由模型 catalog 給（`durations` / `aspects` / `resolutions`），使用者偏好不在清單時以 `effDuration` 等最接近合法值顯示與送出、不改 prefs。
+- 生成中卡改「36sp 估算百分比為主 + 11sp 經過秒數為輔 + `LinearProgressIndicator` + 紅字警告」；`VideoPollWorker` 多 `provider` 參數。
+
+**PromptInput 工具鏈（`PromptTemplate.kt`，僅列入口）**：空白時「套用範本」開 `ApplyTemplateSheet`、「自己組」開 `PromptTemplateSheet`。後者分頁：自己組 / 分鏡（影片）/ 三視圖工坊（圖片）。「自己組」內：**✨ AI 填表**列（`OutlinedTextField` 一句話點子 + `TextActionButton`「AI 填表」→ `repository.chatOnce` 走 xAI key，回 JSON 填回欄位，每按一次一次 chat 呼叫）；「預覽」右側「文字 / JSON」`ReadyCatChip` 切換（JSON = 複製到 Seedance/即夢等平台或當 LLM 填表 schema）；底部「貼上JSON」（剪貼簿 `{欄位:值}` 回填，圖片模式濾掉影片限定欄位）/「複製」/「使用」。外貌特徵大類含**人物 DNA 三欄**「眼型眼色 / 鼻形 / 唇形」（註解：鎖同一人時只固定髮型髮色+眼+鼻+唇五特徵，真鎖臉仍要配 Base Image / 參考圖）。
+
+**觀察**：同一頁並存三種選擇語彙（L1 `SegmentedTab` pill、L2 `UnderlineTab`、`ModePill`）；`ModelPickerRow` 在三頁的位置不一致；AI 填表只走 xAI（只設 OpenRouter key 時會失敗，待確認錯誤呈現）；OpenRouter 分支參數列與 xAI 分支排版不同（2×2 vs 2+1）。
+
+### 10. 編輯頁鎖臉 `EditPane(ImageEdit)`（`ui/edit/EditScreen.kt`）
+
+- 「來源」框下方新增**角色參考**區：`ImagineChip`「🎭 加角色參考（鎖臉）」（開 `CharacterPickerSheet`）；帶入後顯示 11sp「prompt 記得指名參考誰的臉」與 64dp 縮圖列（右上 20dp 圓形 close 可逐張移除）；上限 2 張，與來源共 3 張（xAI `/images/edits` 上限）——註解稱「super-i 雙參考圖法：來源當造型底、角色定妝圖鎖臉」。圖↔影越界切換時清空。
+- 「編輯說明」標題下新增兩顆 `TextActionButton`：「🎭 三相圖範本」（`auto_awesome`，寫入一段固定三視圖角色設定表 prompt）與「🔒 鎖臉咒語」（`lock`，寫入 `IDENTITY_LOCK_SPELL` 常數：Base Image 身份鎖 + 頭部比例鎖，與 `READY_PROMPTS`「鎖臉咒語·Base Image 換景」共用同一份）。兩者**直接覆寫**目前 prompt。`PromptInput` 改 `label = ""`、`minHeight = 104`。
+- 「執 行」仍要求 `prefs.isApiKeySet`（xAI）；OpenRouter 無此功能。
+
+**觀察**：「三相圖」與其他處「三視圖」用詞不一；覆寫 prompt 無確認；角色參考回饋走 `Toast`。
+
+### 11. App 內浮層通知 `AppNotice` / `AppNoticeHost`（`ui/component/AppNotice.kt`）
+
+**用途**：取代系統 `Toast`。註解：One UI（Android 13+）在 app 沒有通知權限時會把系統 Toast 整個吃掉（本 app 未申請 `POST_NOTIFICATIONS`），「存相簿」等回饋完全看不到。
+
+**實作**：`object AppNotice { current = mutableStateOf<Pair<Long,String>?> ; show(msg) }`。`AppNoticeHost`：`LaunchedEffect` 1800ms 後自動清除（新訊息直接取代舊的）；`Box.fillMaxSize().statusBarsPadding()` 置頂中，`padding(top 64)`，膠囊半徑 22、底 `#141418 α0.94`、1dp `White α0.14` 邊、內距 h18/v11、字 `#ECECF0` 13sp/W600；無 `clickable` / `pointerInput`，不攔觸控。
+
+**掛載處（兩處，註解明言）**：`MainActivity` 根層 `Box` 蓋在 `ImagineRoot()` 上；`FullscreenImageViewer` 的 `Dialog` 內（Dialog 視窗蓋住根層，要自己掛一份）。
+
+**目前使用者**：各頁「存相簿」、`ModelPickerRow` 更新、`MaterialReviewScreen` 全部回饋、`ApiKeyEditScreen` 儲存/移除、`MaterialLibraryScreen` / `HistoryDetailScreen` / `LongVideoScreen` 部分回饋。
+
+**觀察**：`Toast` 與 `AppNotice` 混用面很廣（生成頁、EditPane、`VideoFramePicker`、`CharacterPickerSheet` 入口、設定頁雲端更新仍用 `Toast`）；`FullscreenVideoPlayer`、`VideoFramePicker` 等其他 `Dialog` 未掛 host，其內部的 `Toast` 正是會被 One UI 吃掉的情境；單槽、固定 1.8 秒、無 queue；`top 64dp` 恰好落在 AppBar 標題帶上。
+
+### 12. 組合延長獨立頁 `Routes.COMBINE_EXTEND`
+
+**進入點（唯一）**：長片組合 → 可用片段列 movie 圖示 → `VideoFramePicker` → 「組合延長：接此片後（新片自動串接）」→ 擷取畫格存成圖 → nav 在 `savedStateHandle` 放 `KEY_INIT_MEDIA`（尾格）、`KEY_INIT_VIDEO_MODE = "i2v"`、`KEY_INIT_EXTEND_BASE`（原片 `file://`）→ `navigate(COMBINE_EXTEND)`。
+
+**畫面**：仍是 `GenerateVideoScreen`，但 `onBack != null`、`initialExtendBase != null`：AppBar 改「🔗 組合延長」+ 返回鍵（trailing 40dp 佔位）、`bottomNav = null`；內容走 `return@Column` 早退分支：
+```
+[🔗 組合延長] 青綠 #0F5E57 膠囊 15sp
+ImagineCard 說明：用原片尾格當起點…完成後自動接成長片存到歷史「組合延長」
+SectionHeader「尾格（續接起點）」 + SelectedImageSlot（onRemove = null，不可刪）
+PromptInput（minHeight 88，placeholder「描述續集要怎麼動…」，videoHasImage）
+ParamPicker 秒數（滿寬，1–15）
+12sp「解析度自動沿用原片（480p/720p）」 ← LaunchedEffect 讀原片高度 ≥720 → 720p
+生成中卡（48dp spinner / 36sp % / mono 經過秒 / LinearProgress / 紅字勿滑掉）  或  PrimaryButton「生成續集 → 自動接成長片」
+錯誤卡 / ✅ 續集已生成 提示 + VideoPreview
+```
+成功後 `VideoPollWorker` 依 `initialExtendBase` 自動把「原片 + 續集」串成一支存進歷史。`ImagineNavHost` 對此路由把 `onSwitchToImage` / `onSettingsClick` / `onNavSelected` 全傳空 lambda。
+
+**觀察**：AppBar 標題與內容第一行都是「🔗 組合延長」，重複；此分支不顯示 `ModelPickerRow`，但仍用 `prefs.videoModel` 決定供應商——若上次選的是 OpenRouter 模型，組合延長會走 OpenRouter 路徑（待確認是否預期）；整段仍是 `GenerateVideoScreen` 內的 `return@Column` 分支而非獨立 Composable（舊痛點延續）。
+
+### 13. Fullscreen viewer / VideoFramePicker
+
+**`FullscreenImageViewer` 底部動作列改版**（對應舊痛點 #3 / #4）：
+- 動作 ≤ 4 顆：全部固定顯示；> 4 顆：前 3 顆 + 「更多」(`more_horiz`，highlight 底 `White α0.10`)，其餘收進上方 210dp 寬浮層（半徑 16、底 `#1A1B20`、列高 h12/v11、`destructive` 紅字 `#F0A0A0`、列間 1dp 分隔）。
+- 固定列：滿寬、半徑 22、底 `#141418 α0.92`、1dp `White α0.10` 邊、內距 9；每格 `ViewerActionSlot` `weight 1f`，icon 22dp 疊 11sp label；tint 依 icon：`image` 藍 `#9DB0FF`、`movie` 青 `#56E0D2`、其餘白（配合首頁分區色）。
+- 底距 = Dialog root window 導覽列 inset + 40dp、保底 80dp（註解：Compose `navigationBarsPadding` 在 Dialog 內常回 0）。
+- 內部掛 `AppNoticeHost`。`ZoomableImage`、頁碼徽章、`HorizontalPager` 行為不變。
+- 各處動作集：素材庫我的素材 5 顆 → 生圖 / 生影 / 存相簿 + 更多（改分類 `sell`、移出素材庫 `visibility_off` destructive）；內建素材 3 顆；審查頁 保留 / 丟棄；生圖結果 4 顆；教學 重繪 / 動起來；歷史詳情 存相簿 / 分享。
+
+**`FullscreenVideoPlayer`**：未變（黑底 + `PlayerView` + 左上 close），未掛 `AppNoticeHost`。
+
+**`VideoFramePicker`**（`ui/component/VideoFramePicker.kt`）：置中卡片式 `Dialog`（註解：按鈕不在螢幕底，避開手勢列），半徑 16、`surfaceContainerHigh`、內距 16。標題「擷取畫格（數字人 / 來源圖）」15sp/W700 → 畫格框 `heightIn(160–320)`（解碼中 spinner）→ `Slider` + 12sp「第 x.x 秒 / y.y 秒」→ 三列 `PickerAction`（滿寬、半徑 12、`surface` 底、icon 20 + 14sp/W600）：「用此格圖生影」(`movie`) /「存為角色素材（數字人）」(`image`，`MaterialLibrary.setCategory` 角色) /「組合延長：接此片後」(`add`) → 11sp 提示「拉到接近尾端的畫格最順…」。拉桿停 120ms 才解碼（`MediaMetadataRetriever` `OPTION_CLOSEST_SYNC`）。
+
+**觀察**：`VideoFramePicker` 三個動作都先 `saveFrame` 落地成圖再回呼，取消不會清掉已存的圖（會出現在歷史）；所有回饋走 `Toast`；「更多」浮層無 scrim，點外面不會關閉（只有再點「更多」或點某項）；固定列 label 11sp 在四顆等分時每格約 85dp，長標籤（「移出素材庫」進浮層才安全）。
+
+### 重設計硬約束（新增）
+
+只列 v1.7 後新出現、程式碼註解或結構明示的雷區；前文「硬約束」1–7 仍全部有效。
+
+1. **強制深色**：`ImagineTheme` 忽略系統淺 / 深（`Theme.kt` 註解「重設計(Claude Design handoff)：全 App 強制深色」），`MainActivity.enableEdgeToEdge` 固定 `SystemBarStyle.dark(TRANSPARENT)`。首頁三主卡 / `ToolTile` / viewer 動作列 / `AppNotice` / `ModePill` / `BadgePill` 全用硬編深色值，**不可**在未重做這些色值的情況下恢復淺色模式。
+2. **回饋不得依賴系統 Toast**：One UI 在無 `POST_NOTIFICATIONS` 時吃掉 Toast（`AppNotice.kt` 註解）。新 UI 的操作回饋走 `AppNotice.show`；任何新的 `Dialog` 視窗若要顯示回饋，必須像 `FullscreenImageViewer` 一樣自掛一份 `AppNoticeHost`（Dialog 蓋住 Activity 根層那份）。
+3. **Dialog 內 inset**：全螢幕 viewer / player 維持 `DialogProperties(usePlatformDefaultWidth=false, decorFitsSystemWindows=false)`；底部動作距離改用 `ViewCompat.getRootWindowInsets(view)` 取真實導覽列高 + 40dp、保底 80dp（Compose `navigationBarsPadding` 在 Dialog 內常回 0）。viewer 動作 > 4 顆必須進「更多」浮層，不可回到單行水平捲動。
+4. **384dp 大字體**：S22U 開大字體 / 顯示大小時可用寬僅約 384dp。chip 列要用 `FlowRow`（`MaterialReviewScreen` 動作列 v1.8.3 改法、首頁標籤、生圖結果動作）；模型名稱允許 2 行（`ModelPickerRow`）；三顆等分 `ParamPicker` / 三張等分主卡是已知擠壓點。
+5. **`ModalBottomSheet` 慣例**：一律 `skipPartiallyExpanded = true`、`containerColor = surfaceContainerHigh`。內含 `LazyColumn` 的 sheet 要給高度上限（`ModelPickerRow` 用 `fillMaxHeight(0.92f)` + `weight(1f)`；`LibraryImagePickerSheet` `heightIn(max 420)`）；`CharacterPickerSheet` / `PromptTemplateSheet` 用 `verticalScroll` 而非 `Lazy*`。`PromptTemplateSheet` 的 `tab` 綁 `remember(forVideo)`，模式切換分頁集合不同時要重設。
+6. **三頁互切導覽**：`CHAT` / `GENERATE_IMAGE` / `GENERATE_VIDEO` 互切必須 `popUpTo(MATERIAL_HUB){saveState}` + `launchSingleTop` + `restoreState`（`ImagineNavHost` 註解說明錯錨會疊頁）；`COMBINE_EXTEND` 是獨立路由（`onBack`、無底欄），不得併回素材生成 tab。`savedStateHandle` 的 `KEY_INIT_*` 一次性消費並清除，新入口要同樣清 gate。
+7. **`FLAG_SECURE` 預設開**：`prefs.preventScreenshots` 預設 `true`，`MainActivity.onCreate` 即套用；設定「安全」`Switch` 即時 `applyScreenshotFlag`。重設計截圖 / 錄影驗收時需先關閉，否則畫面全黑。
+8. **裝置鎖**：`MainActivity.isAllowedDevice()` 依 `ALLOWED_MODEL_PREFIXES` 只允許 S22U，否則 `AlertDialog` 後 `finishAffinity`——版面只需針對此單一機型。
+9. **生成 / 背景**：生成中卡的「可切背景/鎖屏,完成發通知」與紅字「請勿從最近應用程式滑掉」文案保留；`VideoPollWorker` 多 `provider` 參數（xAI / OpenRouter），組合延長靠 Worker 讀 `initialExtendBase` 自動串接。程式碼中**未見**任何鎖屏 overlay / `SHOW_WHEN_LOCKED` 實作（待確認；若指的是 `appScope` 背景下載，前文硬約束 5 已涵蓋）。
+10. **批次存檔帳本與快照**：生圖頁 `savedNames` / `batchToken`（UUID）/ `imagine_batch_saved` SharedPreferences 帳本，以及 `SaveToCharacterDialog` 用 `saveCharacterNames` 快照——重排結果卡時不得拆掉這套對帳，否則「存成角色資產」會寫進錯批圖片（v1.7.2 註解）。
+11. **`EditPane` 約定**：同頁同時只渲染一個 `EditPane`（多個 Worker observer 會搶 `trackedRequestId`）；不自帶 padding；ImageEdit 角色參考上限 2 張（與來源共 3 張是 API 上限）。
+12. **模型選擇必在清單內**：`ModelPickerRow` 的 v1.8.4 fallback（選中模型不在清單即退回 `defaultModelFor`）與 `prefs.chatModel/imageModel/videoModel` 持久化要保留；供應商永遠由 `ApiProvider.ofModel(id)` 推導，不另存「目前供應商」。
+13. **`rememberSaveable` 綁 prefs 預設 key**：生成頁參數 `rememberSaveable(prefs.defXxx)`，改設定回頁才會 re-init；新增參數請沿用同一寫法。
