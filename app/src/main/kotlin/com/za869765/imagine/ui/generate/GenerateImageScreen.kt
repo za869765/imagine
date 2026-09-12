@@ -44,7 +44,12 @@ import com.za869765.imagine.data.catalog.ModelMode
 import com.za869765.imagine.data.catalog.OpenRouterCatalog
 import com.za869765.imagine.data.catalog.defaultModelFor
 import com.za869765.imagine.data.prefs.ApiProvider
+import com.za869765.imagine.data.prefs.DraftStore
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.ui.component.PlaceholderConfirmDialog
+import com.za869765.imagine.ui.component.ReplaceOrAppendDialog
+import com.za869765.imagine.ui.component.appendPrompt
+import com.za869765.imagine.ui.component.placeholderCount
 import com.za869765.imagine.data.repo.OpenRouterRepository
 import com.za869765.imagine.ui.component.ModelPickerRow
 import com.za869765.imagine.data.repo.ApiResult
@@ -132,13 +137,32 @@ fun GenerateImageScreen(
         mutableStateOf(if (prefs.defImageAspect in orAspects) prefs.defImageAspect else orAspects.first())
     }
 
-    var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
-    // 從 History「使用此提示詞」帶進來 → 覆蓋目前 prompt
+    // 草稿(UI_REDESIGN_PLAN 0.2):saveable 為空時從 DraftStore 還原(重啟 App 後仍在);變動 debounce 寫回
+    // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
+    var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
+    var prompt by rememberSaveable {
+        mutableStateOf(initialPrompt?.takeIf { it.isNotBlank() } ?: DraftStore.load(ctx, DraftStore.IMAGE_PROMPT).orEmpty())
+    }
+    LaunchedEffect(prompt) {
+        kotlinx.coroutines.delay(400)
+        DraftStore.save(ctx, DraftStore.IMAGE_PROMPT, prompt)
+    }
+    // 從歷史/教學/Grok 帶 prompt 進來:草稿空白直接填,否則問「取代 / 加入末尾 / 取消」(不再靜默覆蓋)
+    var pendingInitial by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(initialPrompt) {
         if (!initialPrompt.isNullOrBlank() && initialPrompt != prompt) {
-            prompt = initialPrompt
+            if (prompt.isBlank()) prompt = initialPrompt else pendingInitial = initialPrompt
         }
     }
+    pendingInitial?.let { incoming ->
+        ReplaceOrAppendDialog(
+            onReplace = { pendingInitial = null; prompt = incoming },
+            onAppend = { pendingInitial = null; prompt = appendPrompt(prompt, incoming) },
+            onDismiss = { pendingInitial = null },
+        )
+    }
+    // 送出前仍含【】佔位符 → 先確認(UI_REDESIGN_PLAN 5.2)
+    var pendingPlaceholderSubmit by remember { mutableStateOf(false) }
     // key 帶 prefs 預設值:在設定改了預設後重進本頁會 re-init 成新預設(否則 rememberSaveable
     // 還原舊的已存值,改設定看不出變化)。手動改參數在同一預設下仍會保留。
     var resolution by rememberSaveable(prefs.defImageResolution) { mutableStateOf(prefs.defImageResolution) }
@@ -173,8 +197,7 @@ fun GenerateImageScreen(
     var lastMeta by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
-    // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
-    var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
+    // (pendingRiskTerm 已提前宣告於 prompt 之前,供 submitWithChecks 使用)
     // 角色資產:存成角色的命名對話框(v1.7.2)。非 null=開啟,值=開啟當下快照的檔名
     // (確認時不能重讀 savedNames — 對話框開著時新批完成會把它換掉,寫進錯批的圖)
     var saveCharacterNames by remember { mutableStateOf<List<String>?>(null) }
@@ -336,6 +359,24 @@ fun GenerateImageScreen(
         }
     }
 
+    fun submitWithChecks() {
+        val holes = placeholderCount(prompt)
+        if (holes > 0) { pendingPlaceholderSubmit = true; return }
+        val term = firstHighRiskTerm(prompt)
+        if (term != null) pendingRiskTerm = term else runGenerate()
+    }
+    if (pendingPlaceholderSubmit) {
+        PlaceholderConfirmDialog(
+            count = placeholderCount(prompt),
+            onConfirm = {
+                pendingPlaceholderSubmit = false
+                val term = firstHighRiskTerm(prompt)
+                if (term != null) pendingRiskTerm = term else runGenerate()
+            },
+            onDismiss = { pendingPlaceholderSubmit = false },
+        )
+    }
+
     // 修改圖片模式:EditPane 把主按鈕狀態交給 handle,由底部 slot 渲染(位置固定)
     val editHandle = rememberEditActionHandle()
     ImagineScreen(
@@ -357,10 +398,7 @@ fun GenerateImageScreen(
                     icon = if (loading) null else "auto_awesome",
                     loading = loading,
                     enabled = prompt.isNotBlank() && !loading && prefs.hasKeyFor(provider),
-                    onClick = {
-                        val term = firstHighRiskTerm(prompt)
-                        if (term != null) pendingRiskTerm = term else runGenerate()
-                    },
+                    onClick = { submitWithChecks() },
                 )
             }
         },

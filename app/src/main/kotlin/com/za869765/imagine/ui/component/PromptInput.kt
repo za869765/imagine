@@ -366,23 +366,10 @@ fun PromptInput(
 
         // 套用範本但欄位已有內容 → 取代 / 加入末尾 / 取消
         pendingTemplate?.let { tpl ->
-            AlertDialog(
-                onDismissRequest = { pendingTemplate = null },
-                title = { Text("提示詞已有內容", fontWeight = FontWeight.W700) },
-                text = {
-                    Text(
-                        "要用範本取代目前的內容，還是接在後面？",
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                    )
-                },
-                confirmButton = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { pendingTemplate = null; appendTemplate(tpl) }) { Text("加入末尾") }
-                        TextButton(onClick = { pendingTemplate = null; setWholeText(tpl) }) { Text("取代") }
-                    }
-                },
-                dismissButton = { TextButton(onClick = { pendingTemplate = null }) { Text("取消") } },
+            ReplaceOrAppendDialog(
+                onReplace = { pendingTemplate = null; setWholeText(tpl) },
+                onAppend = { pendingTemplate = null; appendTemplate(tpl) },
+                onDismiss = { pendingTemplate = null },
             )
         }
 
@@ -416,6 +403,59 @@ fun PromptInput(
             )
         }
     }
+}
+
+// 欄位已有內容時帶入新文字(範本 / 歷史 / 教學 / Grok)→ 取代 / 加入末尾 / 取消,不靜默覆蓋(UI_REDESIGN_PLAN 0.2/1.5)。
+@Composable
+fun ReplaceOrAppendDialog(
+    onReplace: () -> Unit,
+    onAppend: () -> Unit,
+    onDismiss: () -> Unit,
+    title: String = "提示詞已有內容",
+    message: String = "要用新內容取代目前的提示詞，還是接在後面？",
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, fontWeight = FontWeight.W700) },
+        text = { Text(message, fontSize = 14.sp, lineHeight = 20.sp) },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onAppend) { Text("加入末尾") }
+                TextButton(onClick = onReplace) { Text("取代") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+// 把兩段提示詞接起來(既有 + 換行 + 新)
+fun appendPrompt(current: String, extra: String): String {
+    val cur = current.trimEnd()
+    return if (cur.isEmpty()) extra else "$cur\n$extra"
+}
+
+// 送出前仍含【…】佔位符 → 指出數量,返回填寫或照原文送出(UI_REDESIGN_PLAN 5.2)
+fun placeholderCount(prompt: String): Int = Regex("【[^】]*】").findAll(prompt).count()
+
+@Composable
+fun PlaceholderConfirmDialog(
+    count: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("還有 $count 處待填欄位", fontWeight = FontWeight.W700) },
+        text = {
+            Text(
+                "提示詞裡還有【…】沒填。照原文送出會把括號文字一起交給模型。",
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+            )
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("照原文送出") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("返回填寫") } },
+    )
 }
 
 // 工具列上的小功能鈕(建議/範本/貼上)。tonal 底色 + primary 字,清楚可見可點。

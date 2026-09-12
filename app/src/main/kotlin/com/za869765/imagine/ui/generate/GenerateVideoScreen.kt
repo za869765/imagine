@@ -71,7 +71,12 @@ import com.za869765.imagine.data.catalog.OpenRouterCatalog
 import com.za869765.imagine.data.catalog.XaiCatalog
 import com.za869765.imagine.data.catalog.defaultModelFor
 import com.za869765.imagine.data.prefs.ApiProvider
+import com.za869765.imagine.data.prefs.DraftStore
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.ui.component.PlaceholderConfirmDialog
+import com.za869765.imagine.ui.component.ReplaceOrAppendDialog
+import com.za869765.imagine.ui.component.appendPrompt
+import com.za869765.imagine.ui.component.placeholderCount
 import com.za869765.imagine.data.repo.OpenRouterRepository
 import com.za869765.imagine.ui.component.ModelPickerRow
 import com.za869765.imagine.data.repo.ApiResult
@@ -158,21 +163,51 @@ fun GenerateVideoScreen(
     val aspectOptions = modelInfo?.aspects?.takeIf { it.isNotEmpty() }
         ?: listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3")
 
-    var prompt by rememberSaveable { mutableStateOf(initialPrompt.orEmpty()) }
-    // initialPrompt 變動 (例如使用者從 History 不同筆動起來) 時覆蓋已存 prompt
+    // 草稿(UI_REDESIGN_PLAN 0.2):提示詞 / 製作方式 / 來源圖 各自持久化;組合延長不還原(獨立流程)
+    val useDraft = initialExtendBase == null && initialPrompt.isNullOrBlank() && initialImageUri == null && initialVideoMode == null
+    var prompt by rememberSaveable {
+        mutableStateOf(
+            initialPrompt?.takeIf { it.isNotBlank() }
+                ?: (if (useDraft) DraftStore.load(ctx, DraftStore.VIDEO_PROMPT) else null).orEmpty(),
+        )
+    }
+    LaunchedEffect(prompt) {
+        if (initialExtendBase == null) {
+            kotlinx.coroutines.delay(400)
+            DraftStore.save(ctx, DraftStore.VIDEO_PROMPT, prompt)
+        }
+    }
+    // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
+    var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
+    // 帶 prompt 進來且草稿非空 → 問「取代 / 加入末尾 / 取消」,不再靜默覆蓋
+    var pendingInitial by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(initialPrompt) {
         if (!initialPrompt.isNullOrBlank() && initialPrompt != prompt) {
-            prompt = initialPrompt
+            if (prompt.isBlank()) prompt = initialPrompt else pendingInitial = initialPrompt
         }
+    }
+    pendingInitial?.let { incoming ->
+        ReplaceOrAppendDialog(
+            onReplace = { pendingInitial = null; prompt = incoming },
+            onAppend = { pendingInitial = null; prompt = appendPrompt(prompt, incoming) },
+            onDismiss = { pendingInitial = null },
+        )
     }
     var mode by rememberSaveable {
         mutableStateOf(
             when {
                 initialVideoMode == "ref2v" -> VideoMode.Ref2Vid
                 initialImageUri != null || initialVideoMode == "i2v" -> VideoMode.Img2Vid
+                useDraft && DraftStore.load(ctx, DraftStore.VIDEO_MODE) == "i2v" -> VideoMode.Img2Vid
+                useDraft && DraftStore.load(ctx, DraftStore.VIDEO_MODE) == "ref2v" -> VideoMode.Ref2Vid
                 else -> VideoMode.T2V
             },
         )
+    }
+    LaunchedEffect(mode) {
+        if (initialExtendBase == null) {
+            DraftStore.save(ctx, DraftStore.VIDEO_MODE, when (mode) { VideoMode.Img2Vid -> "i2v"; VideoMode.Ref2Vid -> "ref2v"; else -> "t2v" })
+        }
     }
     // 影片頁子功能：gen=生成(文生影/圖生影,用 mode 細分) / extend=影片延長 / edit=影片編輯。
     // extend / edit 內嵌 EditPane;VideoMode 僅在 gen 時有意義。
@@ -188,7 +223,13 @@ fun GenerateVideoScreen(
     val effAspect = if (aspect in aspectOptions) aspect else aspectOptions.first()
     // sourceImages 是 List<Uri> — Uri 本身可序列化,但 List<Uri> 沒 Saver,改存字串 list
     var sourceImageStrings by rememberSaveable {
-        mutableStateOf(initialImageUri?.let { listOf(it.toString()) } ?: emptyList())
+        mutableStateOf(
+            initialImageUri?.let { listOf(it.toString()) }
+                ?: (if (useDraft) DraftStore.loadList(ctx, DraftStore.VIDEO_SOURCES) else emptyList()),
+        )
+    }
+    LaunchedEffect(sourceImageStrings) {
+        if (initialExtendBase == null) DraftStore.saveList(ctx, DraftStore.VIDEO_SOURCES, sourceImageStrings)
     }
     val sourceImages = sourceImageStrings.map { Uri.parse(it) }
     // 圖生影「從素材庫選」：true 時彈出素材庫圖片 grid sheet
@@ -220,8 +261,10 @@ fun GenerateVideoScreen(
     var lastPrompt by rememberSaveable { mutableStateOf("") }
     var lastError by rememberSaveable { mutableStateOf("") }
     var lastErrorIsPolicy by rememberSaveable { mutableStateOf(false) }
-    // A2：送出前若偵測到高風險詞,先彈確認;非 null = 顯示對話框,值為命中的詞
-    var pendingRiskTerm by remember { mutableStateOf<String?>(null) }
+    // 失敗後的下一步(UI_REDESIGN_PLAN 0.3):generate=建立新請求 / query=重新查詢既有任務 / download=只重做下載
+    var retryKind by rememberSaveable { mutableStateOf("generate") }
+    var retryRequestId by rememberSaveable { mutableStateOf<String?>(null) }
+    var retryProvider by rememberSaveable { mutableStateOf(VideoPollWorker.PROVIDER_XAI) }
     // v1.0.63 bug#3: 影片生成成功(Worker SUCCEEDED)時設 true → 捲到底部把新影片帶進視野,
     // 避免「上次結果」已存在時新影片落在 fold 下方使用者看不到。
     val scrollState = rememberScrollState()
@@ -264,16 +307,21 @@ fun GenerateVideoScreen(
                     WorkInfo.State.FAILED -> {
                         val err = info.outputData.getString(VideoPollWorker.KEY_ERROR)
                         if (!err.isNullOrBlank()) lastError = err
+                        // 作品已生成只是下載失敗 → 「重新下載」(同 requestId 再輪詢一次即重抓,不建新請求);
+                        // 其餘失敗(任務被拒/超時)→ 「重新生成」
+                        retryKind = if (err?.contains("下載失敗") == true) "download" else "generate"
+                        retryRequestId = rid
                         resultVideoUrl = null // 失敗→清上次結果,避免誤會舊片是新結果
                         generating = false
                         trackedRequestId = null
                     }
                     WorkInfo.State.CANCELLED -> {
                         // v1.0.54: 補 lastError + toast，否則 user 看到 spinner 突然消失沒任何反饋
-                        // 以為「生成失敗」其實是 worker 被 cancel (常見原因：process death + 舊版
-                        // recovery 機制；現在 v1.0.54 砍 recovery 後罕見，但保留 feedback)
-                        lastError = "影片任務被取消 (可能 app 被系統殺，請重試)"
+                        // 以為「生成失敗」其實是 worker 被 cancel;任務可能仍在後台 → 「重新查詢」而非重新生成
+                        lastError = "尚未確認結果（背景工作被中斷），任務可能仍在後台執行"
                         Toast.makeText(ctx, lastError, Toast.LENGTH_LONG).show()
+                        retryKind = "query"
+                        retryRequestId = rid
                         resultVideoUrl = null // 取消→清上次結果
                         generating = false
                         trackedRequestId = null
@@ -433,6 +481,8 @@ fun GenerateVideoScreen(
                         val tag = gen.kind.userFriendlyTag()
                         lastError = tag
                         lastErrorIsPolicy = (gen.kind == ErrorKind.ContentPolicy)
+                        retryKind = "generate"   // 未取得 requestId → 確定要建立新請求
+                        retryRequestId = null
                         resultVideoUrl = null // 400/被審核擋下→清上次結果,避免誤會是新結果
                         Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
                         return@launch
@@ -457,6 +507,7 @@ fun GenerateVideoScreen(
                             request,
                         )
                         trackedRequestId = requestId
+                        retryProvider = if (capturedProvider == ApiProvider.OPENROUTER) VideoPollWorker.PROVIDER_OPENROUTER else VideoPollWorker.PROVIDER_XAI
                         Toast.makeText(ctx, "影片背景生成中,完成會通知", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -471,6 +522,39 @@ fun GenerateVideoScreen(
                 Toast.makeText(ctx, "生成失敗: ${t.message?.take(120) ?: t::class.simpleName}", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    // 重新查詢 / 重新下載:用既有 requestId 再排一次 Worker(輪詢→已完成→直接下載),不建立新請求、不重複扣費
+    fun requeueExisting() {
+        val rid = retryRequestId ?: return
+        lastError = ""
+        lastErrorIsPolicy = false
+        stage = null
+        generating = true
+        val request = OneTimeWorkRequestBuilder<VideoPollWorker>()
+            .addTag(VideoPollWorker.TAG_VIDEO_POLL)
+            .setInputData(VideoPollWorker.inputDataOf(rid, lastPrompt.ifBlank { prompt }, initialExtendBase, provider = retryProvider))
+            .build()
+        workManager.enqueueUniqueWork(VideoPollWorker.uniqueName(rid), ExistingWorkPolicy.REPLACE, request)
+        trackedRequestId = rid
+    }
+    // 送出前仍含【】佔位符 → 先確認(UI_REDESIGN_PLAN 5.2)
+    var pendingPlaceholderSubmit by remember { mutableStateOf(false) }
+    fun submitWithChecks() {
+        if (placeholderCount(prompt) > 0) { pendingPlaceholderSubmit = true; return }
+        val term = firstHighRiskTerm(prompt)
+        if (term != null) pendingRiskTerm = term else runGenerate()
+    }
+    if (pendingPlaceholderSubmit) {
+        PlaceholderConfirmDialog(
+            count = placeholderCount(prompt),
+            onConfirm = {
+                pendingPlaceholderSubmit = false
+                val term = firstHighRiskTerm(prompt)
+                if (term != null) pendingRiskTerm = term else runGenerate()
+            },
+            onDismiss = { pendingPlaceholderSubmit = false },
+        )
     }
 
     // 組合延長 = 進階獨立頁:返回鍵 + 不顯示底欄(不歸屬素材生成 tab)。
@@ -574,10 +658,7 @@ fun GenerateVideoScreen(
                     loading = generating,
                     enabled = hasPrompt && !generating && prefs.hasKeyFor(provider) &&
                         (!isCombineExtend || sourceImages.isNotEmpty()),
-                    onClick = {
-                        val term = firstHighRiskTerm(prompt)
-                        if (term != null) pendingRiskTerm = term else runGenerate()
-                    },
+                    onClick = { submitWithChecks() },
                 )
             }
         },
@@ -814,14 +895,22 @@ fun GenerateVideoScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                if (!generating && prompt.isNotBlank()) {
-                                    // 送出失敗 = 確定要建立新請求 → 「重新生成」(不叫「重試」,與查詢/下載重試區分)
-                                    ImagineChip(
-                                        label = "重新生成",
-                                        icon = "refresh",
-                                        variant = ChipVariant.Tonal,
-                                        onClick = { runGenerate() },
-                                    )
+                                if (!generating) {
+                                    // 三種失敗各自只出現對應的一顆(UI_REDESIGN_PLAN 0.3)
+                                    when {
+                                        retryKind == "download" && retryRequestId != null -> ImagineChip(
+                                            label = "重新下載", icon = "download", variant = ChipVariant.Tonal,
+                                            onClick = { requeueExisting() },
+                                        )
+                                        retryKind == "query" && retryRequestId != null -> ImagineChip(
+                                            label = "重新查詢", icon = "refresh", variant = ChipVariant.Tonal,
+                                            onClick = { requeueExisting() },
+                                        )
+                                        prompt.isNotBlank() -> ImagineChip(
+                                            label = "重新生成", icon = "refresh", variant = ChipVariant.Tonal,
+                                            onClick = { submitWithChecks() },
+                                        )
+                                    }
                                 }
                                 ImagineChip(
                                     label = "清除",

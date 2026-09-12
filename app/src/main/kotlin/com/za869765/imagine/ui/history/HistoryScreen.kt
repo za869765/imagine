@@ -61,7 +61,7 @@ import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
-import com.za869765.imagine.ui.util.Clipboard
+import com.za869765.imagine.ui.component.AppNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -197,7 +197,14 @@ fun HistoryScreen(
                     SegmentedOption("char", "素材庫 $charCount"),
                 ),
                 activeId = filter,
-                onSelected = { filter = it },
+                onSelected = {
+                    // 切換篩選即清空選取並提示(UI_REDESIGN_PLAN 0.5):畫面數量與實際刪除範圍一致
+                    if (selectMode && selected.isNotEmpty() && it != filter) {
+                        selected = emptySet()
+                        AppNotice.show("已清除選取")
+                    }
+                    filter = it
+                },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             )
 
@@ -274,13 +281,13 @@ fun HistoryScreen(
                                     )
                                 }
                             },
+                            // 多選模式下長按不再變成「複製提示詞」(UI_REDESIGN_PLAN 0.5):與點擊一樣切換選取
                             onLongClick = {
                                 if (!selectMode) {
                                     selectMode = true
                                     selected = setOf(key)
                                 } else {
-                                    val p = entry.prompt
-                                    if (!p.isNullOrBlank()) Clipboard.copy(ctx, p, toastMsg = "已複製 prompt")
+                                    selected = if (key in selected) selected - key else selected + key
                                 }
                             },
                         )
