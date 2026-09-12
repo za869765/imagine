@@ -103,3 +103,13 @@ fun describeImageSettings(resolution: String, aspect: String, count: Int): Strin
 
 fun describeVideoSettings(durationSec: Int, aspect: String, resolution: String): String =
     "${aspectLabel(aspect)}・$resolution・$durationSec 秒"
+
+// 本次預估費用(UI_REDESIGN_PLAN 6.2):只有目錄提供「每張／每秒」單價時才算,其餘(token/megapixel 計價)不顯示、不推測。
+fun estimateCost(unitPrice: Double?, unit: String, count: Int): String? {
+    if (unitPrice == null || unitPrice <= 0.0 || count <= 0) return null
+    if (unit != "image" && unit != "second") return null
+    val total = unitPrice * count
+    val text = if (total >= 1.0) String.format(java.util.Locale.US, "%.2f", total)
+    else String.format(java.util.Locale.US, "%.3f", total).trimEnd('0').trimEnd('.')
+    return "約 $$text"
+}

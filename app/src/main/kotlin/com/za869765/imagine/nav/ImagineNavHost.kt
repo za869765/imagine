@@ -64,6 +64,15 @@ fun ImagineRoot() {
     val currentRoute by navController.currentBackStackEntryAsState()
     val routeId = currentRoute?.destination?.route
 
+    // 通知點擊直達作品(UI_REDESIGN_PLAN 6.7):MainActivity 把 extra 寫進 PendingOpen,這裡導到作品詳情並清空
+    val pendingOpenUri by PendingOpen.uri
+    LaunchedEffect(pendingOpenUri) {
+        val uri = pendingOpenUri ?: return@LaunchedEffect
+        PendingOpen.uri.value = null
+        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_HISTORY_URI, uri)
+        navController.navigate(Routes.HISTORY_DETAIL)
+    }
+
     // ── in-app updater ────────────────────────────────────────────────
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     var bannerDismissed by remember { mutableStateOf(false) }

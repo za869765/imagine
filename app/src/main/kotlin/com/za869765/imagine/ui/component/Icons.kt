@@ -180,6 +180,29 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     else -> Icons.Outlined.AutoAwesome
 }
 
+// 純圖示按鈕的朗讀名稱(UI_REDESIGN_PLAN Phase 7):依 icon 名給預設,呼叫端可用 contentDescription 覆蓋
+private fun defaultDescription(name: String): String? = when (name) {
+    "close" -> "關閉"
+    "arrow_back" -> "返回"
+    "settings" -> "設定"
+    "more_vert", "more_horiz" -> "更多"
+    "refresh" -> "重新整理"
+    "delete" -> "刪除"
+    "content_copy" -> "複製"
+    "content_paste" -> "貼上"
+    "share" -> "分享"
+    "download" -> "儲存到相簿"
+    "help" -> "說明"
+    "language" -> "用瀏覽器開啟"
+    "volume_up" -> "靜音"
+    "volume_off" -> "取消靜音"
+    "repeat" -> "循環播放"
+    "search" -> "搜尋"
+    "expand_more" -> "展開"
+    "expand_less" -> "收合"
+    else -> null
+}
+
 @Composable
 fun ImagineIcon(
     name: String,
@@ -187,10 +210,11 @@ fun ImagineIcon(
     size: Dp = 24.dp,
     fill: Int = 0,
     tint: Color = MaterialTheme.colorScheme.onSurface,
+    contentDescription: String? = null,
 ) {
     Icon(
         imageVector = materialSymbolToVector(name, fill),
-        contentDescription = null,
+        contentDescription = contentDescription,
         tint = tint,
         modifier = modifier.size(size),
     )
@@ -204,6 +228,7 @@ fun ImagineIconButton(
     size: Dp = 24.dp,
     fill: Int = 0,
     tint: Color = MaterialTheme.colorScheme.onSurface,
+    contentDescription: String? = defaultDescription(name),
 ) {
     androidx.compose.foundation.layout.Box(
         modifier = modifier
@@ -212,6 +237,6 @@ fun ImagineIconButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        ImagineIcon(name = name, size = size, fill = fill, tint = tint)
+        ImagineIcon(name = name, size = size, fill = fill, tint = tint, contentDescription = contentDescription)
     }
 }

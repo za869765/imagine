@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.za869765.imagine.MainActivity
 import com.za869765.imagine.R
+import com.za869765.imagine.nav.PendingOpen
 
 /**
  * 影片背景生成用的通知 channel + builder。
@@ -54,12 +55,14 @@ object Notifications {
         }
     }
 
-    private fun openAppIntent(ctx: Context): PendingIntent {
+    // openUri 非 null → 點通知直達該作品詳情(UI_REDESIGN_PLAN 6.7);requestCode 用 uri hash 讓不同作品的 PendingIntent 不互蓋
+    private fun openAppIntent(ctx: Context, openUri: String? = null): PendingIntent {
         val intent = Intent(ctx, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (openUri != null) putExtra(PendingOpen.EXTRA_OPEN_URI, openUri)
         }
         return PendingIntent.getActivity(
-            ctx, 0, intent,
+            ctx, openUri?.hashCode() ?: 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
     }
@@ -80,7 +83,7 @@ object Notifications {
             .build()
     }
 
-    fun postComplete(ctx: Context, requestId: String, success: Boolean, message: String) {
+    fun postComplete(ctx: Context, requestId: String, success: Boolean, message: String, openUri: String? = null) {
         ensureChannels(ctx)
         val n = NotificationCompat.Builder(ctx, CHANNEL_COMPLETE)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -89,7 +92,7 @@ object Notifications {
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(openAppIntent(ctx))
+            .setContentIntent(openAppIntent(ctx, openUri))
             .build()
         // Android 13+ POST_NOTIFICATIONS 沒給授權時 notify() 會被靜默 drop,不會 crash
         runCatching { NotificationManagerCompat.from(ctx).notify(completeId(requestId), n) }

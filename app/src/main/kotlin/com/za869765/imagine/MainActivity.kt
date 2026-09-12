@@ -18,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.MediaMigrator
 import com.za869765.imagine.nav.ImagineRoot
+import com.za869765.imagine.nav.PendingOpen
 import com.za869765.imagine.ui.theme.ImagineTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -54,8 +55,21 @@ class MainActivity : FragmentActivity() {
         runMigratorAsync()
     }
 
+    // 通知點擊直達作品(UI_REDESIGN_PLAN 6.7):onCreate / onNewIntent(SINGLE_TOP)都讀 extra
+    private fun consumeOpenIntent(intent: android.content.Intent?) {
+        val uri = intent?.getStringExtra(PendingOpen.EXTRA_OPEN_URI) ?: return
+        intent.removeExtra(PendingOpen.EXTRA_OPEN_URI)
+        PendingOpen.uri.value = uri
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        consumeOpenIntent(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        consumeOpenIntent(intent)
 
         if (!isAllowedDevice()) {
             // 不是 S22U → 顯示提示對話框後關閉 (純自用 APP，限制執行裝置避免外流安裝)

@@ -38,8 +38,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.rememberCoroutineScope
+import com.za869765.imagine.data.api.KeyTester
 import com.za869765.imagine.data.prefs.ApiProvider
 import com.za869765.imagine.data.prefs.SecurePrefs
+import kotlinx.coroutines.launch
 import com.za869765.imagine.ui.component.AppNotice
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -83,6 +86,12 @@ fun ApiKeyEditScreen(
         if (p == ApiProvider.XAI) prefs.apiKeyVerifiedAt else prefs.openRouterKeyVerifiedAt
     }
     val canSave = newKey.startsWith(p.keyPrefix, ignoreCase = true) && newKey.length > 8
+    // 測試連線(UI_REDESIGN_PLAN 6.1):結果顯示在欄位下方;成功才把 verifiedAt 寫成今天
+    val scope = rememberCoroutineScope()
+    var testing by remember(tabId) { mutableStateOf(false) }
+    var testOutcome by remember(tabId) { mutableStateOf<KeyTester.Outcome?>(null) }
+    var testedKey by remember(tabId) { mutableStateOf<String?>(null) }
+    val formatHint = if (newKey.isNotEmpty() && !canSave) "金鑰格式錯誤（應以 ${p.keyPrefix} 開頭、長度足夠且無空白）" else null
 
     fun openUrl(url: String) {
         runCatching {
@@ -149,7 +158,11 @@ fun ApiKeyEditScreen(
                             modifier = Modifier.padding(top = 8.dp),
                         ) {
                             ImagineIcon(name = "check", size = 14.dp, fill = 1, tint = budgetColors.ok)
-                            Text("已設定 · ${verifiedAt ?: "—"}", fontSize = 12.sp, color = budgetColors.ok)
+                            Text(
+                                if (verifiedAt != null) "已設定 · 測試通過 $verifiedAt" else "已設定 · 尚未測試連線",
+                                fontSize = 12.sp,
+                                color = budgetColors.ok,
+                            )
                         }
                         Row(
                             modifier = Modifier.padding(top = 8.dp),
@@ -238,24 +251,55 @@ fun ApiKeyEditScreen(
                         )
                     }
                 }
+                // 格式錯誤 / 測試結果 直接顯示在欄位下方,三種文案不共用
+                val resultText = formatHint ?: testOutcome?.let { o ->
+                    if (testedKey == newKey) o.message else null
+                }
+                if (resultText != null) {
+                    val ok = formatHint == null && testOutcome?.ok == true
+                    Text(
+                        text = (if (ok) "✓ " else "✗ ") + resultText,
+                        fontSize = 12.sp,
+                        color = if (ok) budgetColors.ok else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                }
+                OutlinedActionButton(
+                    label = if (testing) "測試中…" else "測試連線",
+                    icon = "refresh",
+                    enabled = canSave && !testing,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        testing = true
+                        val k = newKey
+                        scope.launch {
+                            val outcome = KeyTester.test(p, k)
+                            testedKey = k
+                            testOutcome = outcome
+                            testing = false
+                        }
+                    },
+                )
             }
 
             PrimaryButton(
                 label = "儲存 ${p.label} Key",
                 icon = "check",
-                enabled = canSave,
+                enabled = canSave && !testing,
                 onClick = {
-                    val today = LocalDate.now().toString()
+                    // 測試通過才寫 verifiedAt;沒測或失敗仍可儲存,但標「尚未測試連線」
+                    val passed = testedKey == newKey && testOutcome?.ok == true
+                    val stamp = if (passed) LocalDate.now().toString() else null
                     if (p == ApiProvider.XAI) {
                         prefs.apiKey = newKey
-                        prefs.apiKeyVerifiedAt = today
+                        prefs.apiKeyVerifiedAt = stamp
                     } else {
                         prefs.openRouterKey = newKey
-                        prefs.openRouterKeyVerifiedAt = today
+                        prefs.openRouterKeyVerifiedAt = stamp
                     }
                     keyTick++
                     newKey = ""
-                    AppNotice.show("${p.label} Key 已儲存")
+                    AppNotice.show(if (passed) "${p.label} Key 已儲存（測試通過）" else "${p.label} Key 已儲存（未測試連線）")
                     onSaved()
                 },
             )

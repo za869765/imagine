@@ -82,6 +82,7 @@ import com.za869765.imagine.ui.component.ModePicker
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.aspectLabel
 import com.za869765.imagine.ui.component.describeImageSettings
+import com.za869765.imagine.ui.component.estimateCost
 import com.za869765.imagine.ui.edit.rememberEditActionHandle
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
@@ -475,7 +476,11 @@ fun GenerateImageScreen(
                     onSelect = { imageModel = it; prefs.imageModel = it },
                 )
                 // 參數收成一列摘要,點擊展開(UI_REDESIGN_PLAN 1.4);OpenRouter 依模型 supported_parameters
-                val settingsSummary = if (provider == ApiProvider.OPENROUTER) {
+                // 本次預估費用(UI_REDESIGN_PLAN 6.2):單價 × 張數;目錄無「每張」單價就不顯示
+                val imgCatalog = if (provider == ApiProvider.OPENROUTER) orModelInfo
+                else com.za869765.imagine.data.catalog.XaiCatalog.models(ModelMode.IMAGE).firstOrNull { it.id == imageModel }
+                val costText = estimateCost(imgCatalog?.min, imgCatalog?.unit.orEmpty(), if (provider == ApiProvider.OPENROUTER) n.coerceIn(1, orNMax) else n)
+                val settingsSummary = (if (provider == ApiProvider.OPENROUTER) {
                     describeImageSettings(
                         if (orResolution in orResolutions) orResolution else orResolutions.first(),
                         if (orAspect in orAspects) orAspect else orAspects.first(),
@@ -483,7 +488,7 @@ fun GenerateImageScreen(
                     )
                 } else {
                     describeImageSettings(resolution, aspectRatio, n)
-                }
+                }) + (costText?.let { "・$it" } ?: "")
                 GenerateSettingsSummary(summary = settingsSummary) {
                     if (provider == ApiProvider.OPENROUTER) {
                         FlowRow(

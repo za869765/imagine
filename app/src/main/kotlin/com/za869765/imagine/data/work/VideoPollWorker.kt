@@ -134,6 +134,7 @@ class VideoPollWorker(
                                     applicationContext, requestId,
                                     success = true,
                                     message = doneMsg,
+                                    openUri = mergedUri ?: saved,   // 通知點擊直達作品(UI_REDESIGN_PLAN 6.7)
                                 )
                                 Result.success(
                                     workDataOf(
@@ -252,6 +253,7 @@ class VideoPollWorker(
                                     applicationContext, requestId,
                                     success = true,
                                     message = doneMsg,
+                                    openUri = mergedUri ?: savedUri,
                                 )
                                 Result.success(workDataOf(KEY_VIDEO_URL to (mergedUri ?: savedUri), KEY_SAVED_URI to (mergedUri ?: savedUri)))
                             } else {

@@ -45,7 +45,6 @@ fun ComponentShowcase() {
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine · Showcase") },
-        showBalanceBar = true,
         bottomNav = { ImagineBottomNav(active = activeNavTab) { activeNavTab = it } },
     ) {
         Column(

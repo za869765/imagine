@@ -106,6 +106,7 @@ import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.SourceSlot
 import com.za869765.imagine.ui.component.aspectLabel
 import com.za869765.imagine.ui.component.describeVideoSettings
+import com.za869765.imagine.ui.component.estimateCost
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.ChipVariant
 import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
@@ -830,11 +831,13 @@ fun GenerateVideoScreen(
                     onSelect = { videoModel = it; prefs.videoModel = it },
                 )
                 // 參數收成一列摘要,點擊展開(UI_REDESIGN_PLAN 1.4);組合延長只能改秒數(解析度沿用原片)
-                val settingsSummary = if (isCombineExtend) {
+                // 本次預估費用(UI_REDESIGN_PLAN 6.2):每秒單價 × 秒數;token/megapixel 計價的模型不顯示
+                val costText = estimateCost(modelInfo?.min, modelInfo?.unit.orEmpty(), effDuration)
+                val settingsSummary = (if (isCombineExtend) {
                     "$effDuration 秒・解析度沿用原片（$resolution）"
                 } else {
                     describeVideoSettings(effDuration, effAspect, effResolution)
-                }
+                }) + (costText?.let { "・$it" } ?: "")
                 GenerateSettingsSummary(summary = settingsSummary) {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
