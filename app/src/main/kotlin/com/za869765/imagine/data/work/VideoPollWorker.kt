@@ -86,6 +86,8 @@ class VideoPollWorker(
         var attempts = 0
         var pollErrors = 0
         var elapsedSec = 0
+        // UI_REDESIGN_PLAN 2.1:真實階段回報(UI 讀 WorkInfo.progress 顯示,不再估算百分比)
+        setProgress(workDataOf(KEY_STAGE to STAGE_POLLING))
 
         while (attempts < MAX_ATTEMPTS) {
             // 等 5 秒 — 分 5 段 1 秒 sleep,以便 elapsed timer 更新進度通知 + 響應 cancel
@@ -106,12 +108,14 @@ class VideoPollWorker(
                         status in successStatuses -> {
                             val url = poll.value.video?.url
                             return if (url != null) {
+                                setProgress(workDataOf(KEY_STAGE to STAGE_DOWNLOADING))
                                 val saved = MediaSaver.saveVideoFromUrl(applicationContext, url, prompt)
                                 // 組合延長:帶了 extendBase 就把原片＋新片自動串成長片(MediaMuxer,需同解析度/編碼)
                                 val extendBase = inputData.getString(KEY_EXTEND_BASE)
                                 var mergedUri: String? = null
                                 var doneMsg = "影片完成,已存到 App 內,打開 Imagine 看歷史"
                                 if (!extendBase.isNullOrBlank() && saved != null) {
+                                    setProgress(workDataOf(KEY_STAGE to STAGE_MERGING))
                                     mergedUri = runCatching {
                                         VideoMerger.merge(
                                             applicationContext,
@@ -193,6 +197,7 @@ class VideoPollWorker(
         var attempts = 0
         var pollErrors = 0
         var elapsedSec = 0
+        setProgress(workDataOf(KEY_STAGE to STAGE_POLLING))
         while (attempts < MAX_ATTEMPTS) {
             repeat(POLL_INTERVAL_SEC) {
                 delay(1_000)
@@ -208,6 +213,7 @@ class VideoPollWorker(
                     when (poll.value.status.lowercase()) {
                         "completed", "succeeded", "done" -> {
                             // 成品已付費且可重抓 → 下載最多試 3 次(短暫 timeout/502 不要直接判失敗)
+                            setProgress(workDataOf(KEY_STAGE to STAGE_DOWNLOADING))
                             var saved: String? = null
                             for (attempt in 1..3) {
                                 when (val dl = repo.downloadVideo(requestId)) {
@@ -228,6 +234,7 @@ class VideoPollWorker(
                                 var mergedUri: String? = null
                                 var doneMsg = "影片完成(OpenRouter),已存到 App 內,打開 Imagine 看歷史"
                                 if (!extendBase.isNullOrBlank()) {
+                                    setProgress(workDataOf(KEY_STAGE to STAGE_MERGING))
                                     mergedUri = runCatching {
                                         VideoMerger.merge(
                                             applicationContext,
@@ -312,6 +319,19 @@ class VideoPollWorker(
         const val KEY_ERROR = "error"
         // 組合延長:原片 file:// uri;完成後 worker 把原片+新片串接
         const val KEY_EXTEND_BASE = "extend_base"
+        // UI_REDESIGN_PLAN 2.1:progress data 的真實階段(只在 RUNNING 期間可讀)
+        const val KEY_STAGE = "stage"
+        const val STAGE_POLLING = "polling"
+        const val STAGE_DOWNLOADING = "downloading"
+        const val STAGE_MERGING = "merging"
+
+        // 階段 → 使用者文案;null(Worker 尚未回報)= 剛送出
+        fun stageLabel(stage: String?): String = when (stage) {
+            STAGE_POLLING -> "等待結果"
+            STAGE_DOWNLOADING -> "下載中"
+            STAGE_MERGING -> "串接長片中"
+            else -> "已送出"
+        }
 
         const val POLL_INTERVAL_SEC = 5
         // v1.0.54 O7: 60 → 120，總 timeout 從 5 分鐘拉到 10 分鐘

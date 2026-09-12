@@ -56,8 +56,12 @@ import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineIconButton
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
+import com.za869765.imagine.ui.component.MediaAction
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.TextActionButton
+import com.za869765.imagine.ui.component.UndoBar
+import com.za869765.imagine.ui.component.viewer
+import androidx.compose.runtime.rememberCoroutineScope
 import com.za869765.imagine.ui.util.Clipboard
 import java.time.Instant
 import java.time.ZoneId
@@ -161,10 +165,10 @@ fun HistoryDetailScreen(
                                         onAction("copy")
                                     },
                                 )
-                                // 把這段 prompt 帶到文生圖頁當新起點(只帶文字,不帶媒體)
+                                // 把這段 prompt 帶回生成頁當新起點(只帶文字,不帶媒體;影片項目回影片流程)
                                 TextActionButton(
-                                    label = "使用",
-                                    icon = "check",
+                                    label = MediaAction.USE_PROMPT.label,
+                                    icon = MediaAction.USE_PROMPT.icon,
                                     onClick = { onAction("use_prompt") },
                                 )
                             }
@@ -210,25 +214,20 @@ fun HistoryDetailScreen(
                                 .background(MaterialTheme.colorScheme.outlineVariant),
                         )
                     }
+                    // 動作文案統一自 MediaAction(UI_REDESIGN_PLAN 2.2);NavHost 依 label 路由
                     val actions = if (entry.isVideo) {
-                        listOf(
-                            "edit" to "編輯這段",
-                            "movie" to "延長影片",
-                        )
+                        listOf(MediaAction.EXTEND_VIDEO, MediaAction.EDIT_VIDEO)
                     } else {
-                        listOf(
-                            "edit" to "編輯這張",
-                            "movie" to "動起來（生影片）",
-                        )
+                        listOf(MediaAction.EDIT_IMAGE, MediaAction.ANIMATE_IMAGE)
                     }
-                    actions.forEach { (icon, label) ->
-                        ActionRow(icon = icon, label = label, onClick = { onAction(label) })
+                    actions.forEach { a ->
+                        ActionRow(icon = a.icon, label = a.label, onClick = { onAction(a.label) })
                         HDivider()
                     }
                     // 匯出:存進系統相簿 / 系統分享單(沿用 MediaExporter,entry.uri 為本機檔)
                     ActionRow(
-                        icon = "download",
-                        label = "存到相簿",
+                        icon = MediaAction.SAVE_TO_GALLERY.icon,
+                        label = MediaAction.SAVE_TO_GALLERY.label,
                         onClick = {
                             com.za869765.imagine.ImagineApp.appScope.launch {
                                 val ok = MediaExporter.saveToGallery(ctx, entry.uri.toString(), isVideo = entry.isVideo)
@@ -258,7 +257,9 @@ fun HistoryDetailScreen(
                 urls = listOf(entry.uri.toString()),
                 onDismiss = { showViewer = false },
                 actions = listOf(
-                    ViewerAction("download", "存相簿") { url ->
+                    MediaAction.EDIT_IMAGE.viewer { showViewer = false; onAction(MediaAction.EDIT_IMAGE.label) },
+                    MediaAction.ANIMATE_IMAGE.viewer { showViewer = false; onAction(MediaAction.ANIMATE_IMAGE.label) },
+                    MediaAction.SAVE_TO_GALLERY.viewer { url ->
                         com.za869765.imagine.ImagineApp.appScope.launch {
                             val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -266,7 +267,7 @@ fun HistoryDetailScreen(
                             }
                         }
                     },
-                    ViewerAction("share", "分享") { url ->
+                    MediaAction.SHARE.viewer { url ->
                         com.za869765.imagine.ImagineApp.appScope.launch {
                             MediaExporter.share(ctx, url, isVideo = false)
                         }
@@ -332,19 +333,21 @@ private fun DetailRow(label: String, value: String, mono: Boolean = false) {
 @Composable
 private fun CategoryPickerRow(ctx: Context, name: String) {
     var current by remember(name) { mutableStateOf(MaterialLibrary.categoryOf(ctx, name)) }
+    val undoScope = rememberCoroutineScope()
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Text(
-            text = if (current != null) "素材庫分類：$current（再點同一個取消）" else "加入素材庫（當圖生圖／圖生影的參考）",
+            text = if (current != null) "已加入素材庫：$current" else "加入素材庫（當修改圖片／圖片動起來的參考）",
             fontSize = 15.sp,
             fontWeight = FontWeight.W500,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = "標記後可在首頁「素材庫」對應分頁快速找到取用。",
+            text = if (current != null) "點選中的分類上的 ✕ 可移出（可復原）；點其他分類可改分類。"
+            else "標記後可在首頁「素材庫」對應分頁快速找到取用。",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp, bottom = 10.dp),
@@ -357,15 +360,20 @@ private fun CategoryPickerRow(ctx: Context, name: String) {
         ) {
             MaterialLibrary.CATEGORIES.forEach { c ->
                 val selected = current == c
+                // 可見 toggle(UI_REDESIGN_PLAN 2.4):選中填色 + ✕;移出走 Snackbar 復原,不再靠「再點同一個取消」的隱性手勢
                 CategoryChip(label = c, selected = selected) {
                     if (selected) {
+                        val prev = c
                         MaterialLibrary.remove(ctx, name)
                         current = null
-                        Toast.makeText(ctx, "已移出素材庫", Toast.LENGTH_SHORT).show()
+                        UndoBar.show(undoScope, "已移出素材庫") {
+                            MaterialLibrary.setCategory(ctx, name, prev)
+                            current = prev
+                        }
                     } else {
                         MaterialLibrary.setCategory(ctx, name, c)
                         current = c
-                        Toast.makeText(ctx, "已設為「$c」素材 ⭐（素材庫可找到）", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(ctx, "已加入素材庫「$c」", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -375,7 +383,7 @@ private fun CategoryPickerRow(ctx: Context, name: String) {
 
 @Composable
 private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(100.dp))
             .background(
@@ -390,7 +398,12 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        if (selected) {
+            ImagineIcon(name = "check", size = 14.dp, fill = 1, tint = MaterialTheme.colorScheme.primary)
+        }
         Text(
             text = label,
             fontSize = 13.sp,
@@ -398,6 +411,9 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
             color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
             else MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (selected) {
+            ImagineIcon(name = "close", size = 14.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

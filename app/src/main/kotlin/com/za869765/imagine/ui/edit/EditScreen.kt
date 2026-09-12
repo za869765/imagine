@@ -78,6 +78,11 @@ import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.firstHighRiskTerm
 import com.za869765.imagine.ui.component.ModeOption
+import com.za869765.imagine.ui.component.GeneratingCard
+import com.za869765.imagine.ui.component.GENERATING_HINT_BACKGROUND
+import com.za869765.imagine.ui.component.MediaAction
+import com.za869765.imagine.ui.component.MediaActionBar
+import com.za869765.imagine.ui.component.MediaActionItem
 import com.za869765.imagine.ui.component.ModePicker
 import com.za869765.imagine.ui.component.SourceSlot
 import androidx.compose.runtime.SideEffect
@@ -157,6 +162,8 @@ fun EditPane(
     var loading by remember { mutableStateOf(false) }
     var trackedRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     var elapsed by remember { mutableStateOf(0) }
+    // Worker 真實階段(影片編輯/延長);圖片編輯為同步路徑不用
+    var stage by remember { mutableStateOf<String?>(null) }
     var resultImageUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
@@ -202,9 +209,12 @@ fun EditPane(
                     }
                     WorkInfo.State.CANCELLED -> {
                         // v1.0.54: 補 feedback，否則 user 看到 loading 突然消失沒任何訊息
-                        Toast.makeText(ctx, "影片任務被取消 (可能 app 被系統殺，請重試)", Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, "影片任務被取消 (可能 app 被系統殺，請重新查詢)", Toast.LENGTH_LONG).show()
                         loading = false
                         trackedRequestId = null
+                    }
+                    WorkInfo.State.RUNNING -> {
+                        stage = info.progress.getString(VideoPollWorker.KEY_STAGE)
                     }
                     else -> Unit
                 }
@@ -256,6 +266,7 @@ fun EditPane(
         }
         scope.launch {
             loading = true
+            stage = null
             // v1.0.50: 整段包 try/catch，不讓任何未預期 throw 把 app 直接 crash
             try {
                 val capturedPrompt = effectivePrompt
@@ -444,35 +455,16 @@ fun EditPane(
         }
 
         if (loading) {
-            ImagineCard(pad = 20) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(40.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 4.dp,
-                    )
-                    Text(
-                        when (mode) {
-                            EditMode.ImageEdit -> "圖片編輯中…"
-                            EditMode.VideoEdit -> "影片編輯中…"
-                            EditMode.VideoExtend -> "影片延長中…"
-                        },
-                        fontSize = 14.sp, fontWeight = FontWeight.W600,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (mode != EditMode.ImageEdit) {
-                        Text(
-                            "%d:%02d".format(elapsed / 60, elapsed % 60),
-                            fontSize = 22.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            }
+            // 真實階段 + 已等待時間(UI_REDESIGN_PLAN 2.1);圖片編輯是同步路徑,不宣稱可離開頁面
+            GeneratingCard(
+                stage = when (mode) {
+                    EditMode.ImageEdit -> "圖片修改中"
+                    EditMode.VideoEdit -> "影片修改・" + VideoPollWorker.stageLabel(stage)
+                    EditMode.VideoExtend -> "影片延長・" + VideoPollWorker.stageLabel(stage)
+                },
+                elapsedSec = elapsed,
+                hint = if (mode == EditMode.ImageEdit) null else GENERATING_HINT_BACKGROUND,
+            )
         }
         // 空白 prompt 也可送 — 用 initialPrompt 兜底
         val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
@@ -571,45 +563,31 @@ fun EditPane(
     }
 }
 
-// 編輯/延長結果卡的操作列:複製 prompt + 存到相簿 + 分享。
+// 編輯/延長結果卡的動作列(UI_REDESIGN_PLAN 2.2):主要 儲存到相簿 / 分享,複製提示詞收「更多」。
 @Composable
 private fun ResultActionRow(url: String, prompt: String, isVideo: Boolean) {
     val ctx = LocalContext.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
-    ) {
-        if (prompt.isNotBlank()) {
-            TextActionButton(
-                label = "複製",
-                icon = "content_copy",
-                onClick = { Clipboard.copy(ctx, prompt, toastMsg = "已複製 prompt") },
-            )
-        }
-        TextActionButton(
-            label = "存到相簿",
-            icon = "download",
-            onClick = {
+    MediaActionBar(
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        items = buildList {
+            add(MediaActionItem(MediaAction.SAVE_TO_GALLERY) {
                 com.za869765.imagine.ImagineApp.appScope.launch {
                     val ok = MediaExporter.saveToGallery(ctx, url, isVideo = isVideo)
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         com.za869765.imagine.ui.component.AppNotice.show(if (ok) "已存到相簿" else "存相簿失敗，改用分享試試")
                     }
                 }
-            },
-        )
-        TextActionButton(
-            label = "分享",
-            icon = "share",
-            onClick = {
+            })
+            add(MediaActionItem(MediaAction.SHARE) {
                 com.za869765.imagine.ImagineApp.appScope.launch {
                     MediaExporter.share(ctx, url, isVideo = isVideo)
                 }
-            },
-        )
-    }
+            })
+            if (prompt.isNotBlank()) {
+                add(MediaActionItem(MediaAction.COPY_PROMPT) { Clipboard.copy(ctx, prompt, toastMsg = "已複製提示詞") })
+            }
+        },
+    )
 }
 
 /**

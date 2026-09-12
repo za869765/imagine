@@ -63,7 +63,9 @@ import com.za869765.imagine.ui.component.FullscreenVideoPlayer
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
-import com.za869765.imagine.ui.component.ViewerAction
+import com.za869765.imagine.ui.component.MediaAction
+import com.za869765.imagine.ui.component.UndoBar
+import com.za869765.imagine.ui.component.viewer
 import kotlinx.coroutines.launch
 
 // 素材庫 — 角色/環境/物件/風格 四分頁。每頁顯示「我的素材」(自己生成/匯入,可標分類) +
@@ -85,7 +87,6 @@ fun MaterialLibraryScreen(
     var previewIndex by remember { mutableStateOf<Int?>(null) }   // 我的素材
     var seedIndex by remember { mutableStateOf<Int?>(null) }      // 內建素材
     var recatName by remember { mutableStateOf<String?>(null) }   // B4: 改分類目標(讓使用者選)
-    var removeName by remember { mutableStateOf<String?>(null) }  // B4: 移出前確認
     var reloadKey by remember { mutableStateOf(0) }
     // 內建課程素材「長按進批次刪除」;刪除=HiddenSeed.hide,課程圖庫同步隱藏
     var seedSelect by remember { mutableStateOf(false) }
@@ -327,10 +328,11 @@ fun MaterialLibraryScreen(
             urls = urls,
             startIndex = mi,
             onDismiss = { previewIndex = null },
+            // 動作文案統一自 MediaAction(UI_REDESIGN_PLAN 2.2):主要兩顆 修改圖片 / 圖片動起來,其餘收「更多」
             actions = listOf(
-                ViewerAction("image", "生圖") { url -> onUseImage(url, false); previewIndex = null },
-                ViewerAction("movie", "生影") { url -> onUseImage(url, true); previewIndex = null },
-                ViewerAction("download", "存相簿") { url ->
+                MediaAction.EDIT_IMAGE.viewer { url -> onUseImage(url, false); previewIndex = null },
+                MediaAction.ANIMATE_IMAGE.viewer { url -> onUseImage(url, true); previewIndex = null },
+                MediaAction.SAVE_TO_GALLERY.viewer { url ->
                     com.za869765.imagine.ImagineApp.appScope.launch {
                         val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -338,13 +340,23 @@ fun MaterialLibraryScreen(
                         }
                     }
                 },
-                ViewerAction("sell", "改分類") { url ->
+                MediaAction.CHANGE_CATEGORY.viewer { url ->
                     recatName = shown.firstOrNull { it.uri.toString() == url }?.displayName
                     previewIndex = null
                 },
-                ViewerAction("visibility_off", "移出素材庫", destructive = true) { url ->
-                    removeName = shown.firstOrNull { it.uri.toString() == url }?.displayName
+                // 移出素材庫只取消分類、檔案仍在 → 不再彈確認,做完給「復原」(UI_REDESIGN_PLAN 2.4)
+                MediaAction.REMOVE_FROM_LIBRARY.viewer { url ->
+                    val name = shown.firstOrNull { it.uri.toString() == url }?.displayName
                     previewIndex = null
+                    if (name != null) {
+                        val prevCat = MaterialLibrary.categoryOf(ctx, name)
+                        MaterialLibrary.remove(ctx, name)
+                        reloadKey++
+                        UndoBar.show(scope, "已移出素材庫") {
+                            if (prevCat != null) MaterialLibrary.setCategory(ctx, name, prevCat)
+                            reloadKey++
+                        }
+                    }
                 },
             ),
         )
@@ -358,9 +370,9 @@ fun MaterialLibraryScreen(
             startIndex = si,
             onDismiss = { seedIndex = null },
             actions = listOf(
-                ViewerAction("image", "生圖") { url -> onUseImage(url, false); seedIndex = null },
-                ViewerAction("movie", "生影") { url -> onUseImage(url, true); seedIndex = null },
-                ViewerAction("download", "存相簿") { url ->
+                MediaAction.EDIT_IMAGE.viewer { url -> onUseImage(url, false); seedIndex = null },
+                MediaAction.ANIMATE_IMAGE.viewer { url -> onUseImage(url, true); seedIndex = null },
+                MediaAction.SAVE_TO_GALLERY.viewer { url ->
                     com.za869765.imagine.ImagineApp.appScope.launch {
                         val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -404,23 +416,6 @@ fun MaterialLibraryScreen(
                 }
             }
         }
-    }
-    // B4: 移出前先確認(只移出素材庫,不刪圖檔)
-    removeName?.let { name ->
-        AlertDialog(
-            onDismissRequest = { removeName = null },
-            title = { Text("移出素材庫？") },
-            text = { Text("只會把這張從素材庫移出，不會刪除圖片（歷史仍在）。") },
-            confirmButton = {
-                TextButton(onClick = {
-                    MaterialLibrary.remove(ctx, name)
-                    Toast.makeText(ctx, "已移出素材庫", Toast.LENGTH_SHORT).show()
-                    reloadKey++
-                    removeName = null
-                }) { Text("移出") }
-            },
-            dismissButton = { TextButton(onClick = { removeName = null }) { Text("取消") } },
-        )
     }
 }
 

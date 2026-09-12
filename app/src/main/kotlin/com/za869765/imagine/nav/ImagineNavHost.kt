@@ -442,9 +442,10 @@ fun ImagineRoot() {
                         val e = entry ?: return@HistoryDetailScreen
                         val url = e.uri.toString()
                         val p = e.prompt.orEmpty()
+                        // label 為 MediaAction.label(UI_REDESIGN_PLAN 2.2 統一文案)
                         when (label) {
                             // 圖片 → 生影片頁 (當輸入圖)
-                            "動起來（生影片）" -> {
+                            "圖片動起來" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_MEDIA, url)
                                     set(KEY_INIT_PROMPT, p)
@@ -460,7 +461,7 @@ fun ImagineRoot() {
                                 }
                                 navController.navigate(Routes.EDIT)
                             }
-                            "編輯這段" -> {
+                            "修改影片" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_MEDIA, url)
                                     set(KEY_INIT_PROMPT, p)
@@ -468,7 +469,7 @@ fun ImagineRoot() {
                                 }
                                 navController.navigate(Routes.EDIT)
                             }
-                            "編輯這張" -> {
+                            "修改圖片" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_MEDIA, url)
                                     set(KEY_INIT_PROMPT, p)
@@ -476,12 +477,12 @@ fun ImagineRoot() {
                                 }
                                 navController.navigate(Routes.EDIT)
                             }
-                            // 只帶 prompt 文字(無媒體)去文生圖頁,當新的起點
+                            // 只帶 prompt 文字(無媒體)回生成頁當新的起點;影片項目回影片流程(不再一律回文生圖)
                             "use_prompt" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_PROMPT, p)
                                 }
-                                navController.navigate(Routes.GENERATE_IMAGE)
+                                navController.navigate(if (e.isVideo) Routes.GENERATE_VIDEO else Routes.GENERATE_IMAGE)
                             }
                             else -> { /* "copy" 之類 HistoryDetailScreen 內處理 */ }
                         }

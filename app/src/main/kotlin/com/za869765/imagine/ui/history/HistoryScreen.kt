@@ -280,10 +280,13 @@ fun HistoryScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("刪除 ${visibleSelected.size} 項？") },
+            // 永久刪除(與「移出素材庫」的可復原動作明顯區分,UI_REDESIGN_PLAN 2.4)
+            title = { Text("永久刪除 ${visibleSelected.size} 個檔案？") },
             text = { Text("會永久刪除這些圖片／影片檔（無法復原），釋放儲存空間。") },
             confirmButton = {
-                TextButton(onClick = { confirmDelete = false; deleteSelected() }) { Text("刪除") }
+                TextButton(onClick = { confirmDelete = false; deleteSelected() }) {
+                    Text("永久刪除", color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("取消") } },
         )

@@ -90,6 +90,11 @@ import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.GenerateSettingsSummary
+import com.za869765.imagine.ui.component.GeneratingCard
+import com.za869765.imagine.ui.component.GENERATING_HINT_BACKGROUND
+import com.za869765.imagine.ui.component.MediaAction
+import com.za869765.imagine.ui.component.MediaActionBar
+import com.za869765.imagine.ui.component.MediaActionItem
 import com.za869765.imagine.ui.component.ModeOption
 import com.za869765.imagine.ui.component.ModePicker
 import com.za869765.imagine.ui.component.ParamPicker
@@ -197,7 +202,13 @@ fun GenerateVideoScreen(
     var generating by remember { mutableStateOf(false) }
     var trackedRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     var elapsed by remember { mutableStateOf(0) }
+    // Worker 回報的真實階段(polling/downloading/merging;null=剛送出),UI_REDESIGN_PLAN 2.1
+    var stage by remember { mutableStateOf<String?>(null) }
     var resultVideoUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    // 成品本機檔(file://):延長/修改影片用本機檔而非 CDN URL
+    var resultSavedUri by rememberSaveable { mutableStateOf<String?>(null) }
+    // 結果卡「延長影片／修改影片」→ 切到 EditPane 並帶入來源
+    var editInitialUri by rememberSaveable { mutableStateOf<String?>(null) }
     // 每次新結果 +1,讓 VideoPreview 重建播放器 → 避免 xAI 重用同一 URL 時看到上一支舊片。
     var resultVideoGen by remember { mutableStateOf(0) }
     var lastPrompt by rememberSaveable { mutableStateOf("") }
@@ -234,11 +245,15 @@ fun GenerateVideoScreen(
                         val url = info.outputData.getString(VideoPollWorker.KEY_VIDEO_URL)
                         if (url != null) {
                             resultVideoUrl = url
+                            resultSavedUri = info.outputData.getString(VideoPollWorker.KEY_SAVED_URI)
                             resultVideoGen++   // A1: 重建播放器顯示這次的新片
                             pendingScrollToResult = true  // bug#3: 捲到結果區讓新影片主動出現
                         }
                         generating = false
                         trackedRequestId = null
+                    }
+                    WorkInfo.State.RUNNING -> {
+                        stage = info.progress.getString(VideoPollWorker.KEY_STAGE)
                     }
                     WorkInfo.State.FAILED -> {
                         val err = info.outputData.getString(VideoPollWorker.KEY_ERROR)
@@ -343,6 +358,7 @@ fun GenerateVideoScreen(
         lastErrorIsPolicy = false
         scope.launch {
             generating = true
+            stage = null
             // v1.0.50: 整段包 try/catch，不讓任何未預期 throw 把 app 直接 crash
             try {
                 // 空白 prompt 時用 initialPrompt 兜底(從歷史/圖片頁「動起來」「延長」帶進來)，
@@ -631,6 +647,7 @@ fun GenerateVideoScreen(
                         com.za869765.imagine.ui.edit.EditMode.VideoExtend
                     else
                         com.za869765.imagine.ui.edit.EditMode.VideoEdit,
+                    initialMediaUri = editInitialUri?.let { Uri.parse(it) },
                     handle = editHandle,
                 )
             } else {
@@ -751,53 +768,12 @@ fun GenerateVideoScreen(
                 }
 
                 if (generating) {
-                    ImagineCard(pad = 24) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(48.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                strokeWidth = 4.dp,
-                            )
-                            Text(
-                                if (isCombineExtend) "續集生成中…完成會自動接成長片" else "影片生成中…",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.W600,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            // B3: 估算進度 — 依秒數粗估,非 xAI 真實完成率;封頂 97% 等實際完成。
-                            // (Phase 2 改 GeneratingCard 真實階段後移除)
-                            val estSec = (30 + duration * 8).coerceIn(30, 180)
-                            val pct = ((elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) * 100).toInt()
-                            Text(
-                                "$pct%",
-                                fontSize = 36.sp,
-                                fontWeight = FontWeight.W700,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                "已 ${"%d:%02d".format(elapsed / 60, elapsed % 60)} · 預估約 $estSec 秒（估算,非真實完成率）;可切背景/鎖屏,完成發通知",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                            LinearProgressIndicator(
-                                progress = { pct / 100f },
-                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                            )
-                            // v1.0.54 (c): 提醒 user 別從最近應用滑掉,否則 process 死 worker 中斷
-                            Text(
-                                "⚠️ 請勿從「最近應用程式」往上滑掉 Imagine，否則背景工作會中斷",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                            // v1.0.55: 砍「取消生成」按鈕 — xAI 沒提供 cancel API,credits 已扣
-                            // 仍會跑完,imagine 端取消只是「停止本地等待」對 user 沒實質意義。
-                        }
-                    }
+                    // 真實階段 + 已等待時間(不再估算百分比,UI_REDESIGN_PLAN 2.1);背景提示兩句保留
+                    GeneratingCard(
+                        stage = (if (isCombineExtend) "續集" else "影片") + VideoPollWorker.stageLabel(stage),
+                        elapsedSec = elapsed,
+                        hint = GENERATING_HINT_BACKGROUND,
+                    )
                 }
 
                 pendingRiskTerm?.let { term ->
@@ -882,39 +858,34 @@ fun GenerateVideoScreen(
                                         color = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
-                                ) {
-                                    TextActionButton(
-                                        label = "複製",
-                                        icon = "content_copy",
-                                        onClick = {
-                                            Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
-                                        },
-                                    )
-                                    TextActionButton(
-                                        label = "存到相簿",
-                                        icon = "download",
-                                        onClick = {
+                                // 動作列(UI_REDESIGN_PLAN 2.2):主要 延長影片 / 儲存到相簿;延長/修改只有 xAI 有 API
+                                val editSrc = resultSavedUri ?: url
+                                MediaActionBar(
+                                    items = buildList {
+                                        if (provider == ApiProvider.XAI) {
+                                            add(MediaActionItem(MediaAction.EXTEND_VIDEO) { editInitialUri = editSrc; videoFn = "extend" })
+                                        }
+                                        add(MediaActionItem(MediaAction.SAVE_TO_GALLERY) {
                                             com.za869765.imagine.ImagineApp.appScope.launch {
                                                 val ok = MediaExporter.saveToGallery(ctx, url, isVideo = true)
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                                     com.za869765.imagine.ui.component.AppNotice.show(if (ok) "已存到相簿" else "存相簿失敗，改用分享試試")
                                                 }
                                             }
-                                        },
-                                    )
-                                    TextActionButton(
-                                        label = "分享",
-                                        icon = "share",
-                                        onClick = {
+                                        })
+                                        if (provider == ApiProvider.XAI) {
+                                            add(MediaActionItem(MediaAction.EDIT_VIDEO) { editInitialUri = editSrc; videoFn = "edit" })
+                                        }
+                                        add(MediaActionItem(MediaAction.SHARE) {
                                             com.za869765.imagine.ImagineApp.appScope.launch {
                                                 MediaExporter.share(ctx, url, isVideo = true)
                                             }
-                                        },
-                                    )
-                                }
+                                        })
+                                        add(MediaActionItem(MediaAction.COPY_PROMPT) {
+                                            Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製提示詞")
+                                        })
+                                    },
+                                )
                             }
                         }
                     }

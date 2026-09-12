@@ -130,11 +130,11 @@ fun FullscreenImageViewer(
                 }
             }
 
-            // 底部:主動作固定列(前 3 顆 + 更多)+ 次要動作收進「更多」浮層 — 修膠囊溢出按不到(痛點 #3/#4)。
+            // 底部:固定兩顆主動作 + 其餘收進「更多」浮層(UI_REDESIGN_PLAN 2.2;每種媒體任一入口主要動作相同)。
             if (actions.isNotEmpty()) {
                 val url = urls[pagerState.currentPage]
-                val primary = if (actions.size > 4) actions.take(3) else actions
-                val overflow = if (actions.size > 4) actions.drop(3) else emptyList<ViewerAction>()
+                val primary = if (actions.size > 3) actions.take(2) else actions
+                val overflow = if (actions.size > 3) actions.drop(2) else emptyList<ViewerAction>()
                 var showMore by remember { mutableStateOf(false) }
                 Column(
                     modifier = Modifier

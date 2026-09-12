@@ -66,6 +66,12 @@ import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.GenerateSettingsSummary
+import com.za869765.imagine.ui.component.GeneratingCard
+import com.za869765.imagine.ui.component.MediaAction
+import com.za869765.imagine.ui.component.MediaActionBar
+import com.za869765.imagine.ui.component.MediaActionItem
+import com.za869765.imagine.ui.component.viewer
+import androidx.compose.foundation.layout.aspectRatio
 import com.za869765.imagine.ui.component.ModeOption
 import com.za869765.imagine.ui.component.ModePicker
 import com.za869765.imagine.ui.component.ParamPicker
@@ -138,6 +144,17 @@ fun GenerateImageScreen(
     var aspectRatio by rememberSaveable(prefs.defImageAspect) { mutableStateOf(prefs.defImageAspect) }
     var n by rememberSaveable(prefs.defImageCount) { mutableStateOf(prefs.defImageCount) }
     var loading by remember { mutableStateOf(false) }
+    // 生成中已等待秒數(GeneratingCard 顯示真實階段 + 時間,UI_REDESIGN_PLAN 2.1)
+    var elapsed by remember { mutableStateOf(0) }
+    LaunchedEffect(loading) {
+        if (loading) {
+            elapsed = 0
+            while (kotlinx.coroutines.isActive && loading) {
+                kotlinx.coroutines.delay(1000)
+                elapsed++
+            }
+        }
+    }
     // 圖片頁子模式：gen=生圖 / edit=圖片編輯(內嵌 EditPane)。原本只有生圖,無模式列。
     var imageFn by rememberSaveable { mutableStateOf("gen") }
 
@@ -492,6 +509,10 @@ fun GenerateImageScreen(
                     }
                 }
 
+                if (loading) {
+                    GeneratingCard(stage = "生成中", elapsedSec = elapsed)
+                }
+
                 pendingRiskTerm?.let { term ->
                     ConfirmHighRiskDialog(
                         term = term,
@@ -546,12 +567,13 @@ fun GenerateImageScreen(
 
                     ImagineCard(pad = 0, variant = CardVariant.Filled) {
                         Column {
-                            resultUrls.forEachIndexed { i, url ->
+                            // 多張結果用 3 欄方形網格(非 Lazy,避免巢狀捲動);單張維持大圖(UI_REDESIGN_PLAN 2.3)
+                            if (resultUrls.size == 1) {
                                 AsyncImage(
                                     model = coil3.request.ImageRequest.Builder(ctx)
-                                        .data(url)
-                                        .memoryCacheKey("$url@$resultGen")
-                                        .diskCacheKey("$url@$resultGen")
+                                        .data(resultUrls[0])
+                                        .memoryCacheKey("${resultUrls[0]}@$resultGen")
+                                        .diskCacheKey("${resultUrls[0]}@$resultGen")
                                         .build(),
                                     contentDescription = lastPrompt,
                                     contentScale = ContentScale.FillWidth,
@@ -559,9 +581,35 @@ fun GenerateImageScreen(
                                         .fillMaxWidth()
                                         .clip(ImagineCustomShapes.Media)
                                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                        .clickable { viewerIndex = i },
+                                        .clickable { viewerIndex = 0 },
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                            } else {
+                                resultUrls.chunked(3).forEachIndexed { rowIdx, row ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        row.forEachIndexed { colIdx, url ->
+                                            val i = rowIdx * 3 + colIdx
+                                            AsyncImage(
+                                                model = coil3.request.ImageRequest.Builder(ctx)
+                                                    .data(url)
+                                                    .memoryCacheKey("$url@$resultGen")
+                                                    .diskCacheKey("$url@$resultGen")
+                                                    .build(),
+                                                contentDescription = lastPrompt,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .aspectRatio(1f)
+                                                    .clip(ImagineCustomShapes.Media)
+                                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                                    .clickable { viewerIndex = i },
+                                            )
+                                        }
+                                        repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+                                    }
+                                }
                             }
                             Column(
                                 modifier = Modifier.padding(14.dp),
@@ -582,25 +630,20 @@ fun GenerateImageScreen(
                                     fontFamily = FontFamily.Monospace,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(top = 4.dp),
-                                ) {
-                                    ImagineChip(
-                                        label = "複製 prompt",
-                                        icon = "content_copy",
-                                        variant = ChipVariant.Tonal,
-                                        onClick = {
-                                            Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
-                                        },
+                                if (resultUrls.size > 1) {
+                                    Text(
+                                        text = "下列動作作用於第 1 張；點縮圖放大可對單張操作",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    ImagineChip(
-                                        label = "存到相簿",
-                                        icon = "download",
-                                        variant = ChipVariant.Tonal,
-                                        onClick = {
-                                            // 真正匯出到系統相簿 (MediaExporter)，不再只是重存私有沙盒
+                                }
+                                // 動作列(UI_REDESIGN_PLAN 2.2):主要 修改圖片 / 圖片動起來,其餘收「更多」
+                                MediaActionBar(
+                                    items = listOf(
+                                        MediaActionItem(MediaAction.EDIT_IMAGE) { onEditImage(resultUrls.first(), lastPrompt) },
+                                        MediaActionItem(MediaAction.ANIMATE_IMAGE) { onAnimateImage(resultUrls.first(), lastPrompt) },
+                                        MediaActionItem(MediaAction.SAVE_TO_GALLERY) {
+                                            // 真正匯出到系統相簿 (MediaExporter),整批
                                             com.za869765.imagine.ImagineApp.appScope.launch {
                                                 var ok = 0
                                                 resultUrls.forEach { url ->
@@ -611,58 +654,39 @@ fun GenerateImageScreen(
                                                 }
                                             }
                                         },
-                                    )
-                                    ImagineChip(
-                                        label = "分享",
-                                        icon = "share",
-                                        variant = ChipVariant.Tonal,
-                                        onClick = {
+                                        MediaActionItem(MediaAction.SHARE) {
                                             com.za869765.imagine.ImagineApp.appScope.launch {
                                                 MediaExporter.share(ctx, resultUrls.first(), isVideo = false)
                                             }
                                         },
-                                    )
-                                    ImagineChip(
-                                        label = "編輯",
-                                        icon = "edit",
-                                        variant = ChipVariant.Tonal,
-                                        onClick = { onEditImage(resultUrls.first(), lastPrompt) },
-                                    )
-                                    ImagineChip(
-                                        label = "動起來",
-                                        icon = "movie",
-                                        variant = ChipVariant.Tonal,
-                                        onClick = { onAnimateImage(resultUrls.first(), lastPrompt) },
-                                    )
-                                }
-                                // 一鍵把整批結果存成「角色資產」(名字+定妝圖組;之後生成可一鍵帶入
-                                // 整組當參考圖,角色一致性)。同時標進素材庫「角色」分類。
-                                ImagineChip(
-                                    label = "🎭 存成角色資產",
-                                    icon = "star",
-                                    variant = ChipVariant.Tonal,
-                                    modifier = Modifier.padding(top = 6.dp),
-                                    onClick = {
-                                        // 先跟帳本對帳回填(切頁期間完成的存檔只在帳本裡)
-                                        val filled = savedNames.mapIndexed { i, n ->
-                                            n.ifEmpty { batchPrefs.getString("b${batchToken}_$i", "") ?: "" }
-                                        }
-                                        if (filled != savedNames) savedNames = filled
-                                        // 全批存好才能開命名對話框 — 部分完成就寫入會漏圖進角色
-                                        val done = filled.count { it.isNotEmpty() }
-                                        if (filled.isEmpty() || done < filled.size) {
-                                            Toast.makeText(ctx, "圖片儲存中($done/${filled.size}),請稍候再試", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            saveCharacterNames = filled  // 快照,對話框開著時不受新批影響
-                                        }
-                                    },
+                                        MediaActionItem(MediaAction.COPY_PROMPT) {
+                                            Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製提示詞")
+                                        },
+                                        // 一鍵把整批結果存成「角色資產」(名字+定妝圖組);同時標進素材庫「角色」分類
+                                        MediaActionItem(MediaAction.SAVE_AS_CHARACTER) {
+                                            // 先跟帳本對帳回填(切頁期間完成的存檔只在帳本裡)
+                                            val filled = savedNames.mapIndexed { i, n ->
+                                                n.ifEmpty { batchPrefs.getString("b${batchToken}_$i", "") ?: "" }
+                                            }
+                                            if (filled != savedNames) savedNames = filled
+                                            // 全批存好才能開命名對話框 — 部分完成就寫入會漏圖進角色
+                                            val done = filled.count { it.isNotEmpty() }
+                                            if (filled.isEmpty() || done < filled.size) {
+                                                Toast.makeText(ctx, "圖片儲存中($done/${filled.size}),請稍候再試", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                saveCharacterNames = filled  // 快照,對話框開著時不受新批影響
+                                            }
+                                        },
+                                    ),
                                 )
+                                // 整批分類:與單張動作明確分隔(UI_REDESIGN_PLAN 2.3)
                                 Text(
-                                    text = "或設為其他分類",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.W600,
+                                    text = "整批 ${resultUrls.size} 張加入素材庫",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.W700,
+                                    letterSpacing = 1.0.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 4.dp),
+                                    modifier = Modifier.padding(top = 8.dp),
                                 )
                                 FlowRow(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -712,8 +736,11 @@ fun GenerateImageScreen(
                 urls = resultUrls,
                 startIndex = vi,
                 onDismiss = { viewerIndex = null },
+                // 看圖器動作作用於「目前這張」;主要兩顆與結果區相同(UI_REDESIGN_PLAN 2.2/2.3)
                 actions = listOf(
-                    ViewerAction("download", "存相簿") { url ->
+                    MediaAction.EDIT_IMAGE.viewer { url -> viewerIndex = null; onEditImage(url, lastPrompt) },
+                    MediaAction.ANIMATE_IMAGE.viewer { url -> viewerIndex = null; onAnimateImage(url, lastPrompt) },
+                    MediaAction.SAVE_TO_GALLERY.viewer { url ->
                         com.za869765.imagine.ImagineApp.appScope.launch {
                             val ok = MediaExporter.saveToGallery(ctx, url, isVideo = false)
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -721,13 +748,11 @@ fun GenerateImageScreen(
                             }
                         }
                     },
-                    ViewerAction("share", "分享") { url ->
+                    MediaAction.SHARE.viewer { url ->
                         com.za869765.imagine.ImagineApp.appScope.launch {
                             MediaExporter.share(ctx, url, isVideo = false)
                         }
                     },
-                    ViewerAction("edit", "編輯") { url -> viewerIndex = null; onEditImage(url, lastPrompt) },
-                    ViewerAction("movie", "動起來") { url -> viewerIndex = null; onAnimateImage(url, lastPrompt) },
                 ),
             )
         }

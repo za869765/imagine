@@ -50,6 +50,8 @@ import com.za869765.imagine.ui.component.PromptExample
 import com.za869765.imagine.ui.component.READY_PROMPTS
 import com.za869765.imagine.ui.component.EXTRA_PROMPTS
 import com.za869765.imagine.ui.component.ReadyPromptCard
+import com.za869765.imagine.ui.component.MediaAction
+import com.za869765.imagine.ui.component.viewer
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
@@ -302,8 +304,8 @@ private fun GalleryList(
             startIndex = pend.second,
             onDismiss = { pendingImage = null },
             actions = listOf(
-                ViewerAction("edit", "重繪") { url -> onUseImage(url, false); pendingImage = null },
-                ViewerAction("play_arrow", "動起來") { url -> onUseImage(url, true); pendingImage = null },
+                MediaAction.EDIT_IMAGE.viewer { url -> onUseImage(url, false); pendingImage = null },
+                MediaAction.ANIMATE_IMAGE.viewer { url -> onUseImage(url, true); pendingImage = null },
             ),
         )
     }
@@ -464,10 +466,10 @@ private fun LessonCard(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                             )
-                            ActionRow(icon = "edit", label = "影片修改（以此影片重繪／影生影）") {
+                            ActionRow(icon = MediaAction.EDIT_VIDEO.icon, label = MediaAction.EDIT_VIDEO.label) {
                                 onUseVideo(url, "video")
                             }
-                            ActionRow(icon = "play_arrow", label = "影片延長（接續這支影片）") {
+                            ActionRow(icon = MediaAction.EXTEND_VIDEO.icon, label = MediaAction.EXTEND_VIDEO.label) {
                                 onUseVideo(url, "extend")
                             }
                         }
@@ -524,20 +526,20 @@ private fun LessonCard(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             TextActionButton(
-                                label = "複製",
-                                icon = "content_copy",
+                                label = MediaAction.COPY_PROMPT.label,
+                                icon = MediaAction.COPY_PROMPT.icon,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 onClick = { onCopyPrompt(p) },
                             )
                             TextActionButton(
-                                label = "使用(生圖)",
-                                icon = "check",
+                                label = "${MediaAction.USE_PROMPT.label}・圖",
+                                icon = MediaAction.USE_PROMPT.icon,
                                 onClick = { onUsePrompt(p) },
                             )
-                            // 影片課程的提示詞本身多為運鏡/動作,額外給「使用(生影)」直送文生影頁
+                            // 影片課程的提示詞本身多為運鏡/動作,額外給「套用提示詞・影」直送文生影頁
                             if (lesson.videos.isNotEmpty()) {
                                 TextActionButton(
-                                    label = "使用(生影)",
+                                    label = "${MediaAction.USE_PROMPT.label}・影",
                                     icon = "movie",
                                     onClick = { onUsePromptVideo(p) },
                                 )
