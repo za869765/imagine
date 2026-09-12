@@ -65,7 +65,13 @@ import com.za869765.imagine.ui.component.ImagineChip
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
+import com.za869765.imagine.ui.component.GenerateSettingsSummary
+import com.za869765.imagine.ui.component.ModeOption
+import com.za869765.imagine.ui.component.ModePicker
 import com.za869765.imagine.ui.component.ParamPicker
+import com.za869765.imagine.ui.component.aspectLabel
+import com.za869765.imagine.ui.component.describeImageSettings
+import com.za869765.imagine.ui.edit.rememberEditActionHandle
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.firstHighRiskTerm
@@ -75,29 +81,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-// L2 子模式底線分頁(生圖/圖片編輯)— 與 L1 pill 視覺區隔(痛點 #1)。
-@Composable
-private fun UnderlineTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier.clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
-            color = if (selected) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
-        )
-    }
-}
+// 圖片頁製作方式(UI_REDESIGN_PLAN 1.2);id 沿用既有 imageFn 值
+private val IMAGE_MODE_OPTIONS = listOf(
+    ModeOption("gen", "生成圖片", "只用提示詞生成新圖片"),
+    ModeOption("edit", "修改圖片", "以一張圖片為來源，依說明改動；可加角色參考鎖臉"),
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -330,10 +318,34 @@ fun GenerateImageScreen(
         }
     }
 
+    // 修改圖片模式:EditPane 把主按鈕狀態交給 handle,由底部 slot 渲染(位置固定)
+    val editHandle = rememberEditActionHandle()
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
+        appBar = { ImagineTopAppBar(title = "生成圖片", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
         scrollState = scrollState,
+        bottomAction = {
+            if (imageFn == "edit") {
+                PrimaryButton(
+                    label = if (editHandle.loading) "修改中…" else "修改圖片",
+                    icon = if (editHandle.loading) null else "edit",
+                    loading = editHandle.loading,
+                    enabled = editHandle.enabled,
+                    onClick = { editHandle.execute() },
+                )
+            } else {
+                PrimaryButton(
+                    label = if (loading) "生成中…" else "生成圖片",
+                    icon = if (loading) null else "auto_awesome",
+                    loading = loading,
+                    enabled = prompt.isNotBlank() && !loading && prefs.hasKeyFor(provider),
+                    onClick = {
+                        val term = firstHighRiskTerm(prompt)
+                        if (term != null) pendingRiskTerm = term else runGenerate()
+                    },
+                )
+            }
+        },
     ) {
         Column(
             modifier = Modifier
@@ -358,14 +370,12 @@ fun GenerateImageScreen(
                 activeColor = Color(0xFF2E3A6E),
             )
 
-            // L2 子模式:底線分頁(生圖/圖片編輯),與 L1 pill 視覺區隔
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-            ) {
-                UnderlineTab("生圖", imageFn == "gen") { imageFn = "gen" }
-                UnderlineTab("圖片編輯", imageFn == "edit") { imageFn = "edit" }
-            }
+            // 製作方式 2 選 1(UI_REDESIGN_PLAN 1.2):取代 L2 底線分頁
+            ModePicker(
+                options = IMAGE_MODE_OPTIONS,
+                selectedId = imageFn,
+                onSelect = { imageFn = it },
+            )
             if (provider == ApiProvider.OPENROUTER && imageFn == "edit") {
                 Text(
                     "圖片編輯目前只接 xAI(用 xAI key);OpenRouter 的圖生圖請在「生圖」改用支援參考圖的模型。",
@@ -388,282 +398,291 @@ fun GenerateImageScreen(
 
             if (imageFn == "edit") {
                 // 圖片編輯內嵌 — EditPane 自帶來源選取 / 執行 / 結果，不帶 initial media(使用者自選)。
-                // EditPane 無自帶 padding,靠這個 padded Column 提供節奏。
+                // 主按鈕由 editHandle 交給底部 bottomAction slot 渲染(UI_REDESIGN_PLAN 1.6)。
                 com.za869765.imagine.ui.edit.EditPane(
                     mode = com.za869765.imagine.ui.edit.EditMode.ImageEdit,
+                    handle = editHandle,
                 )
-                return@Column
             }
 
-            PromptInput(
-                value = prompt,
-                onValueChange = { prompt = it },
-                flagged = lastErrorIsPolicy,
-            )
+            if (imageFn == "gen") {
+                PromptInput(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    flagged = lastErrorIsPolicy,
+                )
 
-            // v1.8.3 模型列(xAI 快速/高品質 + OpenRouter 43 款合併,價格 / 免費標記)
-            ModelPickerRow(
-                mode = ModelMode.IMAGE,
-                selectedId = imageModel,
-                onSelect = { imageModel = it; prefs.imageModel = it },
-            )
-            if (provider == ApiProvider.OPENROUTER) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ParamPicker(
-                        label = "解析度",
-                        value = if (orResolution in orResolutions) orResolution else orResolutions.first(),
-                        options = orResolutions,
-                        onSelect = { orResolution = it },
-                        modifier = Modifier.weight(1f),
+                // v1.8.3 模型列(xAI 快速/高品質 + OpenRouter 43 款合併,價格 / 免費標記)
+                ModelPickerRow(
+                    mode = ModelMode.IMAGE,
+                    selectedId = imageModel,
+                    onSelect = { imageModel = it; prefs.imageModel = it },
+                )
+                // 參數收成一列摘要,點擊展開(UI_REDESIGN_PLAN 1.4);OpenRouter 依模型 supported_parameters
+                val settingsSummary = if (provider == ApiProvider.OPENROUTER) {
+                    describeImageSettings(
+                        if (orResolution in orResolutions) orResolution else orResolutions.first(),
+                        if (orAspect in orAspects) orAspect else orAspects.first(),
+                        n.coerceIn(1, orNMax),
                     )
-                    ParamPicker(
-                        label = "長寬比",
-                        value = if (orAspect in orAspects) orAspect else orAspects.first(),
-                        options = orAspects,
-                        onSelect = { orAspect = it },
-                        modifier = Modifier.weight(1f),
-                    )
+                } else {
+                    describeImageSettings(resolution, aspectRatio, n)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ParamPicker(
-                        label = "數量",
-                        value = n.coerceIn(1, orNMax).toString(),
-                        options = (1..orNMax).map { it.toString() },
-                        onSelect = { n = it.toIntOrNull() ?: 1 },
-                        displayName = { "$it 張" + (if (orNMax == 1) "（此模型一次 1 張）" else "") },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            } else {
-            // 參數 2×2:解析度/長寬比 + 數量/品質。品質從獨立分段控制併進來,少一條堆疊橫條(痛點 #2)。
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ParamPicker(
-                    label = "解析度",
-                    value = resolution,
-                    options = listOf("1k", "2k"),
-                    onSelect = { resolution = it },
-                    modifier = Modifier.weight(1f),
-                )
-                ParamPicker(
-                    label = "長寬比",
-                    value = aspectRatio,
-                    options = listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3", "auto"),
-                    onSelect = { aspectRatio = it },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ParamPicker(
-                    label = "數量",
-                    value = n.toString(),
-                    options = (1..10).map { it.toString() },
-                    onSelect = { n = it.toIntOrNull() ?: 1 },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            }
-
-            PrimaryButton(
-                label = if (loading) "生成中…" else "生 成",
-                icon = if (loading) null else "auto_awesome",
-                loading = loading,
-                enabled = prompt.isNotBlank() && !loading && prefs.hasKeyFor(provider),
-                onClick = {
-                    val term = firstHighRiskTerm(prompt)
-                    if (term != null) pendingRiskTerm = term else runGenerate()
-                },
-            )
-
-            pendingRiskTerm?.let { term ->
-                ConfirmHighRiskDialog(
-                    term = term,
-                    onConfirm = { pendingRiskTerm = null; runGenerate() },
-                    onDismiss = { pendingRiskTerm = null },
-                )
-            }
-
-            if (lastError.isNotBlank()) {
-                // 審核被拒 (HTTP 400 content policy) 用紅色 errorContainer 突出，
-                // 一般錯誤維持 default card style 避免眼花
-                val cardBg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.errorContainer
-                else MaterialTheme.colorScheme.surfaceContainerHigh
-                val cardFg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.onErrorContainer
-                else MaterialTheme.colorScheme.onSurface
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(cardBg, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = lastError,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
-                            color = cardFg,
-                            modifier = Modifier.weight(1f),
-                        )
-                        ImagineChip(
-                            label = "清除",
-                            variant = ChipVariant.Tonal,
-                            onClick = { lastError = ""; lastErrorIsPolicy = false },
-                        )
+                GenerateSettingsSummary(summary = settingsSummary) {
+                    if (provider == ApiProvider.OPENROUTER) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            maxItemsInEachRow = 2,
+                        ) {
+                            ParamPicker(
+                                label = "解析度",
+                                value = if (orResolution in orResolutions) orResolution else orResolutions.first(),
+                                options = orResolutions,
+                                onSelect = { orResolution = it },
+                                modifier = Modifier.weight(1f),
+                            )
+                            ParamPicker(
+                                label = "長寬比",
+                                value = if (orAspect in orAspects) orAspect else orAspects.first(),
+                                options = orAspects,
+                                onSelect = { orAspect = it },
+                                displayName = { aspectLabel(it) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            ParamPicker(
+                                label = "數量",
+                                value = n.coerceIn(1, orNMax).toString(),
+                                options = (1..orNMax).map { it.toString() },
+                                onSelect = { n = it.toIntOrNull() ?: 1 },
+                                displayName = { "$it 張" + (if (orNMax == 1) "（此模型一次 1 張）" else "") },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    } else {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            maxItemsInEachRow = 2,
+                        ) {
+                            ParamPicker(
+                                label = "解析度",
+                                value = resolution,
+                                options = listOf("1k", "2k"),
+                                onSelect = { resolution = it },
+                                modifier = Modifier.weight(1f),
+                            )
+                            ParamPicker(
+                                label = "長寬比",
+                                value = aspectRatio,
+                                options = listOf("16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3", "auto"),
+                                onSelect = { aspectRatio = it },
+                                displayName = { aspectLabel(it) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            ParamPicker(
+                                label = "數量",
+                                value = n.toString(),
+                                options = (1..10).map { it.toString() },
+                                onSelect = { n = it.toIntOrNull() ?: 1 },
+                                displayName = { "$it 張" },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
-            }
 
-            if (resultUrls.isNotEmpty()) {
-                Text(
-                    text = "上次結果",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.W600,
-                    letterSpacing = 0.08.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                pendingRiskTerm?.let { term ->
+                    ConfirmHighRiskDialog(
+                        term = term,
+                        onConfirm = { pendingRiskTerm = null; runGenerate() },
+                        onDismiss = { pendingRiskTerm = null },
+                    )
+                }
 
-                ImagineCard(pad = 0, variant = CardVariant.Filled) {
-                    Column {
-                        resultUrls.forEachIndexed { i, url ->
-                            AsyncImage(
-                                model = coil3.request.ImageRequest.Builder(ctx)
-                                    .data(url)
-                                    .memoryCacheKey("$url@$resultGen")
-                                    .diskCacheKey("$url@$resultGen")
-                                    .build(),
-                                contentDescription = lastPrompt,
-                                contentScale = ContentScale.FillWidth,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(ImagineCustomShapes.Media)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                    .clickable { viewerIndex = i },
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                if (lastError.isNotBlank()) {
+                    // 審核被拒 (HTTP 400 content policy) 用紅色 errorContainer 突出，
+                    // 一般錯誤維持 default card style 避免眼花
+                    val cardBg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.errorContainer
+                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                    val cardFg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.onErrorContainer
+                    else MaterialTheme.colorScheme.onSurface
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(cardBg, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            // bug #3: prompt 區用 SelectionContainer 包起來可長按複製，不再截斷
-                            SelectionContainer {
-                                Text(
-                                    text = lastPrompt,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 20.sp,
-                                )
-                            }
                             Text(
-                                text = lastMeta,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(top = 4.dp),
-                            ) {
-                                ImagineChip(
-                                    label = "複製 prompt",
-                                    icon = "content_copy",
-                                    variant = ChipVariant.Tonal,
-                                    onClick = {
-                                        Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
-                                    },
-                                )
-                                ImagineChip(
-                                    label = "存到相簿",
-                                    icon = "download",
-                                    variant = ChipVariant.Tonal,
-                                    onClick = {
-                                        // 真正匯出到系統相簿 (MediaExporter)，不再只是重存私有沙盒
-                                        com.za869765.imagine.ImagineApp.appScope.launch {
-                                            var ok = 0
-                                            resultUrls.forEach { url ->
-                                                if (MediaExporter.saveToGallery(ctx, url, isVideo = false)) ok++
-                                            }
-                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                com.za869765.imagine.ui.component.AppNotice.show(if (ok > 0) "已存 $ok 張到相簿" else "存相簿失敗，改用分享試試")
-                                            }
-                                        }
-                                    },
-                                )
-                                ImagineChip(
-                                    label = "分享",
-                                    icon = "share",
-                                    variant = ChipVariant.Tonal,
-                                    onClick = {
-                                        com.za869765.imagine.ImagineApp.appScope.launch {
-                                            MediaExporter.share(ctx, resultUrls.first(), isVideo = false)
-                                        }
-                                    },
-                                )
-                                ImagineChip(
-                                    label = "編輯",
-                                    icon = "edit",
-                                    variant = ChipVariant.Tonal,
-                                    onClick = { onEditImage(resultUrls.first(), lastPrompt) },
-                                )
-                                ImagineChip(
-                                    label = "動起來",
-                                    icon = "movie",
-                                    variant = ChipVariant.Tonal,
-                                    onClick = { onAnimateImage(resultUrls.first(), lastPrompt) },
-                                )
-                            }
-                            // 一鍵把整批結果存成「角色資產」(名字+定妝圖組;之後生成可一鍵帶入
-                            // 整組當參考圖,角色一致性)。同時標進素材庫「角色」分類。
-                            ImagineChip(
-                                label = "🎭 存成角色資產",
-                                icon = "star",
-                                variant = ChipVariant.Tonal,
-                                modifier = Modifier.padding(top = 6.dp),
-                                onClick = {
-                                    // 先跟帳本對帳回填(切頁期間完成的存檔只在帳本裡)
-                                    val filled = savedNames.mapIndexed { i, n ->
-                                        n.ifEmpty { batchPrefs.getString("b${batchToken}_$i", "") ?: "" }
-                                    }
-                                    if (filled != savedNames) savedNames = filled
-                                    // 全批存好才能開命名對話框 — 部分完成就寫入會漏圖進角色
-                                    val done = filled.count { it.isNotEmpty() }
-                                    if (filled.isEmpty() || done < filled.size) {
-                                        Toast.makeText(ctx, "圖片儲存中($done/${filled.size}),請稍候再試", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        saveCharacterNames = filled  // 快照,對話框開著時不受新批影響
-                                    }
-                                },
-                            )
-                            Text(
-                                text = "或設為其他分類",
-                                fontSize = 11.sp,
+                                text = lastError,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.W600,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp),
+                                color = cardFg,
+                                modifier = Modifier.weight(1f),
                             )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ImagineChip(
+                                label = "清除",
+                                variant = ChipVariant.Tonal,
+                                onClick = { lastError = ""; lastErrorIsPolicy = false },
+                            )
+                        }
+                    }
+                }
+
+                if (resultUrls.isNotEmpty()) {
+                    Text(
+                        text = "上次結果",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.W600,
+                        letterSpacing = 0.08.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+
+                    ImagineCard(pad = 0, variant = CardVariant.Filled) {
+                        Column {
+                            resultUrls.forEachIndexed { i, url ->
+                                AsyncImage(
+                                    model = coil3.request.ImageRequest.Builder(ctx)
+                                        .data(url)
+                                        .memoryCacheKey("$url@$resultGen")
+                                        .diskCacheKey("$url@$resultGen")
+                                        .build(),
+                                    contentDescription = lastPrompt,
+                                    contentScale = ContentScale.FillWidth,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(ImagineCustomShapes.Media)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                        .clickable { viewerIndex = i },
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                            Column(
+                                modifier = Modifier.padding(14.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                MaterialLibrary.CATEGORIES.forEach { c ->
+                                // bug #3: prompt 區用 SelectionContainer 包起來可長按複製，不再截斷
+                                SelectionContainer {
+                                    Text(
+                                        text = lastPrompt,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        lineHeight = 20.sp,
+                                    )
+                                }
+                                Text(
+                                    text = lastMeta,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(top = 4.dp),
+                                ) {
                                     ImagineChip(
-                                        label = c,
+                                        label = "複製 prompt",
+                                        icon = "content_copy",
                                         variant = ChipVariant.Tonal,
                                         onClick = {
-                                            val names = savedNames.filter { it.isNotEmpty() }
-                                            if (names.isEmpty()) {
-                                                Toast.makeText(ctx, "圖片儲存中,請稍候再試", Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                names.forEach { MaterialLibrary.setCategory(ctx, it, c) }
-                                                Toast.makeText(ctx, "已把 ${names.size} 張設為「$c」素材", Toast.LENGTH_SHORT).show()
+                                            Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
+                                        },
+                                    )
+                                    ImagineChip(
+                                        label = "存到相簿",
+                                        icon = "download",
+                                        variant = ChipVariant.Tonal,
+                                        onClick = {
+                                            // 真正匯出到系統相簿 (MediaExporter)，不再只是重存私有沙盒
+                                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                                var ok = 0
+                                                resultUrls.forEach { url ->
+                                                    if (MediaExporter.saveToGallery(ctx, url, isVideo = false)) ok++
+                                                }
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    com.za869765.imagine.ui.component.AppNotice.show(if (ok > 0) "已存 $ok 張到相簿" else "存相簿失敗，改用分享試試")
+                                                }
                                             }
                                         },
                                     )
+                                    ImagineChip(
+                                        label = "分享",
+                                        icon = "share",
+                                        variant = ChipVariant.Tonal,
+                                        onClick = {
+                                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                                MediaExporter.share(ctx, resultUrls.first(), isVideo = false)
+                                            }
+                                        },
+                                    )
+                                    ImagineChip(
+                                        label = "編輯",
+                                        icon = "edit",
+                                        variant = ChipVariant.Tonal,
+                                        onClick = { onEditImage(resultUrls.first(), lastPrompt) },
+                                    )
+                                    ImagineChip(
+                                        label = "動起來",
+                                        icon = "movie",
+                                        variant = ChipVariant.Tonal,
+                                        onClick = { onAnimateImage(resultUrls.first(), lastPrompt) },
+                                    )
+                                }
+                                // 一鍵把整批結果存成「角色資產」(名字+定妝圖組;之後生成可一鍵帶入
+                                // 整組當參考圖,角色一致性)。同時標進素材庫「角色」分類。
+                                ImagineChip(
+                                    label = "🎭 存成角色資產",
+                                    icon = "star",
+                                    variant = ChipVariant.Tonal,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                    onClick = {
+                                        // 先跟帳本對帳回填(切頁期間完成的存檔只在帳本裡)
+                                        val filled = savedNames.mapIndexed { i, n ->
+                                            n.ifEmpty { batchPrefs.getString("b${batchToken}_$i", "") ?: "" }
+                                        }
+                                        if (filled != savedNames) savedNames = filled
+                                        // 全批存好才能開命名對話框 — 部分完成就寫入會漏圖進角色
+                                        val done = filled.count { it.isNotEmpty() }
+                                        if (filled.isEmpty() || done < filled.size) {
+                                            Toast.makeText(ctx, "圖片儲存中($done/${filled.size}),請稍候再試", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            saveCharacterNames = filled  // 快照,對話框開著時不受新批影響
+                                        }
+                                    },
+                                )
+                                Text(
+                                    text = "或設為其他分類",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.W600,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    MaterialLibrary.CATEGORIES.forEach { c ->
+                                        ImagineChip(
+                                            label = c,
+                                            variant = ChipVariant.Tonal,
+                                            onClick = {
+                                                val names = savedNames.filter { it.isNotEmpty() }
+                                                if (names.isEmpty()) {
+                                                    Toast.makeText(ctx, "圖片儲存中,請稍候再試", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    names.forEach { MaterialLibrary.setCategory(ctx, it, c) }
+                                                    Toast.makeText(ctx, "已把 ${names.size} 張設為「$c」素材", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }

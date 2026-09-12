@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,8 +80,10 @@ fun PromptInput(
     var showTemplateSheet by remember { mutableStateOf(false) }
     var showApplyTemplate by remember { mutableStateOf(false) }
     var showAdvisorSheet by remember { mutableStateOf(false) }
-    // 使用範本/插入片語後，下一次獲焦時略過「自動全選」，讓使用者能就地編輯方括號
-    var suppressSelectAllOnce by remember { mutableStateOf(false) }
+    // 工具列「更多」選單(複製 / 提示詞檢查 / 下一個待填欄位)
+    var showMoreMenu by remember { mutableStateOf(false) }
+    // 套用範本時欄位已有內容 → 先問「取代 / 加入末尾 / 取消」,不再靜默覆蓋(UI_REDESIGN_PLAN 1.5)
+    var pendingTemplate by remember { mutableStateOf<String?>(null) }
     // 範本「使用」後，待 sheet 關閉再聚焦輸入框
     var pendingFocus by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
@@ -108,13 +112,23 @@ fun PromptInput(
         }
     }
 
-    // 範本「使用」— 整段填入,游標移到尾、不全選,並待 sheet 關閉後聚焦
-    fun applyTemplate(text: String) {
+    // 整段填入,游標移到尾,並待 sheet 關閉後聚焦
+    fun setWholeText(text: String) {
         val clipped = if (text.length > maxChars) text.take(maxChars) else text
         tfValue = TextFieldValue(clipped, selection = TextRange(clipped.length))
         onValueChange(clipped)
-        suppressSelectAllOnce = true
         pendingFocus = true
+    }
+
+    // 範本「使用」— 欄位空白直接填入;已有內容則先問取代 / 加入末尾(不靜默覆蓋)
+    fun applyTemplate(text: String) {
+        if (tfValue.text.isBlank()) setWholeText(text) else pendingTemplate = text
+    }
+
+    // 「加入末尾」:既有內容 + 換行 + 範本
+    fun appendTemplate(text: String) {
+        val cur = tfValue.text.trimEnd()
+        setWholeText(if (cur.isEmpty()) text else "$cur\n$text")
     }
 
     // 片語庫 — 在目前游標處插入,前面已有內容且非標點時補一個「，」分隔
@@ -132,7 +146,6 @@ fun PromptInput(
         }
         tfValue = TextFieldValue(newText, selection = TextRange(start + ins.length))
         onValueChange(newText)
-        suppressSelectAllOnce = true
         // B3: 記錄最近用過 (去重置頂, 上限 6)
         val recent = prefs.recentSnippets.toMutableList()
         recent.remove(snippet)
@@ -149,7 +162,6 @@ fun PromptInput(
         val clipped = if (replaced.length > maxChars) replaced.take(maxChars) else replaced
         tfValue = TextFieldValue(clipped, selection = TextRange(clipped.length))
         onValueChange(clipped)
-        suppressSelectAllOnce = true
     }
 
     // 片語庫「智慧插入」: 若 prompt 內已有同一類型(同欄位)的詞 → 換掉它避免衝突
@@ -180,16 +192,16 @@ fun PromptInput(
     }
 
     // B1: 跳到下一個【…】佔位符並選取,直接打字覆蓋;到底繞回第一個。
+    val placeholderCount = remember(value) { Regex("【[^】]*】").findAll(value).count() }
     fun jumpToNextPlaceholder() {
         val text = tfValue.text
         val cursor = tfValue.selection.end.coerceIn(0, text.length)
         val matches = Regex("【[^】]*】").findAll(text).toList()
         if (matches.isEmpty()) {
-            Toast.makeText(ctx, "沒有【】可填", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, "沒有待填欄位", Toast.LENGTH_SHORT).show()
             return
         }
         val next = matches.firstOrNull { it.range.first >= cursor } ?: matches.first()
-        suppressSelectAllOnce = true
         tfValue = tfValue.copy(selection = TextRange(next.range.first, next.range.last + 1))
         pendingFocus = true
     }
@@ -222,19 +234,43 @@ fun PromptInput(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 空白 → 出「套用範本(填現成的再改)」+「自己組(從零組)」;有內容 → 出「複製 + 建議」。
-                if (value.isBlank()) {
-                    PromptToolChip(icon = "content_paste", label = "套用範本") { showApplyTemplate = true }
-                    PromptToolChip(icon = "auto_awesome", label = "自己組") { showTemplateSheet = true }
-                } else {
-                    PromptToolChip(icon = "content_copy", label = "複製") {
-                        Clipboard.copy(ctx, value, toastMsg = "已複製提示詞")
+                // 常駐「套用範本」「自己組」;有內容時其餘工具(複製 / 提示詞檢查 / 下一個待填欄位)
+                // 收進右側「更多」選單(UI_REDESIGN_PLAN 1.5)
+                PromptToolChip(icon = "content_paste", label = "套用範本") { showApplyTemplate = true }
+                PromptToolChip(icon = "auto_awesome", label = "自己組") { showTemplateSheet = true }
+                if (value.isNotBlank()) {
+                    Box {
+                        ImagineIconButton(
+                            name = "more_vert",
+                            size = 20.dp,
+                            tint = MaterialTheme.colorScheme.primary,
+                            onClick = { showMoreMenu = true },
+                        )
+                        DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("複製提示詞") },
+                                leadingIcon = { ImagineIcon(name = "content_copy", size = 18.dp) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    Clipboard.copy(ctx, value, toastMsg = "已複製提示詞")
+                                },
+                            )
+                            // 五要素涵蓋數是「文字完整性檢查」,不是品質評分 — 文案改「提示詞檢查」
+                            DropdownMenuItem(
+                                text = { Text("提示詞檢查（$coverage/5）") },
+                                leadingIcon = { ImagineIcon(name = "lightbulb", size = 18.dp) },
+                                onClick = { showMoreMenu = false; showAdvisorSheet = true },
+                            )
+                            // B1: 只有當內容含【】(套了範本/擴寫) 才顯示
+                            if (placeholderCount > 0) {
+                                DropdownMenuItem(
+                                    text = { Text("下一個待填欄位（還有 $placeholderCount 處）") },
+                                    leadingIcon = { ImagineIcon(name = "edit", size = 18.dp) },
+                                    onClick = { showMoreMenu = false; jumpToNextPlaceholder() },
+                                )
+                            }
+                        }
                     }
-                    PromptToolChip(icon = "lightbulb", label = "建議 $coverage/5") { showAdvisorSheet = true }
-                }
-                // B1: 只有當內容含【】(套了範本/擴寫) 才顯示「跳格」
-                if (value.contains("【")) {
-                    PromptToolChip(icon = "edit", label = "跳格") { jumpToNextPlaceholder() }
                 }
             }
         }
@@ -270,19 +306,11 @@ fun PromptInput(
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
                     .onFocusChanged {
-                        val wasFocused = focused
                         focused = it.isFocused
+                        // 獲焦只把輸入框帶到鍵盤上方;不再自動全選(UI_REDESIGN_PLAN 1.5),
+                        // 全選交給原生文字選單,避免點一下就把整段蓋掉。
                         if (it.isFocused) {
                             scope.launch { bringIntoView.bringIntoView() }
-                            // 剛獲焦 + 有內容 → 全選,方便直接覆蓋(打字/貼上不混舊)。
-                            // 但若剛「使用範本/插入片語」,suppressSelectAllOnce 會略過這次全選,
-                            // 讓游標待命就地編輯而非整段被選起來
-                            if (!wasFocused && tfValue.text.isNotEmpty() && !suppressSelectAllOnce) {
-                                tfValue = tfValue.copy(
-                                    selection = TextRange(0, tfValue.text.length)
-                                )
-                            }
-                            suppressSelectAllOnce = false
                         }
                     },
                 textStyle = TextStyle(
@@ -334,6 +362,28 @@ fun PromptInput(
                         .padding(top = 4.dp),
                 )
             }
+        }
+
+        // 套用範本但欄位已有內容 → 取代 / 加入末尾 / 取消
+        pendingTemplate?.let { tpl ->
+            AlertDialog(
+                onDismissRequest = { pendingTemplate = null },
+                title = { Text("提示詞已有內容", fontWeight = FontWeight.W700) },
+                text = {
+                    Text(
+                        "要用範本取代目前的內容，還是接在後面？",
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                    )
+                },
+                confirmButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { pendingTemplate = null; appendTemplate(tpl) }) { Text("加入末尾") }
+                        TextButton(onClick = { pendingTemplate = null; setWholeText(tpl) }) { Text("取代") }
+                    }
+                },
+                dismissButton = { TextButton(onClick = { pendingTemplate = null }) { Text("取消") } },
+            )
         }
 
         if (showTemplateSheet) {

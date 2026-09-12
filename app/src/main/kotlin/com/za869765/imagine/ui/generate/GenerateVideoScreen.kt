@@ -8,7 +8,6 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -86,12 +85,17 @@ import com.za869765.imagine.data.storage.MediaSaver
 import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
-import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.OutlinedActionButton
+import com.za869765.imagine.ui.component.GenerateSettingsSummary
+import com.za869765.imagine.ui.component.ModeOption
+import com.za869765.imagine.ui.component.ModePicker
 import com.za869765.imagine.ui.component.ParamPicker
+import com.za869765.imagine.ui.component.SourceSlot
+import com.za869765.imagine.ui.component.aspectLabel
+import com.za869765.imagine.ui.component.describeVideoSettings
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.ChipVariant
 import com.za869765.imagine.ui.component.ConfirmHighRiskDialog
@@ -447,19 +451,75 @@ fun GenerateVideoScreen(
         }
     }
 
-    // 組合延長 = 進階獨立頁:返回鍵 + 不顯示底欄(不歸屬素材生成 tab)。一般影片頁照舊。
+    // 組合延長 = 進階獨立頁:返回鍵 + 不顯示底欄(不歸屬素材生成 tab)。
+    // UI_REDESIGN_PLAN 1.3:組合延長不再是獨立 UI 分支,而是「製作方式鎖定 + 尾格來源鎖定」的同一流程。
     val isCombineExtend = initialExtendBase != null
+    val isEditFn = videoFn == "extend" || videoFn == "edit"
+    // 修改/延長影片模式:EditPane 把主按鈕狀態交給 handle,由底部 slot 渲染(位置固定)
+    val editHandle = com.za869765.imagine.ui.edit.rememberEditActionHandle()
+
+    // 製作方式清單(UI_REDESIGN_PLAN 1.2):id 對應既有 videoFn + VideoMode;
+    // OpenRouter 不支援的方式直接不列(圖生影依模型 frameImages;延長/修改只有 xAI 有 API)。
+    val modeOptions = if (isCombineExtend) {
+        listOf(ModeOption("combine", "組合延長", "用原片尾格當起點生成續集，完成後自動接成一支長片"))
+    } else {
+        buildList {
+            add(ModeOption("t2v", "文字生成影片", "只用提示詞生成新影片"))
+            if (provider == ApiProvider.XAI || modelInfo?.frameImages == true) {
+                add(ModeOption("i2v", "圖片動起來", "以一張圖片為起始格生成影片"))
+            }
+            add(ModeOption("ref2v", "參考圖生影", "多張參考圖鎖角色／場景，不會被當成第一幀"))
+            if (provider == ApiProvider.XAI) {
+                add(ModeOption("extend", "延長影片", "從影片尾格續接，生成後面的內容"))
+                add(ModeOption("edit", "修改影片", "依說明改動既有影片的內容"))
+            }
+        }
+    }
+    val currentModeId = when {
+        isCombineExtend -> "combine"
+        videoFn == "extend" -> "extend"
+        videoFn == "edit" -> "edit"
+        mode == VideoMode.Img2Vid -> "i2v"
+        mode == VideoMode.Ref2Vid -> "ref2v"
+        else -> "t2v"
+    }
+    val modeFootnote = when {
+        provider != ApiProvider.OPENROUTER -> null
+        modelInfo?.frameImages == true ->
+            "此模型可用圖片動起來；參考圖生影僅部分 OpenRouter 模型支援(Wan/Seedance/Kling 等),不支援會回錯誤。延長/修改影片只有 xAI 提供。"
+        else -> "此模型不支援圖片動起來(首幀),已隱藏；參考圖生影僅部分模型支援,不支援會回錯誤。延長/修改影片只有 xAI 提供。"
+    }
+
+    // 組合延長:解析度自動沿用原片高度(自動串接需同解析度,否則 MediaMuxer 合成失敗→只剩兩段)
+    if (initialExtendBase != null) {
+        LaunchedEffect(initialExtendBase) {
+            val h = withContext(Dispatchers.IO) {
+                val r = android.media.MediaMetadataRetriever()
+                try {
+                    r.setDataSource(ctx, Uri.parse(initialExtendBase))
+                    r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                        ?.toIntOrNull()
+                } catch (_: Throwable) {
+                    null
+                } finally {
+                    runCatching { r.release() }
+                }
+            }
+            if (h != null) resolution = if (h >= 720) "720p" else "480p"
+        }
+    }
+
     ImagineScreen(
         appBar = {
             if (isCombineExtend) {
                 ImagineTopAppBar(
-                    title = "🔗 組合延長",
+                    title = "組合延長",
                     showBack = true,
                     onBackClick = { onBack?.invoke() },
                     trailing = { Box(modifier = Modifier.size(40.dp)) },
                 )
             } else {
-                ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick)
+                ImagineTopAppBar(title = "生成影片", onSettingsClick = onSettingsClick)
             }
         },
         bottomNav = if (isCombineExtend) {
@@ -468,6 +528,37 @@ fun GenerateVideoScreen(
             { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) }
         },
         scrollState = scrollState,
+        // UI_REDESIGN_PLAN 1.6:主按鈕固定底部,文案依製作方式
+        bottomAction = {
+            if (isEditFn) {
+                val label = if (videoFn == "extend") "延長影片" else "修改影片"
+                PrimaryButton(
+                    label = if (editHandle.loading) "處理中…" else label,
+                    icon = if (editHandle.loading) null else "edit",
+                    loading = editHandle.loading,
+                    enabled = editHandle.enabled,
+                    onClick = { editHandle.execute() },
+                )
+            } else {
+                // 空白 prompt 仍可送 — 若 initialPrompt 帶進來就用它生成
+                val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
+                PrimaryButton(
+                    label = when {
+                        generating -> "生成中…"
+                        isCombineExtend -> "生成續集並接成長片"
+                        else -> "生成影片"
+                    },
+                    icon = if (generating) null else "movie",
+                    loading = generating,
+                    enabled = hasPrompt && !generating && prefs.hasKeyFor(provider) &&
+                        (!isCombineExtend || sourceImages.isNotEmpty()),
+                    onClick = {
+                        val term = firstHighRiskTerm(prompt)
+                        if (term != null) pendingRiskTerm = term else runGenerate()
+                    },
+                )
+            }
+        },
     ) {
         Column(
             modifier = Modifier
@@ -475,39 +566,42 @@ fun GenerateVideoScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // A2: 組合延長專屬精簡流程 — 不進完整圖生影頁,只露尾格+新提示詞+一鍵生成。
-            // 尾格已由 VideoFramePicker 帶入為來源圖;成功後 VideoPollWorker 依 initialExtendBase
-            // 自動把「原片+續集」串成一支長片存進歷史(組合延長)。
-            if (initialExtendBase != null) {
-                // 解析度自動沿用原片高度(自動串接需同解析度,否則 MediaMuxer 合成失敗→只剩兩段)
-                LaunchedEffect(initialExtendBase) {
-                    val h = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        val r = android.media.MediaMetadataRetriever()
-                        try {
-                            r.setDataSource(ctx, android.net.Uri.parse(initialExtendBase))
-                            r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
-                                ?.toIntOrNull()
-                        } catch (_: Throwable) {
-                            null
-                        } finally {
-                            runCatching { r.release() }
+            if (!isCombineExtend) {
+                // v1.8.0 L1 三段:對話｜生圖｜生影
+                SegmentedTab(
+                    options = listOf(
+                        SegmentedOption("chat", "對話"),
+                        SegmentedOption("image", "生圖"),
+                        SegmentedOption("video", "生影"),
+                    ),
+                    activeId = "video",
+                    onSelected = {
+                        when (it) {
+                            "image" -> onSwitchToImage()
+                            "chat" -> onSwitchToChat()
                         }
+                    },
+                    activeColor = Color(0xFF14463F),
+                )
+            }
+
+            // 製作方式 N 選 1(取代橫滑 ModePill 列);組合延長時鎖定不可改
+            ModePicker(
+                options = modeOptions,
+                selectedId = currentModeId,
+                onSelect = { id ->
+                    when (id) {
+                        "extend" -> videoFn = "extend"
+                        "edit" -> videoFn = "edit"
+                        "i2v" -> { videoFn = "gen"; mode = VideoMode.Img2Vid }
+                        "ref2v" -> { videoFn = "gen"; mode = VideoMode.Ref2Vid }
+                        else -> { videoFn = "gen"; mode = VideoMode.T2V }
                     }
-                    if (h != null) resolution = if (h >= 720) "720p" else "480p"
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF0F5E57))
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                ) {
-                    Text(
-                        text = "🔗  組合延長",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.W700,
-                        color = Color.White,
-                    )
-                }
+                },
+                footnote = modeFootnote,
+                enabled = !isCombineExtend,
+            )
+            if (isCombineExtend) {
                 ImagineCard(pad = 14) {
                     Text(
                         "用原片尾格當起點,輸入新提示詞生成「續集」。完成後會自動把『原片 + 續集』接成一支長片,存到歷史的「組合延長」,不必再手動拼接。",
@@ -516,236 +610,67 @@ fun GenerateVideoScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                sourceImages.firstOrNull()?.let { uri ->
-                    SectionHeader("尾格（續接起點）")
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SelectedImageSlot(uri = uri)
-                    }
-                }
-                PromptInput(
-                    value = prompt,
-                    onValueChange = { prompt = it },
-                    placeholder = "描述續集要怎麼動…(例:轉身拔劍、鏡頭拉遠)",
-                    minHeight = 88,
-                    flagged = lastErrorIsPolicy,
-                    forVideo = true,
-                    videoHasImage = true,
-                    videoSourcePrompt = initialPrompt,
-                )
-                ParamPicker(
-                    label = "秒數",
-                    value = duration.toString(),
-                    options = (1..15).map { it.toString() },
-                    onSelect = { duration = it.toIntOrNull() ?: 5 },
-                    displayName = { "$it 秒" },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    "解析度自動沿用原片（$resolution）— 自動串接需與原片同解析度才能接成一支",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (generating) {
-                    ImagineCard(pad = 24) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(48.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                strokeWidth = 4.dp,
-                            )
-                            Text(
-                                "續集生成中…完成會自動接成長片",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.W600,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            val estSec = (30 + duration * 8).coerceIn(30, 180)
-                            val pct = ((elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) * 100).toInt()
-                            // 大字 = 估算完成百分比(主);經過秒數縮成小字
-                            Text(
-                                "$pct%",
-                                fontSize = 36.sp,
-                                fontWeight = FontWeight.W700,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                "已 ${"%d:%02d".format(elapsed / 60, elapsed % 60)}（估算,非真實完成率）",
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            LinearProgressIndicator(
-                                progress = { pct / 100f },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                "⚠️ 請勿從「最近應用程式」滑掉 Imagine,否則背景生成與串接會中斷",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                        }
-                    }
-                } else {
-                    val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
-                    PrimaryButton(
-                        label = "生成續集 → 自動接成長片",
-                        icon = "movie",
-                        enabled = hasPrompt && sourceImages.isNotEmpty() && prefs.hasKeyFor(provider),
-                        onClick = {
-                            val term = firstHighRiskTerm(prompt)
-                            if (term != null) pendingRiskTerm = term else runGenerate()
-                        },
-                    )
-                }
-                pendingRiskTerm?.let { term ->
-                    ConfirmHighRiskDialog(
-                        term = term,
-                        onConfirm = { pendingRiskTerm = null; runGenerate() },
-                        onDismiss = { pendingRiskTerm = null },
-                    )
-                }
-                if (lastError.isNotBlank()) {
-                    ImagineCard(pad = 12) {
-                        Text(
-                            lastError,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-                resultVideoUrl?.let { url ->
-                    Text(
-                        text = "✅ 續集已生成 — 長片已自動接好,去歷史找「組合延長」",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.W600,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    ImagineCard(pad = 0) {
-                        VideoPreview(
-                            url = url,
-                            gen = resultVideoGen,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 280.dp, max = 480.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                        )
-                    }
-                }
-                return@Column
             }
 
-            // v1.8.0 L1 三段:對話｜生圖｜生影
-            SegmentedTab(
-                options = listOf(
-                    SegmentedOption("chat", "對話"),
-                    SegmentedOption("image", "生圖"),
-                    SegmentedOption("video", "生影"),
-                ),
-                activeId = "video",
-                onSelected = {
-                    when (it) {
-                        "image" -> onSwitchToImage()
-                        "chat" -> onSwitchToChat()
-                    }
-                },
-                activeColor = Color(0xFF14463F),
-            )
-
-            // 模式 4 選 1:單排可橫滑膠囊(取代原兩排各 2 段+「只有一排高亮」的妥協,痛點 #1)
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                SectionHeader(if (provider == ApiProvider.OPENROUTER) "模式・3 選 1" else "模式・5 選 1")
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ModePill("文生影", videoFn == "gen" && mode == VideoMode.T2V) {
-                        videoFn = "gen"; mode = VideoMode.T2V
-                    }
-                    // 圖生影(首幀):OpenRouter 依模型 supported_frame_images 含 first_frame 才顯示
-                    if (provider == ApiProvider.XAI || modelInfo?.frameImages == true) {
-                        ModePill("圖生影", videoFn == "gen" && mode == VideoMode.Img2Vid) {
-                            videoFn = "gen"; mode = VideoMode.Img2Vid
-                        }
-                    }
-                    ModePill("參考圖生影", videoFn == "gen" && mode == VideoMode.Ref2Vid) {
-                        videoFn = "gen"; mode = VideoMode.Ref2Vid
-                    }
-                    // 影片延長 / 影片編輯 只有 xAI 有 API;OpenRouter 模式下不顯示
-                    if (provider == ApiProvider.XAI) {
-                        ModePill("影片延長", videoFn == "extend") { videoFn = "extend" }
-                        ModePill("影片編輯", videoFn == "edit") { videoFn = "edit" }
-                    }
-                }
-                if (provider == ApiProvider.OPENROUTER) {
+            if (!prefs.hasKeyFor(provider)) {
+                ImagineCard(pad = 14, onClick = onSettingsClick) {
                     Text(
-                        text = if (modelInfo?.frameImages == true)
-                            "參考圖生影(input_references)僅部分 OpenRouter 模型支援(Wan/Seedance/Kling 等),不支援會回錯誤。"
-                        else "此模型不支援圖生影(首幀);參考圖生影僅部分模型支援,不支援會回錯誤。",
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        "未設定 ${provider.label} API Key — 點此到設定填入／匯入備份,或在模型清單改選另一家的模型",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        lineHeight = 19.sp,
                     )
                 }
             }
 
-            // 影片延長 / 影片編輯 → 內嵌 EditPane(自帶來源選取/執行/結果),其餘生成 UI 不渲染。
-            // 同頁同時只渲染一個 EditPane,故 worker observer 不會與生成流程衝突。
-            if (videoFn == "extend" || videoFn == "edit") {
+            if (isEditFn) {
+                // 影片延長 / 影片編輯 → 內嵌 EditPane(自帶來源選取/執行/結果);主按鈕交 editHandle 到底部 slot。
+                // 同頁同時只渲染一個 EditPane,故 worker observer 不會與生成流程衝突。
                 com.za869765.imagine.ui.edit.EditPane(
                     mode = if (videoFn == "extend")
                         com.za869765.imagine.ui.edit.EditMode.VideoExtend
                     else
                         com.za869765.imagine.ui.edit.EditMode.VideoEdit,
+                    handle = editHandle,
                 )
-                return@Column
-            }
-
-            if (mode != VideoMode.T2V) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionHeader(
-                        if (mode == VideoMode.Ref2Vid) "參考圖（可多張，不會被當成第一幀）" else "起始圖",
+            } else {
+                if (mode != VideoMode.T2V) {
+                    // 來源區(UI_REDESIGN_PLAN 1.3):需要時才出現;組合延長尾格鎖定不可更換
+                    SourceSlot(
+                        title = when {
+                            isCombineExtend -> "尾格（續接起點）"
+                            mode == VideoMode.Ref2Vid -> "參考圖（可多張，不會被當成第一幀）"
+                            else -> "起始圖"
+                        },
+                        uris = sourceImages,
+                        maxCount = maxImages,
+                        emptyHint = "點此從素材庫或手機相簿選取",
+                        onPick = { showLibraryPicker = true },
+                        onRemove = { index ->
+                            sourceImageStrings = sourceImageStrings
+                                .toMutableList()
+                                .also { if (index < it.size) it.removeAt(index) }
+                        },
+                        locked = isCombineExtend,
+                        note = if (isCombineExtend) "解析度自動沿用原片（$resolution）— 自動串接需與原片同解析度才能接成一支" else null,
+                        extra = if (mode == VideoMode.Ref2Vid && !isCombineExtend) {
+                            {
+                                // 參考圖生影:一鍵帶入「角色資產」整組定妝圖(鎖臉/鎖造型,角色一致性)
+                                ImagineChip(
+                                    label = "🎭 帶入角色定妝圖",
+                                    icon = "star",
+                                    variant = ChipVariant.Tonal,
+                                    onClick = { showCharacterPicker = true },
+                                )
+                            }
+                        } else null,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        sourceImages.forEachIndexed { index, uri ->
-                            SelectedImageSlot(
-                                uri = uri,
-                                onRemove = {
-                                    sourceImageStrings = sourceImageStrings
-                                        .toMutableList()
-                                        .also { it.removeAt(index) }
-                                },
-                            )
-                        }
-                        if (sourceImages.size < maxImages) {
-                            // 點＋直接開素材庫 picker sheet(內含「從手機相簿選」入口 + 素材庫縮圖)
-                            AddImageSlot(onClick = { showLibraryPicker = true })
-                        }
-                    }
-                    // 參考圖生影:一鍵帶入「角色資產」整組定妝圖(鎖臉/鎖造型,角色一致性)
-                    if (mode == VideoMode.Ref2Vid) {
-                        ImagineChip(
-                            label = "🎭 帶入角色定妝圖",
-                            icon = "star",
-                            variant = ChipVariant.Tonal,
-                            modifier = Modifier.padding(top = 4.dp),
-                            onClick = { showCharacterPicker = true },
-                        )
-                    }
-                    // 起始圖 / 參考圖常駐 chip — Grok 風格：原圖跟 prompt 永遠能拿走，
+                    // 起始圖 / 參考圖常駐 chip — Grok 風格:原圖跟 prompt 永遠能拿走,
                     // 不論還沒生成 / 生成中 / 成功 / 400 失敗。
                     if (sourceImages.isNotEmpty()) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(top = 4.dp),
                         ) {
                             if (prompt.isNotBlank()) {
                                 ImagineChip(
@@ -766,227 +691,230 @@ fun GenerateVideoScreen(
                         }
                     }
                 }
-            }
 
-            PromptInput(
-                value = prompt,
-                onValueChange = { prompt = it },
-                placeholder = "描述要怎麼動...",
-                minHeight = 88,
-                flagged = lastErrorIsPolicy,
-                forVideo = true,
-                // 圖生影模式 → 「套用範本」改出純動作範本;傳來源圖原 prompt 供半智能排序
-                videoHasImage = mode == VideoMode.Img2Vid || mode == VideoMode.Ref2Vid,
-                videoSourcePrompt = initialPrompt,
-            )
+                PromptInput(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    placeholder = if (isCombineExtend) "描述續集要怎麼動…(例:轉身拔劍、鏡頭拉遠)" else "描述要怎麼動...",
+                    minHeight = 88,
+                    flagged = lastErrorIsPolicy,
+                    forVideo = true,
+                    // 圖生影模式 → 「套用範本」改出純動作範本;傳來源圖原 prompt 供半智能排序
+                    videoHasImage = mode == VideoMode.Img2Vid || mode == VideoMode.Ref2Vid,
+                    videoSourcePrompt = initialPrompt,
+                )
 
-            // v1.8.0 模型列(價格 / 免費標記)+ 參數選項依模型
-            ModelPickerRow(
-                mode = ModelMode.VIDEO,
-                selectedId = videoModel,
-                onSelect = { videoModel = it; prefs.videoModel = it },
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ParamPicker(
-                    label = "秒數",
-                    value = effDuration.toString(),
-                    options = durationOptions.map { it.toString() },
-                    onSelect = { duration = it.toIntOrNull() ?: 5 },
-                    displayName = { "$it 秒" },
-                    modifier = Modifier.weight(1f),
+                // v1.8.0 模型列(價格 / 免費標記)+ 參數選項依模型
+                ModelPickerRow(
+                    mode = ModelMode.VIDEO,
+                    selectedId = videoModel,
+                    onSelect = { videoModel = it; prefs.videoModel = it },
                 )
-                ParamPicker(
-                    label = "長寬比",
-                    value = effAspect,
-                    options = aspectOptions,
-                    onSelect = { aspect = it },
-                    modifier = Modifier.weight(1f),
-                )
-                ParamPicker(
-                    label = "解析度",
-                    value = effResolution,
-                    options = resolutionOptions,
-                    onSelect = { resolution = it },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            if (generating) {
-                ImagineCard(pad = 24) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(48.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 4.dp,
-                        )
-                        Text(
-                            "影片生成中…",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        // B3: 估算進度 — 依秒數粗估,非 xAI 真實完成率;封頂 97% 等實際完成。
-                        // 大字 = 估算完成 %(主),經過秒數縮成小字。
-                        val estSec = (30 + duration * 8).coerceIn(30, 180)
-                        val pct = ((elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) * 100).toInt()
-                        Text(
-                            "$pct%",
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.W700,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            "已 ${"%d:%02d".format(elapsed / 60, elapsed % 60)} · 預估約 $estSec 秒（估算,非真實完成率）;可切背景/鎖屏,完成發通知",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                        LinearProgressIndicator(
-                            progress = { pct / 100f },
-                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                        )
-                        // v1.0.54 (c): 提醒 user 別從最近應用滑掉，否則 process 死 worker 中斷
-                        Text(
-                            "⚠️ 請勿從「最近應用程式」往上滑掉 Imagine，否則背景工作會中斷",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                        // v1.0.55: 砍「取消生成」按鈕 — xAI 沒提供 cancel API，credits 已扣
-                        // 仍會跑完，imagine 端取消只是「停止本地等待」對 user 沒實質意義。
-                        // 不顯示按鈕讓 user 自然等完 (完成會發系統通知)。
-                    }
+                // 參數收成一列摘要,點擊展開(UI_REDESIGN_PLAN 1.4);組合延長只能改秒數(解析度沿用原片)
+                val settingsSummary = if (isCombineExtend) {
+                    "$effDuration 秒・解析度沿用原片（$resolution）"
+                } else {
+                    describeVideoSettings(effDuration, effAspect, effResolution)
                 }
-            } else {
-                // 空白 prompt 仍可送 — 若 initialPrompt 帶進來就用它生成
-                val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
-                PrimaryButton(
-                    label = "生 成",
-                    icon = "movie",
-                    enabled = hasPrompt && prefs.hasKeyFor(provider),
-                    onClick = {
-                        val term = firstHighRiskTerm(prompt)
-                        if (term != null) pendingRiskTerm = term else runGenerate()
-                    },
-                )
-            }
-
-            pendingRiskTerm?.let { term ->
-                ConfirmHighRiskDialog(
-                    term = term,
-                    onConfirm = { pendingRiskTerm = null; runGenerate() },
-                    onDismiss = { pendingRiskTerm = null },
-                )
-            }
-
-            if (lastError.isNotBlank()) {
-                val cardBg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.errorContainer
-                else MaterialTheme.colorScheme.surfaceContainerHigh
-                val cardFg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.onErrorContainer
-                else MaterialTheme.colorScheme.onSurface
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(cardBg, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                GenerateSettingsSummary(summary = settingsSummary) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        maxItemsInEachRow = 2,
                     ) {
-                        Text(
-                            text = lastError,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
-                            color = cardFg,
+                        ParamPicker(
+                            label = "秒數",
+                            value = effDuration.toString(),
+                            options = durationOptions.map { it.toString() },
+                            onSelect = { duration = it.toIntOrNull() ?: 5 },
+                            displayName = { "$it 秒" },
                             modifier = Modifier.weight(1f),
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            if (!generating && prompt.isNotBlank()) {
-                                ImagineChip(
-                                    label = "重試",
-                                    icon = "refresh",
-                                    variant = ChipVariant.Tonal,
-                                    onClick = { runGenerate() },
-                                )
-                            }
-                            ImagineChip(
-                                label = "清除",
-                                variant = ChipVariant.Tonal,
-                                onClick = { lastError = ""; lastErrorIsPolicy = false },
+                        if (!isCombineExtend) {
+                            ParamPicker(
+                                label = "長寬比",
+                                value = effAspect,
+                                options = aspectOptions,
+                                onSelect = { aspect = it },
+                                displayName = { aspectLabel(it) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            ParamPicker(
+                                label = "解析度",
+                                value = effResolution,
+                                options = resolutionOptions,
+                                onSelect = { resolution = it },
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }
                 }
-            }
 
-            resultVideoUrl?.let { url ->
-                Text(
-                    text = "上次結果",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.W600,
-                    letterSpacing = 0.08.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                ImagineCard(pad = 0) {
-                    Column {
-                        VideoPreview(
-                            url = url,
-                            gen = resultVideoGen,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 280.dp, max = 480.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                        )
+                if (generating) {
+                    ImagineCard(pad = 24) {
                         Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            // bug #4: prompt 區用 SelectionContainer 包起來可長按複製，不再截斷
-                            SelectionContainer {
-                                Text(
-                                    lastPrompt,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 4.dp,
+                            )
+                            Text(
+                                if (isCombineExtend) "續集生成中…完成會自動接成長片" else "影片生成中…",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            // B3: 估算進度 — 依秒數粗估,非 xAI 真實完成率;封頂 97% 等實際完成。
+                            // (Phase 2 改 GeneratingCard 真實階段後移除)
+                            val estSec = (30 + duration * 8).coerceIn(30, 180)
+                            val pct = ((elapsed.toFloat() / estSec).coerceIn(0.03f, 0.97f) * 100).toInt()
+                            Text(
+                                "$pct%",
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.W700,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "已 ${"%d:%02d".format(elapsed / 60, elapsed % 60)} · 預估約 $estSec 秒（估算,非真實完成率）;可切背景/鎖屏,完成發通知",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                            LinearProgressIndicator(
+                                progress = { pct / 100f },
+                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                            )
+                            // v1.0.54 (c): 提醒 user 別從最近應用滑掉,否則 process 死 worker 中斷
+                            Text(
+                                "⚠️ 請勿從「最近應用程式」往上滑掉 Imagine，否則背景工作會中斷",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                            // v1.0.55: 砍「取消生成」按鈕 — xAI 沒提供 cancel API,credits 已扣
+                            // 仍會跑完,imagine 端取消只是「停止本地等待」對 user 沒實質意義。
+                        }
+                    }
+                }
+
+                pendingRiskTerm?.let { term ->
+                    ConfirmHighRiskDialog(
+                        term = term,
+                        onConfirm = { pendingRiskTerm = null; runGenerate() },
+                        onDismiss = { pendingRiskTerm = null },
+                    )
+                }
+
+                if (lastError.isNotBlank()) {
+                    val cardBg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.errorContainer
+                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                    val cardFg = if (lastErrorIsPolicy) MaterialTheme.colorScheme.onErrorContainer
+                    else MaterialTheme.colorScheme.onSurface
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(cardBg, RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = lastError,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = cardFg,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (!generating && prompt.isNotBlank()) {
+                                    // 送出失敗 = 確定要建立新請求 → 「重新生成」(不叫「重試」,與查詢/下載重試區分)
+                                    ImagineChip(
+                                        label = "重新生成",
+                                        icon = "refresh",
+                                        variant = ChipVariant.Tonal,
+                                        onClick = { runGenerate() },
+                                    )
+                                }
+                                ImagineChip(
+                                    label = "清除",
+                                    variant = ChipVariant.Tonal,
+                                    onClick = { lastError = ""; lastErrorIsPolicy = false },
                                 )
                             }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                        }
+                    }
+                }
+
+                resultVideoUrl?.let { url ->
+                    Text(
+                        text = if (isCombineExtend) "✅ 續集已生成 — 長片已自動接好,去歷史找「組合延長」" else "上次結果",
+                        fontSize = if (isCombineExtend) 12.sp else 11.sp,
+                        fontWeight = FontWeight.W600,
+                        letterSpacing = 0.08.sp,
+                        color = if (isCombineExtend) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    ImagineCard(pad = 0) {
+                        Column {
+                            VideoPreview(
+                                url = url,
+                                gen = resultVideoGen,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 280.dp, max = 480.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                            )
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                TextActionButton(
-                                    label = "複製",
-                                    icon = "content_copy",
-                                    onClick = {
-                                        Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
-                                    },
-                                )
-                                TextActionButton(
-                                    label = "存到相簿",
-                                    icon = "download",
-                                    onClick = {
-                                        com.za869765.imagine.ImagineApp.appScope.launch {
-                                            val ok = MediaExporter.saveToGallery(ctx, url, isVideo = true)
-                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                com.za869765.imagine.ui.component.AppNotice.show(if (ok) "已存到相簿" else "存相簿失敗，改用分享試試")
+                                // bug #4: prompt 區用 SelectionContainer 包起來可長按複製,不再截斷
+                                SelectionContainer {
+                                    Text(
+                                        lastPrompt,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                                ) {
+                                    TextActionButton(
+                                        label = "複製",
+                                        icon = "content_copy",
+                                        onClick = {
+                                            Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製 prompt")
+                                        },
+                                    )
+                                    TextActionButton(
+                                        label = "存到相簿",
+                                        icon = "download",
+                                        onClick = {
+                                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                                val ok = MediaExporter.saveToGallery(ctx, url, isVideo = true)
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    com.za869765.imagine.ui.component.AppNotice.show(if (ok) "已存到相簿" else "存相簿失敗，改用分享試試")
+                                                }
                                             }
-                                        }
-                                    },
-                                )
-                                TextActionButton(
-                                    label = "分享",
-                                    icon = "share",
-                                    onClick = {
-                                        com.za869765.imagine.ImagineApp.appScope.launch {
-                                            MediaExporter.share(ctx, url, isVideo = true)
-                                        }
-                                    },
-                                )
+                                        },
+                                    )
+                                    TextActionButton(
+                                        label = "分享",
+                                        icon = "share",
+                                        onClick = {
+                                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                                MediaExporter.share(ctx, url, isVideo = true)
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -996,14 +924,18 @@ fun GenerateVideoScreen(
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(
                     onDismiss = { showLibraryPicker = false },
+                    onPick = { entry ->
+                        // 圖生影一次一張 → 直接取代來源;參考圖生影未達上限 → 新增(UI_REDESIGN_PLAN 1.3)
+                        sourceImageStrings = if (mode == VideoMode.Ref2Vid && sourceImageStrings.size < maxImages) {
+                            sourceImageStrings + entry.uri.toString()
+                        } else {
+                            listOf(entry.uri.toString())
+                        }
+                        showLibraryPicker = false
+                    },
                     onPickFromGallery = {
                         showLibraryPicker = false
                         launchPick()
-                    },
-                    onPick = { entry ->
-                        // 圖生影一次一張 → 直接取代來源；用 app 生成的 file URI(xAI 可解析)
-                        sourceImageStrings = listOf(entry.uri.toString())
-                        showLibraryPicker = false
                     },
                 )
             }
@@ -1133,82 +1065,4 @@ private fun VideoPreview(url: String, gen: Int = 0, modifier: Modifier = Modifie
         update = { it.player = player },
         modifier = modifier,
     )
-}
-
-@Composable
-private fun AddImageSlot(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(80.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        ImagineIcon(
-            name = "add_photo_alternate",
-            size = 28.dp,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-// 影片模式 4 選 1 膠囊(青綠 active + check)。
-@Composable
-private fun ModePill(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(100.dp))
-            .background(if (selected) Color(0xFF16433D) else Color.Transparent)
-            .border(
-                1.dp,
-                if (selected) Color(0xFF56E0D2).copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline,
-                RoundedCornerShape(100.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 15.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
-        if (selected) {
-            ImagineIcon(name = "check", size = 15.dp, fill = 1, tint = Color(0xFF7FE9DD))
-        }
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.W700 else FontWeight.W500,
-            color = if (selected) Color(0xFF7FE9DD) else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun SelectedImageSlot(uri: Uri, onRemove: (() -> Unit)? = null) {
-    Box(modifier = Modifier.size(80.dp)) {
-        AsyncImage(
-            model = uri,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(80.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-        )
-        // onRemove == null → 不顯示移除 X(組合延長尾格不可刪,避免無來源圖死路)
-        if (onRemove != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(11.dp))
-                    .clickable(onClick = onRemove),
-                contentAlignment = Alignment.Center,
-            ) {
-                ImagineIcon(name = "close", size = 14.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
 }

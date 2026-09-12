@@ -77,13 +77,36 @@ import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
 import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.firstHighRiskTerm
-import com.za869765.imagine.ui.component.SegmentedOption
-import com.za869765.imagine.ui.component.SegmentedTab
+import com.za869765.imagine.ui.component.ModeOption
+import com.za869765.imagine.ui.component.ModePicker
+import com.za869765.imagine.ui.component.SourceSlot
+import androidx.compose.runtime.SideEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 enum class EditMode { ImageEdit, VideoEdit, VideoExtend }
+
+/**
+ * EditActionHandle — 把 EditPane 的主按鈕狀態(可按/處理中/執行)交給外層,
+ * 讓 caller 在 ImagineScreen.bottomAction slot 渲染固定底部主按鈕(UI_REDESIGN_PLAN 1.6)。
+ * EditPane 收到 handle 時不再自己渲染 PrimaryButton,只在 SideEffect 更新 handle。
+ */
+class EditActionHandle {
+    var enabled by mutableStateOf(false)
+    var loading by mutableStateOf(false)
+    var execute: () -> Unit = {}
+}
+
+@Composable
+fun rememberEditActionHandle(): EditActionHandle = remember { EditActionHandle() }
+
+// 修改/延長頁製作方式(UI_REDESIGN_PLAN 1.2);id 沿用 EditScreen 的 modeStr 值
+val EDIT_MODE_OPTIONS = listOf(
+    ModeOption("img", "修改圖片", "以一張圖片為來源，依說明改動；可加角色參考鎖臉"),
+    ModeOption("vid", "修改影片", "依說明改動既有影片的內容"),
+    ModeOption("ext", "延長影片", "從影片尾格續接，生成後面的內容"),
+)
 
 /**
  * EditPane — 編輯/延長的「內容」本體：自帶 prompt/來源/loading/結果 等 state、
@@ -100,6 +123,8 @@ fun EditPane(
     initialMediaUri: Uri? = null,
     initialPrompt: String? = null,
     modifier: Modifier = Modifier,
+    // 非 null → 主按鈕由外層底部 slot 渲染,本 pane 只更新 handle
+    handle: EditActionHandle? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -305,86 +330,23 @@ fun EditPane(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionHeader("來源")
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-                    .clickable(onClick = launchPick),
-                contentAlignment = Alignment.Center,
-            ) {
-                val src = sourceUri
-                if (src != null) {
-                    if (mode == EditMode.ImageEdit) {
-                        AsyncImage(
-                            model = src,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
-                                .clip(RoundedCornerShape(16.dp)),
-                        )
-                    } else {
-                        VideoThumb(uri = src, modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(16.dp)))
-                    }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface)
-                            .clickable {
-                                sourceUriStr = null
-                                resultImageUrl = null
-                                resultVideoUrl = null
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ImagineIcon(
-                            name = "close", size = 18.dp,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ImagineIcon(
-                                name = "add_photo_alternate", size = 24.dp, fill = 1,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                        }
-                        Text(
-                            text = when (mode) {
-                                EditMode.ImageEdit -> "選擇圖片"
-                                else -> "選擇影片"
-                            },
-                            fontSize = 15.sp, fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            "點此從相簿選取",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
+        // 來源區統一用 SourceSlot(UI_REDESIGN_PLAN 1.3):已選顯示縮圖 + 更換/移除文字鈕
+        SourceSlot(
+            title = when (mode) {
+                EditMode.ImageEdit -> "來源圖片"
+                EditMode.VideoEdit -> "來源影片"
+                EditMode.VideoExtend -> "要延長的影片"
+            },
+            uris = listOfNotNull(sourceUri),
+            isVideo = mode != EditMode.ImageEdit,
+            emptyHint = "點此從相簿選取",
+            onPick = launchPick,
+            onRemove = {
+                sourceUriStr = null
+                resultImageUrl = null
+                resultVideoUrl = null
+            },
+        )
 
         // 角色參考(僅圖片編輯):帶入角色資產定妝圖鎖臉 — 來源當造型底、角色圖鎖臉,
         // 與來源共 3 張送 API(雙參考圖法)。
@@ -511,13 +473,29 @@ fun EditPane(
                     }
                 }
             }
-        } else {
-            // 空白 prompt 也可送 — 用 initialPrompt 兜底
-            val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
+        }
+        // 空白 prompt 也可送 — 用 initialPrompt 兜底
+        val hasPrompt = prompt.isNotBlank() || !initialPrompt.isNullOrBlank()
+        val canRun = hasPrompt && sourceUri != null && prefs.isApiKeySet
+        if (handle != null) {
+            // 主按鈕交給外層底部 slot(UI_REDESIGN_PLAN 1.6)
+            SideEffect {
+                handle.enabled = canRun && !loading
+                handle.loading = loading
+                handle.execute = {
+                    val term = firstHighRiskTerm(prompt)
+                    if (term != null) pendingRiskTerm = term else runExecute()
+                }
+            }
+        } else if (!loading) {
             PrimaryButton(
-                label = "執 行",
+                label = when (mode) {
+                    EditMode.ImageEdit -> "修改圖片"
+                    EditMode.VideoEdit -> "修改影片"
+                    EditMode.VideoExtend -> "延長影片"
+                },
                 icon = "edit",
-                enabled = hasPrompt && sourceUri != null && prefs.isApiKeySet,
+                enabled = canRun,
                 onClick = {
                     val term = firstHighRiskTerm(prompt)
                     if (term != null) pendingRiskTerm = term else runExecute()
@@ -672,9 +650,24 @@ fun EditScreen(
         }
     }
 
+    val handle = rememberEditActionHandle()
+    val title = when (mode) {
+        EditMode.ImageEdit -> "修改圖片"
+        EditMode.VideoEdit -> "修改影片"
+        EditMode.VideoExtend -> "延長影片"
+    }
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
+        appBar = { ImagineTopAppBar(title = title, onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
+        bottomAction = {
+            PrimaryButton(
+                label = if (handle.loading) "處理中…" else title,
+                icon = if (handle.loading) null else "edit",
+                loading = handle.loading,
+                enabled = handle.enabled,
+                onClick = { handle.execute() },
+            )
+        },
     ) {
         Column(
             modifier = Modifier
@@ -682,30 +675,18 @@ fun EditScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SegmentedTab(
-                options = listOf(
-                    SegmentedOption("img", "圖片編輯"),
-                    SegmentedOption("vid", "影片編輯"),
-                    SegmentedOption("ext", "影片延長"),
-                ),
-                activeId = when (mode) {
-                    EditMode.ImageEdit -> "img"
-                    EditMode.VideoEdit -> "vid"
-                    EditMode.VideoExtend -> "ext"
-                },
-                onSelected = {
-                    modeStr = when (it) {
-                        "img" -> "img"
-                        "vid" -> "vid"
-                        else -> "ext"
-                    }
-                },
+            // 製作方式 3 選 1(UI_REDESIGN_PLAN 1.2):與生成頁同款 ModePicker
+            ModePicker(
+                options = EDIT_MODE_OPTIONS,
+                selectedId = modeStr,
+                onSelect = { modeStr = it },
             )
             // EditPane 無自帶 padding,靠外層 Column 的 padding + spacedBy 提供節奏
             EditPane(
                 mode = mode,
                 initialMediaUri = initialMediaUri,
                 initialPrompt = initialPrompt,
+                handle = handle,
             )
         }
     }
@@ -740,12 +721,6 @@ private fun handleImageResult(
             Toast.makeText(ctx, tag, Toast.LENGTH_SHORT).show()
         }
     }
-}
-
-@Composable
-private fun VideoThumb(uri: Uri, modifier: Modifier = Modifier) {
-    // Show first frame using ExoPlayer paused for content uris too
-    EditVideoPreview(url = uri.toString(), modifier = modifier)
 }
 
 @Composable
