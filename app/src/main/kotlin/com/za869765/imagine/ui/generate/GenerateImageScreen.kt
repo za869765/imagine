@@ -84,6 +84,7 @@ import com.za869765.imagine.ui.component.firstHighRiskTerm
 import com.za869765.imagine.ui.theme.ImagineCustomShapes
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -149,7 +150,7 @@ fun GenerateImageScreen(
     LaunchedEffect(loading) {
         if (loading) {
             elapsed = 0
-            while (kotlinx.coroutines.isActive && loading) {
+            while (isActive && loading) {
                 kotlinx.coroutines.delay(1000)
                 elapsed++
             }
