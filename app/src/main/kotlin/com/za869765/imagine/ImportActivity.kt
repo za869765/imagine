@@ -53,7 +53,8 @@ class ImportActivity : Activity() {
         val prompt = extractPrompt(intent)
 
         scope.launch {
-            val saved = MediaImporter.importAll(this@ImportActivity, uris)
+            val result = MediaImporter.importAllDetailed(this@ImportActivity, uris)
+            val saved = result.saved
             // v1.0.48: 有 prompt 就寫進 PromptIndex，History 點進去看得到原 prompt
             if (!prompt.isNullOrBlank()) {
                 for (name in saved) {
@@ -62,11 +63,12 @@ class ImportActivity : Activity() {
             }
             withContext(Dispatchers.Main) {
                 val count = saved.size
+                // 成功與失敗數量都報,部分失敗不再只顯示籠統「匯入失敗」(UI_REDESIGN_PLAN 5.3)
+                val failedNote = if (result.failed > 0) "，${result.failed} 個失敗（格式不支援或讀取被拒）" else ""
                 Toast.makeText(
                     this@ImportActivity,
                     if (count > 0) {
-                        if (!prompt.isNullOrBlank()) "已匯入 $count 個檔到 Imagine (含 prompt)"
-                        else "已匯入 $count 個檔到 Imagine"
+                        (if (!prompt.isNullOrBlank()) "已匯入 $count 個檔到 Imagine (含 prompt)" else "已匯入 $count 個檔到 Imagine") + failedNote
                     } else "匯入失敗 (格式不支援或讀取被拒)",
                     Toast.LENGTH_LONG,
                 ).show()

@@ -35,6 +35,7 @@ enum class MediaAction(val label: String, val icon: String, val destructive: Boo
     EDIT_VIDEO("修改影片", "edit"),
     SAVE_TO_GALLERY("儲存到相簿", "download"),
     SHARE("分享", "share"),
+    SHARE_WITH_PROMPT("分享（附提示詞）", "share"),
     COPY_PROMPT("複製提示詞", "content_copy"),
     USE_PROMPT("套用提示詞", "check"),
     ADD_TO_LIBRARY("加入素材庫", "star"),

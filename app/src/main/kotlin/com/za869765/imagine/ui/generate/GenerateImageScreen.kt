@@ -698,6 +698,11 @@ fun GenerateImageScreen(
                                                 MediaExporter.share(ctx, resultUrls.first(), isVideo = false)
                                             }
                                         },
+                                        MediaActionItem(MediaAction.SHARE_WITH_PROMPT) {
+                                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                                MediaExporter.share(ctx, resultUrls.first(), isVideo = false, text = lastPrompt)
+                                            }
+                                        },
                                         MediaActionItem(MediaAction.COPY_PROMPT) {
                                             Clipboard.copy(ctx, lastPrompt, toastMsg = "已複製提示詞")
                                         },

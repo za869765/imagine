@@ -99,7 +99,6 @@ fun ApiKeyEditScreen(
                 trailing = { Box(modifier = Modifier.size(48.dp)) },
             )
         },
-        showBalanceBar = false,
         bottomNav = null,
     ) {
         Column(

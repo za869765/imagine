@@ -159,7 +159,6 @@ fun MaterialReviewScreen(
                 onSettingsClick = onSettingsClick,
             )
         },
-        showBalanceBar = false,
         bottomNav = null,
         scroll = false,
     ) {

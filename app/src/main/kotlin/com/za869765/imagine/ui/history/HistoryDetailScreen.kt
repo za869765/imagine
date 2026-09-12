@@ -85,7 +85,6 @@ fun HistoryDetailScreen(
                 trailing = { ImagineIconButton(name = "delete", onClick = onDelete) },
             )
         },
-        showBalanceBar = false,
         bottomNav = null,
     ) {
         if (entry == null) {

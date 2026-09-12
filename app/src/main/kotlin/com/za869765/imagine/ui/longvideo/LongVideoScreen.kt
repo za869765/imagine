@@ -79,6 +79,8 @@ import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.ui.component.TextActionButton
 import com.za869765.imagine.ui.component.UndoBar
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateMapOf
 import com.za869765.imagine.ui.util.Clipboard
@@ -438,7 +440,16 @@ private fun AssemblyTrack(
             TrackCell(
                 entry = entry,
                 order = sequence.indexOf(entry) + 1,
+                total = sequence.size,
                 cellWidth = cellW,
+                // 非拖曳排序(UI_REDESIGN_PLAN 5.4):序號徽章點開 往前移 / 往後移
+                onMove = { delta ->
+                    val cur = sequence.indexOfFirst { it.displayName == entry.displayName }
+                    val to = cur + delta
+                    if (cur >= 0 && to in 0..sequence.lastIndex) {
+                        sequence.removeAt(cur); sequence.add(to, entry)
+                    }
+                },
                 modifier = Modifier
                     .zIndex(if (isDrag) 1f else 0f)
                     .graphicsLayer { translationX = if (isDrag) dragDx else 0f }
@@ -483,10 +494,13 @@ private fun AssemblyTrack(
 private fun TrackCell(
     entry: MediaEntry,
     order: Int,
+    total: Int,
     cellWidth: Dp,
     modifier: Modifier = Modifier,
+    onMove: (Int) -> Unit = {},
     onRemove: () -> Unit,
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     Box(
         modifier = modifier
             .size(width = cellWidth, height = 72.dp)
@@ -494,15 +508,33 @@ private fun TrackCell(
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         TrackThumb(uri = entry.uri)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(3.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(Color.Black.copy(alpha = 0.55f))
-                .padding(horizontal = 5.dp, vertical = 1.dp),
-        ) {
-            Text(text = "$order", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.W700)
+        Box(modifier = Modifier.align(Alignment.TopStart)) {
+            Box(
+                modifier = Modifier
+                    .padding(3.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { showMenu = true }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Text(text = "$order ▾", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.W700)
+            }
+            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("往前移") },
+                    enabled = order > 1,
+                    onClick = { showMenu = false; onMove(-1) },
+                )
+                DropdownMenuItem(
+                    text = { Text("往後移") },
+                    enabled = order < total,
+                    onClick = { showMenu = false; onMove(1) },
+                )
+                DropdownMenuItem(
+                    text = { Text("移除", color = MaterialTheme.colorScheme.error) },
+                    onClick = { showMenu = false; onRemove() },
+                )
+            }
         }
         // 移除鈕觸控區 32dp(與縮圖點播放分開,避免想預覽卻刪掉)
         Box(

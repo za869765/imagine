@@ -19,9 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// AppBar + content + BottomNav. (v1.0.21 砍 BillingState/XaiBalanceBar
-// — Bill API 不準改成 SettingsScreen 連結到 console.x.ai 看用量)
-// 保留 showBalanceBar param 純為相容 callers，不再 render anything.
+// AppBar + content + BottomNav. (v1.0.21 砍 BillingState/XaiBalanceBar;showBalanceBar 死參數已於 UI Phase 4 移除)
 //
 // ⚠️ v1.0.57 教訓：scroll 預設 true (Column.verticalScroll)，內層放任何 Lazy* component
 //   (LazyColumn / LazyRow / LazyVerticalGrid / LazyHorizontalGrid) 必須傳 scroll = false
@@ -30,7 +28,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ImagineScreen(
     appBar: @Composable (() -> Unit)? = { ImagineTopAppBar() },
-    @Suppress("UNUSED_PARAMETER") showBalanceBar: Boolean = false,
     bottomNav: @Composable (() -> Unit)? = { ImagineBottomNav() },
     contentBackground: Color? = null,
     scroll: Boolean = true,

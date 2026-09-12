@@ -169,7 +169,6 @@ fun HistoryScreen(
                 },
             )
         },
-        showBalanceBar = false,
         scroll = false,
         bottomNav = null,
     ) {

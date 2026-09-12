@@ -114,9 +114,12 @@ fun MaterialLibraryScreen(
     ) { uris ->
         if (uris.isNotEmpty()) {
             scope.launch {
-                val saved = MediaImporter.importAll(ctx, uris)
-                saved.forEach { MaterialLibrary.setCategory(ctx, it, cat) }
-                Toast.makeText(ctx, "已匯入 ${saved.size} 張到「$cat」", Toast.LENGTH_SHORT).show()
+                val result = MediaImporter.importAllDetailed(ctx, uris)
+                result.saved.forEach { MaterialLibrary.setCategory(ctx, it, cat) }
+                // 成功與失敗數量都報(UI_REDESIGN_PLAN 5.3)
+                val msg = if (result.failed > 0) "已匯入 ${result.saved.size} 張到「$cat」，${result.failed} 張失敗（格式不支援或讀取被拒）"
+                else "已匯入 ${result.saved.size} 張到「$cat」"
+                Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
                 reloadKey++
             }
         }
@@ -164,7 +167,6 @@ fun MaterialLibraryScreen(
                 },
             )
         },
-        showBalanceBar = false,
         bottomNav = null,
         scroll = false,
     ) {

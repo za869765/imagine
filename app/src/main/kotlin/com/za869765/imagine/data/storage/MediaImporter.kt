@@ -18,14 +18,21 @@ import java.util.Locale
  */
 object MediaImporter {
 
-    suspend fun importAll(ctx: Context, uris: List<Uri>): List<String> = withContext(Dispatchers.IO) {
-        if (uris.isEmpty()) return@withContext emptyList()
+    /** 匯入結果:成功檔名 + 失敗數(格式不支援或讀取被拒),UI 據此顯示「已匯入 N，M 失敗」(UI_REDESIGN_PLAN 5.3)。 */
+    data class ImportResult(val saved: List<String>, val failed: Int)
+
+    suspend fun importAll(ctx: Context, uris: List<Uri>): List<String> = importAllDetailed(ctx, uris).saved
+
+    suspend fun importAllDetailed(ctx: Context, uris: List<Uri>): ImportResult = withContext(Dispatchers.IO) {
+        if (uris.isEmpty()) return@withContext ImportResult(emptyList(), 0)
         val destDir = File(ctx.filesDir, "media").apply { if (!exists()) mkdirs() }
         val saved = mutableListOf<String>()
+        var failed = 0
         var seq = 0
         for (uri in uris) {
             val mime = ctx.contentResolver.getType(uri).orEmpty()
-            val ext = pickExt(mime) ?: continue
+            val ext = pickExt(mime)
+            if (ext == null) { failed++; continue }
             val name = "imagine_${timestamp()}_${seq++}.$ext"
             val dst = File(destDir, name)
             val success = runCatching {
@@ -37,9 +44,9 @@ object MediaImporter {
                 runCatching { if (dst.exists() && dst.length() == 0L) dst.delete() }
                 false
             }
-            if (success) saved += name
+            if (success) saved += name else failed++
         }
-        saved
+        ImportResult(saved, failed)
     }
 
     private fun pickExt(mime: String): String? = when {

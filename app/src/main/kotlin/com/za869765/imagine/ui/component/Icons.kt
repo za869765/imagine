@@ -41,6 +41,10 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -132,6 +136,12 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "more_vert" to true -> Icons.Filled.MoreVert
     "help" to false -> Icons.Outlined.Info
     "help" to true -> Icons.Filled.Info
+    "volume_up" to false -> Icons.AutoMirrored.Outlined.VolumeUp
+    "volume_up" to true -> Icons.AutoMirrored.Outlined.VolumeUp
+    "volume_off" to false -> Icons.AutoMirrored.Outlined.VolumeOff
+    "volume_off" to true -> Icons.AutoMirrored.Outlined.VolumeOff
+    "repeat" to false -> Icons.Outlined.Repeat
+    "repeat" to true -> Icons.Filled.Repeat
     "sell" to false -> Icons.Outlined.Sell
     "sell" to true -> Icons.Outlined.Sell
     "warning" to false -> Icons.Outlined.Warning

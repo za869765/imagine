@@ -108,7 +108,6 @@ fun GrokChatScreen(
                 },
             )
         },
-        showBalanceBar = false,
         scroll = false,
         bottomNav = null,
     ) {

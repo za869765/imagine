@@ -71,7 +71,8 @@ object MediaExporter {
         }
 
     /** 叫出系統分享單。遠端網址先下載到 cacheDir/share/ 再以 FileProvider 分享。回傳是否成功送出 intent。 */
-    suspend fun share(ctx: Context, src: String, isVideo: Boolean): Boolean {
+    // text 非 null → 一併附上提示詞文字(EXTRA_TEXT),UI_REDESIGN_PLAN 6.4「分享（附提示詞）」
+    suspend fun share(ctx: Context, src: String, isVideo: Boolean, text: String? = null): Boolean {
         val local: File? = withContext(Dispatchers.IO) {
             runCatching {
                 if (src.startsWith("http")) {
@@ -91,6 +92,7 @@ object MediaExporter {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = if (isVideo) "video/*" else "image/*"
                     putExtra(Intent.EXTRA_STREAM, uri)
+                    if (!text.isNullOrBlank()) putExtra(Intent.EXTRA_TEXT, text)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 ctx.startActivity(

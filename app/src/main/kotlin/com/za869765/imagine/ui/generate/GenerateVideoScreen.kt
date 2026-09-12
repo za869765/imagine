@@ -331,6 +331,20 @@ fun GenerateVideoScreen(
             }
     }
 
+    // UI_REDESIGN_PLAN 6.7:Android 13+ 未授權通知時 notify() 會被靜默丟 → 送出前請求一次;拒絕不擋送出,只提示
+    val notifPermission = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (!granted) com.za869765.imagine.ui.component.AppNotice.show("未允許通知：影片完成時不會收到系統通知，請留在 App 內查看")
+    }
+    fun ensureNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     val maxImages = if (mode == VideoMode.Img2Vid) 1 else 3
     val pickImage = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -406,6 +420,7 @@ fun GenerateVideoScreen(
         }
         // 點生成 = 自動收鍵盤(避免 IME 佔走畫面看不到生成中/結果)
         focusManager.clearFocus()
+        ensureNotificationPermission()
         // 點生成 = 開新一輪,先清掉上一輪的錯誤訊息(包含 400 審核紅卡),
         // 不用使用者再去點「清除」
         lastError = ""
@@ -974,6 +989,11 @@ fun GenerateVideoScreen(
                                         add(MediaActionItem(MediaAction.SHARE) {
                                             com.za869765.imagine.ImagineApp.appScope.launch {
                                                 MediaExporter.share(ctx, url, isVideo = true)
+                                            }
+                                        })
+                                        add(MediaActionItem(MediaAction.SHARE_WITH_PROMPT) {
+                                            com.za869765.imagine.ImagineApp.appScope.launch {
+                                                MediaExporter.share(ctx, url, isVideo = true, text = lastPrompt)
                                             }
                                         })
                                         add(MediaActionItem(MediaAction.COPY_PROMPT) {

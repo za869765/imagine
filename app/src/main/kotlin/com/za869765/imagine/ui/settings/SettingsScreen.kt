@@ -127,8 +127,10 @@ fun SettingsScreen(
     ) { uris ->
         if (uris.isNotEmpty()) {
             scope.launch {
-                val count = MediaImporter.importAll(ctx, uris).size
-                Toast.makeText(ctx, "已匯入 $count 個檔到 History", Toast.LENGTH_LONG).show()
+                val result = MediaImporter.importAllDetailed(ctx, uris)
+                // 成功與失敗數量都報(UI_REDESIGN_PLAN 5.3)
+                val failedNote = if (result.failed > 0) "，${result.failed} 個失敗（格式不支援或讀取被拒）" else ""
+                Toast.makeText(ctx, "已匯入 ${result.saved.size} 個檔到所有作品$failedNote", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -216,7 +218,6 @@ fun SettingsScreen(
                 trailing = { Box(modifier = Modifier.size(48.dp)) },
             )
         },
-        showBalanceBar = false,
         bottomNav = null,
     ) {
         Column(
