@@ -146,6 +146,15 @@ object H3Client {
         return call<H3JobCreated>(prefs, submitHttp, request(prefs, "/api/app/jobs")?.post(payload)?.build())
     }
 
+    /** 要求伺服器查一次 CU 餘額(GitHub Actions 讀 colab usage,不消耗 CU,約 30~60 秒後更新)。 */
+    suspend fun refreshCu(prefs: SecurePrefs): Result<Unit> {
+        val req = request(prefs, "/api/cu/refresh")?.post("{}".toRequestBody("application/json".toMediaType()))?.build()
+        return when (val r = call<H3ErrorBody>(prefs, http, req)) {
+            is Result.Ok -> Result.Ok(Unit)
+            is Result.Err -> r
+        }
+    }
+
     suspend fun job(prefs: SecurePrefs, runId: String): Result<H3JobStatus> =
         call<H3JobStatus>(prefs, http, request(prefs, "/api/app/jobs/$runId")?.get()?.build())
 

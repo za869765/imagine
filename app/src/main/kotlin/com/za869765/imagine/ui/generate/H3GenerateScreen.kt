@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.za869765.imagine.ImagineApp
 import com.za869765.imagine.data.h3.H3Client
+import com.za869765.imagine.data.h3.H3Estimate
 import com.za869765.imagine.data.h3.H3Format
 import com.za869765.imagine.data.h3.H3Images
 import com.za869765.imagine.data.h3.H3Jobs
@@ -63,6 +64,7 @@ import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.SourceSlot
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -222,6 +224,7 @@ fun H3GenerateScreen(
             pending = pending,
             onDismiss = { pendingConfirm = null },
             onOutcome = { outcome -> handleOutcome(pending, outcome) },
+            onRefreshed = { fresh -> pendingConfirm = pending.copy(estimate = fresh) },
         )
     }
 
@@ -412,8 +415,11 @@ private fun H3ConfirmSheet(
     pending: PendingH3,
     onDismiss: () -> Unit,
     onOutcome: (H3Submit.Outcome) -> Unit,
+    onRefreshed: (H3Estimate) -> Unit,
 ) {
     val e = pending.estimate ?: return
+    val refreshScope = rememberCoroutineScope()
+    var refreshing by remember(pending) { mutableStateOf(false) }
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -486,6 +492,37 @@ private fun H3ConfirmSheet(
                     color = MaterialTheme.colorScheme.error,
                     lineHeight = 19.sp,
                 )
+                if (H3Format.balanceStale(e)) {
+                    OutlinedActionButton(
+                        label = if (refreshing) "查詢餘額中…（約 1 分鐘）" else "更新餘額（不花 CU）",
+                        enabled = !refreshing && !submitting,
+                        onClick = {
+                            refreshing = true
+                            refreshScope.launch {
+                                val before = e.balanceUpdatedAt
+                                val ask = H3Client.refreshCu(prefs)
+                                if (ask is H3Client.Result.Err) {
+                                    Toast.makeText(ctx, "更新失敗：${ask.message}", Toast.LENGTH_LONG).show()
+                                    refreshing = false
+                                    return@launch
+                                }
+                                // 每 10 秒看一次,最多 2.5 分鐘;餘額時間戳變新就換上新估算(勾選會重置)
+                                repeat(15) {
+                                    delay(10_000)
+                                    val r = H3Client.estimate(prefs, pending.seconds, pending.quality)
+                                    if (r is H3Client.Result.Ok && r.value.balanceUpdatedAt != null && r.value.balanceUpdatedAt != before) {
+                                        refreshing = false
+                                        onRefreshed(r.value)
+                                        return@launch
+                                    }
+                                }
+                                Toast.makeText(ctx, "餘額還沒回來，稍後再按一次", Toast.LENGTH_LONG).show()
+                                refreshing = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             } else {
                 Row(
                     modifier = Modifier

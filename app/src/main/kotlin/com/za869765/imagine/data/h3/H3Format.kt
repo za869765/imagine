@@ -46,12 +46,16 @@ object H3Format {
      */
     fun blockReason(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): String? = when {
         e.cu <= 0.0 -> "估算結果異常（CU ≤ 0），不能送出"
-        e.balance == null -> "目前 CU 餘額未知，無法確認是否足夠 — 請先到 H3 Studio 網頁更新餘額"
+        e.balance == null -> "目前 CU 餘額未知，無法確認是否足夠 — 請先按下方「更新餘額」"
         e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS ->
-            "CU 餘額已超過 30 分鐘沒更新（${ago(e.balanceUpdatedAt, nowMs)}），視為未知 — 請先更新餘額（H3 Studio 網頁）"
+            "CU 餘額已超過 30 分鐘沒更新（${ago(e.balanceUpdatedAt, nowMs)}），視為未知 — 請先按下方「更新餘額」"
         e.cu > e.balance -> "預估 ${cu(e.cu)} CU 超過目前餘額 ${cu(e.balance)} CU，無法送出"
         else -> null
     }
+
+    /** 這個阻擋原因能靠「更新餘額」解決嗎? */
+    fun balanceStale(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): Boolean =
+        e.balance == null || e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS
 
     /** 送出前重新估算:CU 或 GPU 開機狀態變了就要重新確認。 */
     fun estimateChanged(old: H3Estimate, fresh: H3Estimate): Boolean =
