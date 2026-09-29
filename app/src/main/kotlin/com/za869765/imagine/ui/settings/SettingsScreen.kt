@@ -258,9 +258,9 @@ fun SettingsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SettingsEntry(icon = "auto_awesome", title = "生成預設", subtitle = "圖片／影片每次進生成頁的初始參數") { section = "gen" }
                     SettingsEntry(icon = "key", title = "API 與用量", subtitle = "xAI／OpenRouter 金鑰、H3 Studio、帳單與後台") { section = "api" }
-                    SettingsEntry(icon = "photo_library", title = "儲存與資料", subtitle = "素材去留審查、雲端更新、歷史匯入、Keys 備份") { section = "data" }
+                    SettingsEntry(icon = "photo_library", title = "儲存與資料", subtitle = "素材去留審查、歷史匯入、Keys 備份") { section = "data" }
                     SettingsEntry(icon = "settings", title = "進階與疑難排解", subtitle = "安全、背景任務、除錯、清除資料") { section = "adv" }
-                    SettingsEntry(icon = "refresh", title = "關於與更新", subtitle = "檢查更新、版本資訊") { section = "about" }
+                    SettingsEntry(icon = "refresh", title = "關於與更新", subtitle = "APP 更新、super-i 教學／素材更新、版本資訊") { section = "about" }
                 }
             }
             if (section == "gen") {
@@ -674,10 +674,10 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    // v1.8.0 內建素材:去留審查 + 雲端更新
+                    // v1.8.0 內建素材:去留審查(雲端更新已移到「關於與更新」)
                     ImagineCard(pad = 0) {
                         Column {
-                            SettingRow(divider = true, onClick = onReviewClick) {
+                            SettingRow(divider = false, onClick = onReviewClick) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         "素材總覽・去留審查",
@@ -693,37 +693,6 @@ fun SettingsScreen(
                                     )
                                 }
                                 ImagineIcon(name = "chevron_right", size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            SettingRow(divider = false, onClick = {
-                                if (!seedUpdating) {
-                                    seedUpdating = true
-                                    scope.launch {
-                                        val r = com.za869765.imagine.data.storage.SeedUpdater.update(ctx)
-                                        seedUpdating = false
-                                        r.onSuccess {
-                                            seedLastUpdated = com.za869765.imagine.data.storage.SeedUpdater.lastUpdatedAt(ctx)
-                                            Toast.makeText(ctx, "素材已更新:素材 ${it.seedTotal}(新 ${it.seedAdded})・課程 ${it.lessonTotal}(新 ${it.lessonAdded})", Toast.LENGTH_LONG).show()
-                                        }.onFailure {
-                                            Toast.makeText(ctx, "更新失敗:${it.message?.take(60) ?: "未知錯誤"}", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            }) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        if (seedUpdating) "更新中…" else "從雲端更新素材（super-i 新課程）",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.W500,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Text(
-                                        "拉 GitHub 上最新的素材種子與課程資料,不用重裝 APP" + (seedLastUpdated?.let { " · 上次 $it" } ?: ""),
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(top = 2.dp),
-                                    )
-                                }
-                                ImagineIcon(name = "cloud_download", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -990,6 +959,42 @@ fun SettingsScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                             )
+                        }
+                    }
+                    // super-i 教學／素材雲端更新(v2.0.3 從「儲存與資料」移來,和 APP 更新放一起比較好找)
+                    ImagineCard(pad = 0) {
+                        Column {
+                            SettingRow(divider = false, onClick = {
+                                if (!seedUpdating) {
+                                    seedUpdating = true
+                                    scope.launch {
+                                        val r = com.za869765.imagine.data.storage.SeedUpdater.update(ctx)
+                                        seedUpdating = false
+                                        r.onSuccess {
+                                            seedLastUpdated = com.za869765.imagine.data.storage.SeedUpdater.lastUpdatedAt(ctx)
+                                            Toast.makeText(ctx, "素材已更新:素材 ${it.seedTotal}(新 ${it.seedAdded})・課程 ${it.lessonTotal}(新 ${it.lessonAdded})", Toast.LENGTH_LONG).show()
+                                        }.onFailure {
+                                            Toast.makeText(ctx, "更新失敗:${it.message?.take(60) ?: "未知錯誤"}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            }) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        if (seedUpdating) "更新中…" else "更新 super-i 教學課程與素材",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.W500,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        "拉 GitHub 上最新的素材種子與課程資料,不用重裝 APP" + (seedLastUpdated?.let { " · 上次 $it" } ?: ""),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 2.dp),
+                                    )
+                                }
+                                ImagineIcon(name = "cloud_download", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
