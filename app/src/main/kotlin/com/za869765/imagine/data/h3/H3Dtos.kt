@@ -49,13 +49,17 @@ data class H3JobRequest(
     val aspect: String,
     val confirm: Boolean,
     @SerialName("est_cu") val estCu: Double,
+    // v2.0.1 冪等鍵:同一次確認只產生一個 id,重送同 id 伺服器回既有任務(duplicate=true),不會重複扣 CU
+    @SerialName("client_request_id") val clientRequestId: String,
 )
 
 @Serializable
 data class H3JobCreated(
     @SerialName("project_id") val projectId: String? = null,
     @SerialName("segment_id") val segmentId: String? = null,
-    @SerialName("run_id") val runId: String,
+    // 缺 run_id 不當失敗:視為「結果不明,請看最近任務」
+    @SerialName("run_id") val runId: String? = null,
+    val duplicate: Boolean = false,
 )
 
 @Serializable

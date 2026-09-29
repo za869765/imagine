@@ -48,6 +48,36 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+
+private val h3SaveMutex = Mutex()
+private val h3SavedByRun = HashMap<String, String>()
+
+/**
+ * 下載成品存進所有作品(標 [H3])。全域互斥 + 已存紀錄(H3Jobs / 記憶體)→ 同一任務只下載、只入庫一次。
+ */
+private suspend fun saveH3ToHistory(
+    ctx: android.content.Context,
+    prefs: SecurePrefs,
+    runId: String,
+    videoPath: String,
+    prompt: String,
+): String? = h3SaveMutex.withLock {
+    (h3SavedByRun[runId] ?: H3Jobs.find(ctx, runId)?.savedUri)?.let { return@withLock it }
+    val uri = H3Client.download(prefs, videoPath) { stream ->
+        MediaSaver.saveVideo(ctx, stream, H3_PROMPT_TAG + prompt.ifBlank { "H3 Studio 影片" })
+    }
+    if (uri != null) {
+        h3SavedByRun[runId] = uri
+        H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
+    }
+    uri
+}
 
 /** 存進所有作品時的提示詞前綴 — 歷史清單靠它辨識 H3 成品(可搜尋「H3」)。 */
 const val H3_PROMPT_TAG = "[H3] "
@@ -70,39 +100,46 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
     var cancelling by remember { mutableStateOf(false) }
     val prompt = record?.prompt.orEmpty()
 
-    // 成品存進所有作品(app 私有 media/,標 [H3]);已存過不重複
+    // 成品存進所有作品:走 app 層 scope + 全域互斥(自動存檔與「下載/分享」同時觸發也只會下載一次)
     suspend fun saveToHistory(videoPath: String): String? {
         savedUri?.let { return it }
         saving = true
-        val uri = H3Client.download(prefs, videoPath) { stream ->
-            MediaSaver.saveVideo(ctx, stream, H3_PROMPT_TAG + prompt.ifBlank { "H3 Studio 影片" })
+        val uri = withContext(ImagineApp.appScope.coroutineContext) {
+            saveH3ToHistory(ctx.applicationContext, prefs, runId, videoPath, prompt)
         }
         saving = false
-        if (uri != null) {
-            savedUri = uri
-            H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
-        }
+        if (uri != null) savedUri = uri
         return uri
     }
 
-    LaunchedEffect(runId) {
-        while (isActive) {
-            when (val r = H3Client.job(prefs, runId)) {
-                is H3Client.Result.Ok -> {
-                    status = r.value
-                    pollError = null
-                    H3Jobs.update(ctx, runId) { it.copy(status = r.value.status) }
-                    if (r.value.isFinished) {
-                        val v = r.value.videoUrl
-                        if (r.value.status == "done" && v != null && savedUri == null) {
-                            if (saveToHistory(v) == null) pollError = "成品自動存到所有作品失敗，可按「下載」重試"
+    // 只在畫面可見(STARTED)時輪詢;401/403/404 停止輪詢(權杖無效或任務不存在,再問也沒用)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var pollStopped by remember(runId) { mutableStateOf(false) }
+    LaunchedEffect(runId, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive && !pollStopped) {
+                when (val r = H3Client.job(prefs, runId)) {
+                    is H3Client.Result.Ok -> {
+                        status = r.value
+                        pollError = null
+                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status) }
+                        if (r.value.isFinished) {
+                            pollStopped = true
+                            val v = r.value.videoUrl
+                            if (r.value.status == "done" && v != null && savedUri == null) {
+                                ImagineApp.appScope.launch(Dispatchers.Main) {
+                                    if (saveToHistory(v) == null) pollError = "成品自動存到所有作品失敗，可按「儲存到相簿」重試"
+                                }
+                            }
                         }
-                        break
+                    }
+                    is H3Client.Result.Err -> {
+                        pollError = r.message
+                        if (r.code == 401 || r.code == 403 || r.code == 404) pollStopped = true
                     }
                 }
-                is H3Client.Result.Err -> pollError = r.message
+                if (!pollStopped) delay(5_000)
             }
-            delay(5_000)
         }
     }
 
@@ -226,17 +263,26 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
             if (s?.status == "done" && videoPath != null) {
                 ImagineCard(pad = 0) {
                     Column {
-                        // 已存到本機就播本機檔,否則帶權杖串流
+                        // 已存到本機就播本機檔,否則帶權杖串流(只限站內 https 網址,其他不播、不帶權杖)
                         val playUrl = savedUri ?: H3Client.absoluteUrl(prefs, videoPath)
-                        H3VideoPlayer(
-                            url = playUrl,
-                            headers = H3Client.authHeaders(prefs),
-                            userAgent = H3Client.userAgent,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 280.dp, max = 520.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                        )
+                        if (playUrl != null) {
+                            H3VideoPlayer(
+                                url = playUrl,
+                                headers = H3Client.authHeaders(prefs),
+                                userAgent = H3Client.userAgent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 280.dp, max = 520.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                            )
+                        } else {
+                            Text(
+                                "影片網址不在 H3 Studio 網站內（或網址不是 https），為保護權杖不播放",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(14.dp),
+                            )
+                        }
                         Column(
                             modifier = Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -262,7 +308,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                                         ImagineApp.appScope.launch {
                                             val local = savedUri ?: saveToHistory(videoPath)
                                             val ok = local != null && MediaExporter.saveToGallery(ctx, local, isVideo = true)
-                                            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            withContext(Dispatchers.Main) {
                                                 AppNotice.show(if (ok) "已存到相簿" else "下載失敗，稍後再試")
                                             }
                                         }

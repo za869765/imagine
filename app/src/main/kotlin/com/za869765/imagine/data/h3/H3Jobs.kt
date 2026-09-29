@@ -33,10 +33,18 @@ object H3Jobs {
 
     fun find(ctx: Context, runId: String): Job? = all(ctx).firstOrNull { it.runId == runId }
 
-    fun add(ctx: Context, job: Job) = write(ctx, (listOf(job) + all(ctx).filterNot { it.runId == job.runId }).take(MAX))
+    @Synchronized
+    fun add(ctx: Context, job: Job) {
+        // 同一 run_id(例如重送同一筆被伺服器去重)保留原本的建立時間與已存檔紀錄
+        val old = all(ctx).firstOrNull { it.runId == job.runId }
+        val merged = if (old != null) job.copy(createdAtMs = old.createdAtMs, savedUri = old.savedUri, status = old.status) else job
+        write(ctx, (listOf(merged) + all(ctx).filterNot { it.runId == job.runId }).take(MAX))
+    }
 
-    fun update(ctx: Context, runId: String, transform: (Job) -> Job) =
+    @Synchronized
+    fun update(ctx: Context, runId: String, transform: (Job) -> Job) {
         write(ctx, all(ctx).map { if (it.runId == runId) transform(it) else it })
+    }
 
     private fun write(ctx: Context, jobs: List<Job>) {
         prefs(ctx).edit().putString(KEY, H3Client.json.encodeToString(jobs)).apply()

@@ -145,7 +145,11 @@ fun GenerateVideoScreen(
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    var engine by rememberSaveable { mutableStateOf(prefs.videoEngine) }
+    // 從其他頁帶參數進來(教學 i2v/ref2v 範本、「動起來」、帶提示詞、組合延長)都是 Grok 流程 →
+    // 一律先開 Grok,不因上次選 H3 就默默跳到 H3;使用者仍可手動切換
+    val hasEntryArgs = initialImageUri != null || !initialPrompt.isNullOrBlank() ||
+        initialVideoMode != null || initialExtendBase != null
+    var engine by rememberSaveable { mutableStateOf(if (hasEntryArgs) ENGINE_GROK else prefs.videoEngine) }
     val selector: @Composable () -> Unit = {
         VideoEngineSelector(engine = engine, onSelect = { engine = it; prefs.videoEngine = it })
     }

@@ -37,15 +37,16 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.za869765.imagine.ImagineApp
 import com.za869765.imagine.data.h3.H3Client
-import com.za869765.imagine.data.h3.H3Estimate
 import com.za869765.imagine.data.h3.H3Format
 import com.za869765.imagine.data.h3.H3Images
-import com.za869765.imagine.data.h3.H3JobImage
-import com.za869765.imagine.data.h3.H3JobRequest
 import com.za869765.imagine.data.h3.H3Jobs
+import com.za869765.imagine.data.h3.H3Submit
+import com.za869765.imagine.data.h3.PendingH3
 import com.za869765.imagine.data.prefs.DraftStore
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.ImagineScreen
@@ -61,7 +62,9 @@ import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.SourceSlot
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val H3_MAX_IMAGES = 9
 private const val H3_SOURCES_DRAFT = "h3_video_sources"
@@ -69,7 +72,8 @@ private const val H3_SOURCES_DRAFT = "h3_video_sources"
 /**
  * v2.0.0 H3 Studio 生影(MiniMax H3 on Colab A100)。
  * ⚠️ 使用者最高原則:任何會花 Colab CU 的動作,都必須先顯示估算明細並由使用者勾選確認才送出。
- * 流程:估算(不花錢)→ 確認視窗(勾選才能按)→ POST(confirm=true, est_cu)→ 任務頁輪詢。
+ * 流程:估算(不花錢)→ 確認視窗(勾選才能按)→ 送出前再估一次(變了就重新確認)→ POST(confirm、est_cu、
+ * client_request_id 冪等鍵)→ 任務頁輪詢。
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -112,26 +116,56 @@ fun H3GenerateScreen(
     // 確認視窗:非 null = 顯示;估算當下的參數一起凍結,送出用的就是使用者看到的那份
     var pendingConfirm by remember { mutableStateOf<PendingH3?>(null) }
     var recentJobs by remember { mutableStateOf(H3Jobs.all(ctx).take(5)) }
+    // 送出結果不明(網路中斷/5xx)的那一筆:保留同一個 client_request_id,「以同一筆重新確認」時伺服器會去重
+    var uncertainPending by remember { mutableStateOf<PendingH3?>(null) }
 
-    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-        if (uri != null && sourceStrings.size < H3_MAX_IMAGES) sourceStrings = sourceStrings + uri.toString()
+    // 草稿裡的相簿圖重開 App 後可能失去權限 → 進頁檢查,讀不到的移除並提示
+    var droppedNote by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val readable = sourceStrings.filter { H3Images.isReadable(ctx, Uri.parse(it)) }
+        val dropped = sourceStrings.size - readable.size
+        if (dropped > 0) {
+            sourceStrings = readable
+            droppedNote = "已移除 $dropped 張無法再讀取的圖（重開 App 後相簿權限失效），請重新選取"
+        }
     }
 
-    fun startEstimate() {
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        if (uri != null && sourceStrings.size < H3_MAX_IMAGES) {
+            // 能拿就拿長期讀取權限,草稿重開 App 後仍讀得到
+            runCatching {
+                ctx.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            sourceStrings = sourceStrings + uri.toString()
+        }
+    }
+
+    // retry != null:重新估算同一筆(沿用 client_request_id);null:依目前畫面參數開新的一筆(新 id)
+    fun startEstimate(retry: PendingH3? = null) {
+        if (estimating) return
         if (!prefs.isH3TokenSet) {
             Toast.makeText(ctx, "請先到設定填入 H3 Studio 權杖", Toast.LENGTH_LONG).show()
             return
         }
-        if (prompt.isBlank()) {
+        if (retry == null && prompt.isBlank()) {
             Toast.makeText(ctx, "請先輸入提示詞", Toast.LENGTH_SHORT).show()
             return
         }
-        if (sources.isEmpty()) {
+        if (retry == null && sources.isEmpty()) {
             Toast.makeText(ctx, if (mode == "first") "請先選擇首幀圖" else "請先選擇參考圖（1～9 張）", Toast.LENGTH_SHORT).show()
             return
         }
         focusManager.clearFocus()
-        val snapshot = PendingH3(prompt.trim(), sourceStrings, seconds, quality, mode, aspect, null)
+        val snapshot = retry?.copy(estimate = null) ?: PendingH3(
+            prompt = prompt.trim(),
+            sources = sourceStrings,
+            seconds = seconds,
+            quality = quality,
+            mode = mode,
+            aspect = aspect,
+            clientRequestId = java.util.UUID.randomUUID().toString(),
+            estimate = null,
+        )
         estimating = true
         scope.launch {
             when (val r = H3Client.estimate(prefs, snapshot.seconds, snapshot.quality)) {
@@ -142,15 +176,52 @@ fun H3GenerateScreen(
         }
     }
 
+    fun handleOutcome(pending: PendingH3, outcome: H3Submit.Outcome) {
+        recentJobs = H3Jobs.all(ctx).take(5)
+        when (outcome) {
+            is H3Submit.Outcome.Created -> {
+                pendingConfirm = null
+                if (uncertainPending?.clientRequestId == pending.clientRequestId) uncertainPending = null
+                Toast.makeText(
+                    ctx,
+                    if (outcome.duplicate) "伺服器已有這筆任務（沒有重複扣費）" else "H3 任務已送出",
+                    Toast.LENGTH_SHORT,
+                ).show()
+                onOpenJob(outcome.runId)
+            }
+            // 新物件 → 確認勾選(依 pending 記憶)自動重置,必須重新勾
+            is H3Submit.Outcome.EstimateChanged -> {
+                pendingConfirm = pending.copy(estimate = outcome.fresh)
+                Toast.makeText(ctx, "估算已變動（CU 或 GPU 狀態），請重新確認", Toast.LENGTH_LONG).show()
+            }
+            is H3Submit.Outcome.Blocked -> {
+                pendingConfirm = pending.copy(estimate = outcome.fresh)
+                Toast.makeText(ctx, outcome.message, Toast.LENGTH_LONG).show()
+            }
+            is H3Submit.Outcome.Conflict -> {
+                // 伺服器 409 = 沒建立任務;顯示伺服器訊息後回到新的估算重新確認
+                pendingConfirm = null
+                Toast.makeText(ctx, outcome.message, Toast.LENGTH_LONG).show()
+                startEstimate(pending)
+            }
+            is H3Submit.Outcome.Rejected -> {
+                pendingConfirm = null
+                Toast.makeText(ctx, "送出失敗：${outcome.message}", Toast.LENGTH_LONG).show()
+            }
+            is H3Submit.Outcome.Uncertain -> {
+                pendingConfirm = null
+                uncertainPending = pending
+                Toast.makeText(ctx, "可能已送出，請先看最近任務（${outcome.message}）", Toast.LENGTH_LONG).show()
+            }
+            is H3Submit.Outcome.LocalError -> Toast.makeText(ctx, outcome.message, Toast.LENGTH_LONG).show()
+        }
+    }
+
     pendingConfirm?.let { pending ->
         H3ConfirmSheet(
             pending = pending,
             onDismiss = { pendingConfirm = null },
-            onSubmitted = { runId ->
-                pendingConfirm = null
-                recentJobs = H3Jobs.all(ctx).take(5)
-                onOpenJob(runId)
-            },
+            onOutcome = { outcome -> handleOutcome(pending, outcome) },
         )
     }
 
@@ -201,6 +272,30 @@ fun H3GenerateScreen(
                 }
             }
 
+            uncertainPending?.let { up ->
+                ImagineCard(pad = 14) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "上一次送出結果不明（可能已建立任務）：先看下方「最近 H3 任務」。若沒有，按「以同一筆重新確認」— 會重新估算並再次確認，伺服器認得同一筆，不會重複扣費。",
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedActionButton(
+                                label = "以同一筆重新確認",
+                                enabled = !estimating,
+                                onClick = { startEstimate(up) },
+                            )
+                            OutlinedActionButton(
+                                label = "略過",
+                                onClick = { uncertainPending = null },
+                            )
+                        }
+                    }
+                }
+            }
+
             ModePicker(
                 options = listOf(
                     ModeOption("ref", "參考圖（Ref2VA）", "1～9 張參考圖鎖角色／場景，不會被當成第一幀"),
@@ -219,7 +314,7 @@ fun H3GenerateScreen(
                 onRemove = { index ->
                     sourceStrings = sourceStrings.toMutableList().also { if (index < it.size) it.removeAt(index) }
                 },
-                note = "上傳前自動縮到長邊 1600px 並壓成 JPEG（每張 < 1.5MB）",
+                note = droppedNote ?: "上傳前自動轉正、縮到長邊 1600px 並壓成 JPEG（每張 < 1.5MB）",
             )
 
             PromptInput(
@@ -311,81 +406,41 @@ fun H3GenerateScreen(
     }
 }
 
-/** 估算當下凍結的送出參數(確認視窗看到什麼就送什麼)。 */
-data class PendingH3(
-    val prompt: String,
-    val sources: List<String>,
-    val seconds: Int,
-    val quality: String,
-    val mode: String,
-    val aspect: String,
-    val estimate: H3Estimate?,
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun H3ConfirmSheet(
     pending: PendingH3,
     onDismiss: () -> Unit,
-    onSubmitted: (String) -> Unit,
+    onOutcome: (H3Submit.Outcome) -> Unit,
 ) {
     val e = pending.estimate ?: return
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var agreed by remember { mutableStateOf(false) }
-    var submitting by remember { mutableStateOf(false) }
-    var progressText by remember { mutableStateOf<String?>(null) }
+    // 勾選綁定「這一份估算」:估算一換(新物件)就重置,必須重新勾
+    var agreed by remember(pending) { mutableStateOf(false) }
+    var submitting by remember(pending) { mutableStateOf(false) }
+    var progressText by remember(pending) { mutableStateOf<String?>(null) }
     val block = H3Format.blockReason(e)
 
     fun submit() {
         if (!agreed || block != null || submitting) return
         submitting = true
-        scope.launch {
-            try {
-                val images = ArrayList<H3JobImage>()
-                for ((i, s) in pending.sources.withIndex()) {
-                    progressText = "壓縮圖片 ${i + 1}/${pending.sources.size}…"
-                    val img = H3Images.encode(ctx, Uri.parse(s), i)
-                    if (img == null) {
-                        Toast.makeText(ctx, "第 ${i + 1} 張圖讀取或壓縮失敗，未送出（沒有花費）", Toast.LENGTH_LONG).show()
-                        return@launch
-                    }
-                    images.add(img)
+        val app = ctx.applicationContext
+        // 在 app 層 scope 跑:就算畫面被關掉,已建立的任務也一定會記進最近任務
+        ImagineApp.appScope.launch {
+            val outcome = try {
+                H3Submit.run(app, prefs, pending) { msg ->
+                    ImagineApp.appScope.launch(Dispatchers.Main) { progressText = msg }
                 }
-                progressText = "送出中…"
-                val req = H3JobRequest(
-                    prompt = pending.prompt,
-                    images = images,
-                    seconds = pending.seconds,
-                    quality = pending.quality,
-                    mode = pending.mode,
-                    aspect = pending.aspect,
-                    confirm = true,
-                    estCu = e.cu,
-                )
-                when (val r = H3Client.submit(prefs, req)) {
-                    is H3Client.Result.Ok -> {
-                        H3Jobs.add(
-                            ctx,
-                            H3Jobs.Job(
-                                runId = r.value.runId,
-                                prompt = pending.prompt,
-                                quality = pending.quality,
-                                seconds = pending.seconds,
-                                estCu = e.cu,
-                                createdAtMs = System.currentTimeMillis(),
-                            ),
-                        )
-                        Toast.makeText(ctx, "H3 任務已送出", Toast.LENGTH_SHORT).show()
-                        onSubmitted(r.value.runId)
-                    }
-                    is H3Client.Result.Err -> Toast.makeText(ctx, "送出失敗：${r.message}", Toast.LENGTH_LONG).show()
-                }
-            } finally {
+            } catch (t: Throwable) {
+                CrashLogger.record(app, "H3Submit.fail", t)
+                H3Submit.Outcome.Uncertain(t.message?.take(80) ?: "未預期錯誤")
+            }
+            withContext(Dispatchers.Main) {
                 submitting = false
                 progressText = null
+                onOutcome(outcome)
             }
         }
     }
@@ -467,7 +522,7 @@ private fun H3ConfirmSheet(
                 )
             }
             Text(
-                "按「取消」不會有任何花費。",
+                "按「取消」不會有任何花費。送出前會再估算一次，有變動會請你重新確認。",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

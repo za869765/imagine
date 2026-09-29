@@ -3,6 +3,8 @@ package com.za869765.imagine.data.h3
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.util.Base64
 import com.za869765.imagine.data.storage.CrashLogger
@@ -28,6 +30,11 @@ object H3Images {
         return runCatching { ctx.contentResolver.openInputStream(uri) }.getOrNull()
     }
 
+    /** 草稿裡的相簿 uri 重開 App 後可能失去讀取權限 → 進頁時檢查。 */
+    suspend fun isReadable(ctx: Context, uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        runCatching { openInput(ctx, uri)?.use { true } ?: false }.getOrDefault(false)
+    }
+
     /** 失敗回 null(讀不到 / 太大 / OOM)。 */
     suspend fun encode(ctx: Context, uri: Uri, index: Int): H3JobImage? = withContext(Dispatchers.IO) {
         try {
@@ -45,7 +52,7 @@ object H3Images {
             }
             val decoded = openInput(ctx, uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
                 ?: return@withContext null
-            var bmp = scaleToMax(decoded, MAX_LONG_SIDE)
+            var bmp = scaleToMax(applyExif(decoded, readOrientation(ctx, uri)), MAX_LONG_SIDE)
             val bytes: ByteArray = try {
                 var out = compressUnder(bmp)
                 while (out.size >= TARGET_BYTES && maxOf(bmp.width, bmp.height) >= 600) {
@@ -73,6 +80,31 @@ object H3Images {
             CrashLogger.record(ctx, "H3Images.fail", t)
             null
         }
+    }
+
+    // 手機相機照常以 EXIF 標方向而非真的旋轉像素;BitmapFactory 不理 EXIF → 先轉正再縮放
+    private fun readOrientation(ctx: Context, uri: Uri): Int =
+        runCatching {
+            openInput(ctx, uri)?.use {
+                ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            }
+        }.getOrNull() ?: ExifInterface.ORIENTATION_NORMAL
+
+    private fun applyExif(src: Bitmap, orientation: Int): Bitmap {
+        val m = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.postScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> { m.postRotate(90f); m.postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_TRANSVERSE -> { m.postRotate(270f); m.postScale(-1f, 1f) }
+            else -> return src
+        }
+        val out = Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+        if (out !== src) src.recycle()
+        return out
     }
 
     private fun scaleToMax(src: Bitmap, max: Int): Bitmap {

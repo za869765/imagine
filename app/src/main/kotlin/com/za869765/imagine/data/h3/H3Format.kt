@@ -37,14 +37,23 @@ object H3Format {
         else -> s
     }
 
+    /** 餘額超過這麼久沒更新就當「未知」。 */
+    const val BALANCE_MAX_AGE_MS = 30L * 60 * 1000
+
     /**
      * 確認視窗的阻擋原因;null = 可以送出。
-     * 規則:估算必須 > 0;餘額未知不能送;預估超過餘額不能送。
+     * 規則:估算必須 > 0;餘額未知或超過 30 分鐘沒更新不能送;預估超過餘額不能送。
      */
-    fun blockReason(e: H3Estimate): String? = when {
+    fun blockReason(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): String? = when {
         e.cu <= 0.0 -> "估算結果異常（CU ≤ 0），不能送出"
         e.balance == null -> "目前 CU 餘額未知，無法確認是否足夠 — 請先到 H3 Studio 網頁更新餘額"
+        e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS ->
+            "CU 餘額已超過 30 分鐘沒更新（${ago(e.balanceUpdatedAt, nowMs)}），視為未知 — 請先更新餘額（H3 Studio 網頁）"
         e.cu > e.balance -> "預估 ${cu(e.cu)} CU 超過目前餘額 ${cu(e.balance)} CU，無法送出"
         else -> null
     }
+
+    /** 送出前重新估算:CU 或 GPU 開機狀態變了就要重新確認。 */
+    fun estimateChanged(old: H3Estimate, fresh: H3Estimate): Boolean =
+        kotlin.math.abs(old.cu - fresh.cu) > 0.005 || old.gpuAlive != fresh.gpuAlive
 }
