@@ -128,9 +128,57 @@ import kotlinx.coroutines.launch
 
 enum class VideoMode { T2V, Img2Vid, Ref2Vid }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+// v2.0.0 生影引擎切換:Grok Imagine(既有 xAI / OpenRouter 流程)｜H3 Studio(Colab A100,另一套確認流程)。
+// 組合延長固定走 Grok(需要 xAI 自動串接流程)。
 @Composable
 fun GenerateVideoScreen(
+    onSwitchToImage: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onNavSelected: (NavTab) -> Unit,
+    onSwitchToChat: () -> Unit = {},
+    initialImageUri: Uri? = null,
+    initialPrompt: String? = null,
+    initialVideoMode: String? = null,
+    initialExtendBase: String? = null,
+    onBack: (() -> Unit)? = null,
+    onOpenH3Job: (String) -> Unit = {},
+) {
+    val ctx = LocalContext.current
+    val prefs = remember { SecurePrefs.get(ctx) }
+    var engine by rememberSaveable { mutableStateOf(prefs.videoEngine) }
+    val selector: @Composable () -> Unit = {
+        VideoEngineSelector(engine = engine, onSelect = { engine = it; prefs.videoEngine = it })
+    }
+    if (engine == ENGINE_H3 && initialExtendBase == null) {
+        H3GenerateScreen(
+            onSwitchToImage = onSwitchToImage,
+            onSwitchToChat = onSwitchToChat,
+            onSettingsClick = onSettingsClick,
+            onNavSelected = onNavSelected,
+            onOpenJob = onOpenH3Job,
+            engineSelector = selector,
+            initialImageUri = initialImageUri,
+            initialPrompt = initialPrompt,
+        )
+    } else {
+        GrokVideoScreen(
+            onSwitchToImage = onSwitchToImage,
+            onSettingsClick = onSettingsClick,
+            onNavSelected = onNavSelected,
+            onSwitchToChat = onSwitchToChat,
+            initialImageUri = initialImageUri,
+            initialPrompt = initialPrompt,
+            initialVideoMode = initialVideoMode,
+            initialExtendBase = initialExtendBase,
+            onBack = onBack,
+            engineSelector = if (initialExtendBase == null) selector else null,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun GrokVideoScreen(
     onSwitchToImage: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
@@ -140,6 +188,7 @@ fun GenerateVideoScreen(
     initialVideoMode: String? = null, // "i2v" → 即使沒帶圖也開在圖生影模式(教學 i2v 範本:純動作,需使用者再選來源圖)
     initialExtendBase: String? = null, // 組合延長:原片 file:// uri,生成成功後 Worker 自動把原片+新片串接
     onBack: (() -> Unit)? = null, // 組合延長獨立頁(非素材生成 tab)的返回鍵;一般 tab 進入時為 null
+    engineSelector: (@Composable () -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -709,6 +758,7 @@ fun GenerateVideoScreen(
                     activeColor = Color(0xFF14463F),
                 )
             }
+            engineSelector?.invoke()
 
             // 製作方式 N 選 1(取代橫滑 ModePill 列);組合延長時鎖定不可改
             ModePicker(
@@ -1072,7 +1122,7 @@ fun GenerateVideoScreen(
 // LazyVerticalGrid(3 欄)+AsyncImage 縮圖法；只列圖片(!isVideo)。
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LibraryImagePickerSheet(
+internal fun LibraryImagePickerSheet(
     onDismiss: () -> Unit,
     onPickFromGallery: () -> Unit,
     onPick: (MediaEntry) -> Unit,

@@ -365,6 +365,15 @@ fun ImagineRoot() {
                     initialPrompt = initPrompt,
                     initialVideoMode = initVideoMode,
                     initialExtendBase = initExtendBase,
+                    onOpenH3Job = { runId -> navController.navigate(Routes.h3Job(runId)) },
+                )
+            }
+
+            composable(Routes.H3_JOB) { entry ->
+                val runId = entry.arguments?.getString("runId").orEmpty()
+                com.za869765.imagine.ui.generate.H3JobScreen(
+                    runId = runId,
+                    onBack = { navController.popBackStack() },
                 )
             }
 

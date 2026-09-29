@@ -1,0 +1,50 @@
+package com.za869765.imagine.data.h3
+
+import java.util.Locale
+
+/** H3 顯示文字(純函式,方便檢查)。 */
+object H3Format {
+    fun qualityLabel(q: String): String = if (q == "fast") "快速版（4 步）" else "正常版（bf16 20 步）"
+
+    fun cu(v: Double): String = String.format(Locale.US, "%.2f", v)
+
+    fun ntd(v: Double): String = String.format(Locale.US, "%.1f", v)
+
+    fun minutes(v: Double): String = String.format(Locale.US, "%.1f", v)
+
+    /** 還能生成的秒數:無條件捨去到整秒,負數當 0。 */
+    fun seconds(v: Double?): String = if (v == null) "未知" else "${v.coerceAtLeast(0.0).toLong()} 秒"
+
+    /** 餘額更新時間(epoch ms)→「3 分鐘前」。 */
+    fun ago(updatedAtMs: Long?, nowMs: Long = System.currentTimeMillis()): String {
+        if (updatedAtMs == null || updatedAtMs <= 0) return "更新時間未知"
+        val sec = ((nowMs - updatedAtMs) / 1000).coerceAtLeast(0)
+        return when {
+            sec < 60 -> "剛剛更新"
+            sec < 3600 -> "${sec / 60} 分鐘前更新"
+            sec < 86400 -> "${sec / 3600} 小時前更新"
+            else -> "${sec / 86400} 天前更新"
+        }
+    }
+
+    fun statusLabel(s: String): String = when (s) {
+        "queued" -> "排隊中"
+        "launching" -> "GPU 開機中"
+        "running" -> "生成中"
+        "done" -> "完成"
+        "failed" -> "失敗"
+        "cancelled" -> "已取消"
+        else -> s
+    }
+
+    /**
+     * 確認視窗的阻擋原因;null = 可以送出。
+     * 規則:估算必須 > 0;餘額未知不能送;預估超過餘額不能送。
+     */
+    fun blockReason(e: H3Estimate): String? = when {
+        e.cu <= 0.0 -> "估算結果異常（CU ≤ 0），不能送出"
+        e.balance == null -> "目前 CU 餘額未知，無法確認是否足夠 — 請先到 H3 Studio 網頁更新餘額"
+        e.cu > e.balance -> "預估 ${cu(e.cu)} CU 超過目前餘額 ${cu(e.balance)} CU，無法送出"
+        else -> null
+    }
+}

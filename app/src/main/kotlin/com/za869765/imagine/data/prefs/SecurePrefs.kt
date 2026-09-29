@@ -64,6 +64,34 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getString(K_VIDEO_MODEL, null)
         set(v) = prefs.edit().putString(K_VIDEO_MODEL, v).apply()
 
+    // ── v2.0.0 H3 Studio(MiniMax H3 on Colab)生影引擎 ─────────────
+    // 權杖同 xAI key 一樣只存在加密 prefs,不得寫入 log。
+    var h3BaseUrl: String
+        get() = prefs.getString(K_H3_URL, null)?.takeIf { it.isNotBlank() }
+            ?: com.za869765.imagine.data.h3.H3Client.DEFAULT_BASE_URL
+        set(v) = prefs.edit().putString(K_H3_URL, v).apply()
+    var h3Token: String?
+        get() = prefs.getString(K_H3_TOKEN, null)
+        set(v) = prefs.edit().putString(K_H3_TOKEN, v).apply()
+    val isH3TokenSet: Boolean get() = !h3Token.isNullOrBlank()
+
+    // 生影引擎:"grok"(xAI / OpenRouter 模型)或 "h3"(H3 Studio)
+    var videoEngine: String
+        get() = prefs.getString(K_VIDEO_ENGINE, "grok")!!
+        set(v) = prefs.edit().putString(K_VIDEO_ENGINE, v).apply()
+    var h3Quality: String
+        get() = prefs.getString(K_H3_QUALITY, "normal")!!
+        set(v) = prefs.edit().putString(K_H3_QUALITY, v).apply()
+    var h3Mode: String
+        get() = prefs.getString(K_H3_MODE, "ref")!!
+        set(v) = prefs.edit().putString(K_H3_MODE, v).apply()
+    var h3Seconds: Int
+        get() = prefs.getInt(K_H3_SECONDS, 5)
+        set(v) = prefs.edit().putInt(K_H3_SECONDS, v).apply()
+    var h3Aspect: String
+        get() = prefs.getString(K_H3_ASPECT, "9:16")!!
+        set(v) = prefs.edit().putString(K_H3_ASPECT, v).apply()
+
     // ── PIN (hash + salt + length-hint) ──────────────────────────
     var pinHash: String?
         get() = prefs.getString(K_PIN_HASH, null)
@@ -168,6 +196,14 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_CHAT_MODEL = "sel_chat_model"
         private const val K_IMAGE_MODEL = "sel_image_model"
         private const val K_VIDEO_MODEL = "sel_video_model"
+        // v2.0.0 H3 Studio
+        private const val K_H3_URL = "h3_base_url"
+        private const val K_H3_TOKEN = "h3_app_token"
+        private const val K_VIDEO_ENGINE = "video_engine"
+        private const val K_H3_QUALITY = "h3_quality"
+        private const val K_H3_MODE = "h3_mode"
+        private const val K_H3_SECONDS = "h3_seconds"
+        private const val K_H3_ASPECT = "h3_aspect"
 
         @Volatile private var instance: SecurePrefs? = null
         fun get(ctx: Context): SecurePrefs = instance ?: synchronized(this) {

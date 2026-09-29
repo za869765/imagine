@@ -22,4 +22,7 @@ object Routes {
     // v1.8.0
     const val CHAT = "chat"                       // API 對話(xAI / OpenRouter 皆可,非 WebView)
     const val MATERIAL_REVIEW = "material_review" // 素材總覽・去留審查
+    // v2.0.0 H3 Studio 任務頁(帶 runId)
+    const val H3_JOB = "h3_job/{runId}"
+    fun h3Job(runId: String) = "h3_job/$runId"
 }

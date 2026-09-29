@@ -104,6 +104,34 @@ fun SettingsScreen(
         else -> "設定"
     }
 
+    // ── v2.0.0 H3 Studio 設定狀態 ──
+    var videoEngine by remember { mutableStateOf(prefs.videoEngine) }
+    var h3Url by remember { mutableStateOf(prefs.h3BaseUrl) }
+    var h3Token by remember { mutableStateOf(prefs.h3Token) }
+    var editingH3 by remember { mutableStateOf<String?>(null) } // "url" / "token"
+    var h3Testing by remember { mutableStateOf(false) }
+    var h3TestResult by remember { mutableStateOf<String?>(null) }
+    editingH3?.let { which ->
+        SimpleStringEditDialog(
+            title = if (which == "url") "H3 Studio 網址" else "H3 Studio 權杖",
+            hint = if (which == "url") "預設 ${com.za869765.imagine.data.h3.H3Client.DEFAULT_BASE_URL}（清除＝還原預設）" else "H3 Studio 的 APP 權杖，只存在本機加密儲存",
+            current = if (which == "url") h3Url else h3Token.orEmpty(),
+            mask = which == "token",
+            onDismiss = { editingH3 = null },
+            onSave = { input ->
+                if (which == "url") {
+                    prefs.h3BaseUrl = input.trim().trimEnd('/')
+                    h3Url = prefs.h3BaseUrl
+                } else {
+                    prefs.h3Token = input.trim().ifBlank { null }
+                    h3Token = prefs.h3Token
+                }
+                h3TestResult = null
+                editingH3 = null
+            },
+        )
+    }
+
     // ── Settings 狀態 ─────────────────────
     var showImportEditor by remember { mutableStateOf(false) }
 
@@ -229,7 +257,7 @@ fun SettingsScreen(
             if (section == null) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SettingsEntry(icon = "auto_awesome", title = "生成預設", subtitle = "圖片／影片每次進生成頁的初始參數") { section = "gen" }
-                    SettingsEntry(icon = "key", title = "API 與用量", subtitle = "xAI／OpenRouter 金鑰、帳單與後台") { section = "api" }
+                    SettingsEntry(icon = "key", title = "API 與用量", subtitle = "xAI／OpenRouter 金鑰、H3 Studio、帳單與後台") { section = "api" }
                     SettingsEntry(icon = "photo_library", title = "儲存與資料", subtitle = "素材去留審查、雲端更新、歷史匯入、Keys 備份") { section = "data" }
                     SettingsEntry(icon = "settings", title = "進階與疑難排解", subtitle = "安全、背景任務、除錯、清除資料") { section = "adv" }
                     SettingsEntry(icon = "refresh", title = "關於與更新", subtitle = "檢查更新、版本資訊") { section = "about" }
@@ -375,6 +403,60 @@ fun SettingsScreen(
                                 }
                             }
                             ImagineIcon(name = "expand_more", size = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                // ── v2.0.0 H3 Studio(MiniMax H3 on Colab A100)──
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionHeader("H3 Studio")
+                    ImagineCard(pad = 0) {
+                        Column {
+                            com.za869765.imagine.ui.generate.VideoEngineSelector(
+                                engine = videoEngine,
+                                onSelect = { videoEngine = it; prefs.videoEngine = it },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                            SettingRow(divider = true, onClick = { editingH3 = "url" }) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("H3 Studio 網址", fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(h3Url, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            SettingRow(divider = true, onClick = { editingH3 = "token" }) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("H3 Studio 權杖", fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(maskKey(h3Token), fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            SettingRow(divider = false, onClick = if (h3Testing) null else {
+                                {
+                                    h3Testing = true
+                                    h3TestResult = null
+                                    scope.launch {
+                                        // 估算端點不消耗 CU,順便拿餘額
+                                        h3TestResult = when (val r = com.za869765.imagine.data.h3.H3Client.estimate(prefs, 5, "fast")) {
+                                            is com.za869765.imagine.data.h3.H3Client.Result.Ok -> {
+                                                val e = r.value
+                                                val fmt = com.za869765.imagine.data.h3.H3Format
+                                                "連線成功・餘額 " + (e.balance?.let { fmt.cu(it) + " CU（" + fmt.ago(e.balanceUpdatedAt) + "）" } ?: "未知") +
+                                                    (if (e.gpuAlive) "・GPU 開機中" else "・GPU 未開機")
+                                            }
+                                            is com.za869765.imagine.data.h3.H3Client.Result.Err -> "連線失敗：" + r.message
+                                        }
+                                        h3Testing = false
+                                    }
+                                }
+                            }) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(if (h3Testing) "測試中…" else "測試連線", fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        h3TestResult ?: "呼叫估算端點（不消耗 CU），顯示 CU 餘額",
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp,
+                                        color = if (h3TestResult?.startsWith("連線失敗") == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
