@@ -264,7 +264,8 @@ fun EditPane(
             Toast.makeText(ctx, "請輸入編輯說明", Toast.LENGTH_SHORT).show()
             return
         }
-        scope.launch {
+        // v2.0.6 B1:送出(POST→存檔/排 Worker)改在 App 層 scope 跑 — 切頁/返回不再取消請求(避免已扣費卻拿不到成品)
+        com.za869765.imagine.ImagineApp.appScope.launch(kotlinx.coroutines.Dispatchers.Main) {
             loading = true
             stage = null
             // v1.0.50: 整段包 try/catch，不讓任何未預期 throw 把 app 直接 crash

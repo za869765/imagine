@@ -364,7 +364,12 @@ private fun GrokVideoScreen(
                         if (!err.isNullOrBlank()) lastError = err
                         // 作品已生成只是下載失敗 → 「重新下載」(同 requestId 再輪詢一次即重抓,不建新請求);
                         // 其餘失敗(任務被拒/超時)→ 「重新生成」
-                        retryKind = if (err?.contains("下載失敗") == true) "download" else "generate"
+                        // v2.0.6 B2:輪詢斷線/等待超時 = 已拿到 requestId、任務可能仍在跑 → 「重新查詢」(不重複扣費),不再叫使用者重新生成
+                        retryKind = when {
+                            err?.contains("下載失敗") == true -> "download"
+                            err?.contains("輪詢") == true || err?.contains("超時") == true -> "query"
+                            else -> "generate"
+                        }
                         retryRequestId = rid
                         // 失敗也留記錄(UI_REDESIGN_PLAN 6.5);下載失敗不算生成失敗(作品在服務端,可重新下載)
                         if (retryKind == "generate") {
@@ -484,7 +489,8 @@ private fun GrokVideoScreen(
         // 不用使用者再去點「清除」
         lastError = ""
         lastErrorIsPolicy = false
-        scope.launch {
+        // v2.0.6 B1:送出(POST→存檔/排 Worker)改在 App 層 scope 跑 — 切頁/返回不再取消請求(避免已扣費卻拿不到成品)
+        com.za869765.imagine.ImagineApp.appScope.launch(kotlinx.coroutines.Dispatchers.Main) {
             generating = true
             stage = null
             // v1.0.50: 整段包 try/catch，不讓任何未預期 throw 把 app 直接 crash
@@ -591,6 +597,9 @@ private fun GrokVideoScreen(
                 com.za869765.imagine.data.storage.CrashLogger.record(ctx, "runGenerate.OOM", oom)
                 System.gc()
                 Toast.makeText(ctx, "記憶體不足 — 試試小張一點的圖", Toast.LENGTH_LONG).show()
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                generating = false
+                throw e
             } catch (t: Throwable) {
                 generating = false
                 com.za869765.imagine.data.storage.CrashLogger.record(ctx, "runGenerate.fail", t)

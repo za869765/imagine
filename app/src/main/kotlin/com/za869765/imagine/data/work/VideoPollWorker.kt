@@ -41,6 +41,9 @@ class VideoPollWorker(
 
     override suspend fun doWork(): Result = try {
         doWorkImpl()
+    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+        // v2.0.6 B4:系統停止 Worker(前景時限/資源回收)不是錯誤 — WorkManager 會自動重排,不可當內部錯誤通知
+        throw e
     } catch (t: Throwable) {
         // v1.0.51: 任何未捕的 throw (包含 setForeground 在 Android 15+ 被拒、
         // Notifications 失敗、Bitmap OOM 等) 都寫 CrashLogger + 回 Result.failure，
@@ -110,7 +113,23 @@ class VideoPollWorker(
                             return if (url != null) {
                                 downloadBlockReason()?.let { reason -> return blockedDownload(requestId, reason) }
                                 setProgress(workDataOf(KEY_STAGE to STAGE_DOWNLOADING))
-                                val saved = MediaSaver.saveVideoFromUrl(applicationContext, url, prompt)
+                                // v2.0.6 B3:下載失敗不可再當成功通知 — 比照 OpenRouter 重試 3 次,仍失敗回報「下載失敗」(UI 出「重新下載」,同 requestId 不重複扣費)
+                                var saved: String? = null
+                                for (attempt in 1..3) {
+                                    saved = MediaSaver.saveVideoFromUrl(applicationContext, url, prompt)
+                                    if (saved != null) break
+                                    if (isStopped) return Result.failure(workDataOf(KEY_ERROR to "已取消"))
+                                    if (attempt < 3) delay(attempt * 3_000L)
+                                }
+                                if (saved == null) {
+                                    Notifications.cancelProgress(applicationContext, requestId)
+                                    Notifications.postComplete(
+                                        applicationContext, requestId,
+                                        success = false,
+                                        message = "影片已生成但下載失敗(已重試 3 次)。作品仍在服務端,可到生成影片頁按「重新下載」",
+                                    )
+                                    return Result.failure(workDataOf(KEY_ERROR to "完成但下載失敗"))
+                                }
                                 // 組合延長:帶了 extendBase 就把原片＋新片自動串成長片(MediaMuxer,需同解析度/編碼)
                                 val extendBase = inputData.getString(KEY_EXTEND_BASE)
                                 var mergedUri: String? = null
@@ -168,13 +187,13 @@ class VideoPollWorker(
                 }
                 is ApiResult.Error -> {
                     pollErrors++
-                    if (pollErrors >= 3) {
+                    if (pollErrors >= POLL_ERROR_LIMIT) {
                         val tag = poll.kind.userFriendlyTag()
                         Notifications.cancelProgress(applicationContext, requestId)
                         Notifications.postComplete(
                             applicationContext, requestId,
                             success = false,
-                            message = "輪詢失敗:$tag",
+                            message = "暫時查不到結果:$tag。任務可能仍在後台執行,請到生成影片頁按「重新查詢」(不會重複扣費)",
                         )
                         return Result.failure(workDataOf(KEY_ERROR to "$tag (輪詢)"))
                     }
@@ -282,13 +301,13 @@ class VideoPollWorker(
                 }
                 is ApiResult.Error -> {
                     pollErrors++
-                    if (pollErrors >= 3) {
+                    if (pollErrors >= POLL_ERROR_LIMIT) {
                         val tag = poll.kind.userFriendlyTag()
                         Notifications.cancelProgress(applicationContext, requestId)
                         Notifications.postComplete(
                             applicationContext, requestId,
                             success = false,
-                            message = "輪詢失敗:$tag",
+                            message = "暫時查不到結果:$tag。任務可能仍在後台執行,請到生成影片頁按「重新查詢」(不會重複扣費)",
                         )
                         return Result.failure(workDataOf(KEY_ERROR to "$tag (輪詢)"))
                     }
@@ -362,6 +381,8 @@ class VideoPollWorker(
         }
 
         const val POLL_INTERVAL_SEC = 5
+        // v2.0.6 B2:連續輪詢錯誤上限 3 → 36(≈3 分鐘),進電梯/切網路短暫斷線不再直接判失敗
+        const val POLL_ERROR_LIMIT = 36
         // v1.0.54 O7: 60 → 120，總 timeout 從 5 分鐘拉到 10 分鐘
         // (xAI 影片有時排隊 + 跑長片 > 5 分鐘，原 5 分鐘上限會誤判失敗)
         const val MAX_ATTEMPTS = 120  // 120 × 5s = 10 分鐘

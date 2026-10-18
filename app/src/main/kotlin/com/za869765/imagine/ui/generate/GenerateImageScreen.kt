@@ -239,7 +239,8 @@ fun GenerateImageScreen(
         // 不用使用者再去點「清除」
         lastError = ""
         lastErrorIsPolicy = false
-        scope.launch {
+        // v2.0.6 B1:送出(POST→存檔/排 Worker)改在 App 層 scope 跑 — 切頁/返回不再取消請求(避免已扣費卻拿不到成品)
+        com.za869765.imagine.ImagineApp.appScope.launch(kotlinx.coroutines.Dispatchers.Main) {
             loading = true
             val capturedPrompt = prompt
             val capturedRes = resolution
