@@ -37,6 +37,8 @@ import com.za869765.imagine.ui.onboarding.SplashScreen
 import com.za869765.imagine.ui.settings.ApiKeyEditScreen
 import com.za869765.imagine.ui.settings.SettingsScreen
 import com.za869765.imagine.ui.tutorial.TutorialScreen
+import com.za869765.imagine.ui.h3web.H3StudioWebScreen
+import com.za869765.imagine.ui.h3web.H3WebHolder
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +62,11 @@ fun ImagineRoot() {
     val prefs = remember { SecurePrefs.get(ctx) }
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    // v2.0.5 H3 Studio 分頁的 WebView 放在 NavHost 之上,切分頁回來不重載;Activity 結束才銷毀
+    val h3WebHolder = remember { H3WebHolder() }
+    DisposableEffect(h3WebHolder) {
+        onDispose { h3WebHolder.destroy() }
+    }
 
     val currentRoute by navController.currentBackStackEntryAsState()
     val routeId = currentRoute?.destination?.route
@@ -233,6 +240,14 @@ fun ImagineRoot() {
                         // 進階功能:走獨立頁,不進素材生成 tab
                         navController.navigate(Routes.COMBINE_EXTEND)
                     },
+                )
+            }
+
+            composable(Routes.H3_STUDIO) {
+                H3StudioWebScreen(
+                    holder = h3WebHolder,
+                    onBack = { navController.popBackStack() },
+                    onNavSelected = { tab -> handleTabNav(navController, tab) },
                 )
             }
 
@@ -565,6 +580,7 @@ private fun handleTabNav(
         NavTab.MATERIAL -> Routes.MATERIAL_HUB
         NavTab.LONG_VIDEO -> Routes.LONG_VIDEO
         NavTab.TUTORIAL -> Routes.TUTORIAL
+        NavTab.H3 -> Routes.H3_STUDIO
     }
     // popUpTo 用 MATERIAL_HUB(BottomNav 主舞台,啟動後永遠在 stack 底);saveState/restoreState
     // 讓兩頁切換保留各自狀態。

@@ -29,6 +29,7 @@ enum class NavTab(val id: String, val icon: String, val label: String) {
     MATERIAL("material", "auto_awesome", "素材生成"),
     LONG_VIDEO("long_video", "movie", "長片組合"),
     TUTORIAL("tutorial", "lightbulb", "教學範本"),
+    H3("h3_studio", "videocam", "H3 Studio"), // v2.0.5 內嵌 H3 Studio 網頁
 }
 
 @Composable

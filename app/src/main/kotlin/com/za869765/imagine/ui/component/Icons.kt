@@ -67,6 +67,8 @@ import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -177,6 +179,9 @@ fun materialSymbolToVector(name: String, fill: Int = 0): ImageVector = when (nam
     "thumb_up" to true -> Icons.Outlined.ThumbUp
     "thumb_down" to false -> Icons.Outlined.ThumbDown
     "thumb_down" to true -> Icons.Outlined.ThumbDown
+    // v2.0.5 H3 Studio 分頁
+    "videocam" to false -> Icons.Outlined.Videocam
+    "videocam" to true -> Icons.Filled.Videocam
     else -> Icons.Outlined.AutoAwesome
 }
 

@@ -1,7 +1,6 @@
 package com.za869765.imagine.ui.generate
 
 import com.za869765.imagine.ui.component.ImagineIcon
-import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -266,18 +265,14 @@ fun H3GenerateScreen(
             )
             engineSelector()
 
-            // v2.0.4 AI 導演台:開網頁版(已支援手機版面),流程=一句需求→3 方案→分鏡微調→確認 CU 才開跑
-            ImagineCard(pad = 14, onClick = {
-                val base = if (H3Client.isBaseUrlValid(prefs)) H3Client.baseUrl(prefs) else "https://h3-studio.pages.dev"
-                runCatching {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(base)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }.onFailure { Toast.makeText(ctx, "打不開瀏覽器：${it.message?.take(60)}", Toast.LENGTH_LONG).show() }
-            }) {
+            // v2.0.4 AI 導演台:網頁版流程=一句需求→3 方案→分鏡微調→確認 CU 才開跑
+            // v2.0.5 改切到 App 內「H3 Studio」分頁(內嵌網頁),不再開外部瀏覽器
+            ImagineCard(pad = 14, onClick = { onNavSelected(NavTab.H3) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("🎬 AI 導演台（多段短片）", fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            "寫一句需求＋放圖 → AI 給 3 個方案 → 分鏡用選單微調 → 確認 CU 才開跑。會用瀏覽器開 H3 Studio（第一次要用 Google 登入）。",
+                            "寫一句需求＋放圖 → AI 給 3 個方案 → 分鏡用選單微調 → 確認 CU 才開跑。會切到「H3 Studio」分頁（第一次要用 Google 登入）。",
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
