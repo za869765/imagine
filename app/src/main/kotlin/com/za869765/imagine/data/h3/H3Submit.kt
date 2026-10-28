@@ -17,6 +17,7 @@ data class PendingH3(
     val aspect: String,
     val route: String = "cloud",
     val blink: Boolean = true,
+    val gpus: List<String> = emptyList(),
     val clientRequestId: String,
     val estimate: H3Estimate?,
 )
@@ -81,6 +82,7 @@ object H3Submit {
             route = pending.route,
             estNtd = confirmed.ntd,
             exp = if (pending.blink) mapOf("blink" to true) else null,
+            gpus = if (pending.route == "cloud" && pending.gpus.isNotEmpty()) pending.gpus else null,
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {

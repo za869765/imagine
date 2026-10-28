@@ -59,6 +59,8 @@ data class H3JobRequest(
     val route: String = "cloud",
     @SerialName("est_ntd") val estNtd: Double = 0.0,
     val exp: Map<String, Boolean>? = null,
+    // v2.1.5 超高畫質可用的 Colab GPU 範圍(伺服器照 G4→H100→A100 優先順序自動挑,排不到不扣 CU)
+    val gpus: List<String>? = null,
 )
 
 @Serializable

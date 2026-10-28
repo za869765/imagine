@@ -91,6 +91,10 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3Aspect: String
         get() = prefs.getString(K_H3_ASPECT, "9:16")!!
         set(v) = prefs.edit().putString(K_H3_ASPECT, v).apply()
+    // v2.1.5 超高畫質可用的 Colab GPU(逗號分隔;伺服器照 G4→H100→A100 挑)
+    var h3ColabGpus: List<String>
+        get() = prefs.getString("h3_colab_gpus", "G4,H100,A100")!!.split(",").filter { it.isNotBlank() }
+        set(v) = prefs.edit().putString("h3_colab_gpus", v.joinToString(",")).apply()
     // v2.1.4 H3 生影三級(high＝GPUtw int8、ultra＝Colab bf16、low＝筆電 Q4)
     var h3VideoTier: String
         get() = prefs.getString("h3_video_tier", "high")!!

@@ -114,6 +114,7 @@ fun H3GenerateScreen(
     // v2.1.4 三級:超高畫質 bf16／高畫質 int8／低畫質 Q4;預設高畫質(經濟實用)
     var tier by rememberSaveable { mutableStateOf(prefs.h3VideoTier) }
     var blink by rememberSaveable { mutableStateOf(true) }
+    var colabGpus by rememberSaveable { mutableStateOf(prefs.h3ColabGpus) }
     var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 
@@ -171,6 +172,7 @@ fun H3GenerateScreen(
             aspect = aspect,
             route = H3Format.tierRoute(tier),
             blink = blink,
+            gpus = colabGpus,
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
         )
@@ -335,6 +337,26 @@ fun H3GenerateScreen(
             ) {
                 Checkbox(checked = blink, onCheckedChange = { blink = it })
                 Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            }
+            // v2.1.5 超高畫質:勾可用的 Colab GPU 範圍,伺服器照 G4→H100→A100 自動挑(排不到不開機、不扣 CU)
+            if (tier == "ultra") {
+                Text("可用的 Colab GPU（照 G4 → H100 → A100 自動挑，排不到不扣 CU）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                listOf(
+                    "G4" to "G4・RTX Pro 6000 96GB（最新、顯存最大）",
+                    "H100" to "H100 80GB（運算最快）",
+                    "A100" to "A100 80GB（最常有空機）",
+                ).forEach { (id, label) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            val next = if (id in colabGpus) colabGpus - id else colabGpus + id
+                            if (next.isNotEmpty()) { colabGpus = next; prefs.h3ColabGpus = next }
+                        },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = id in colabGpus, onCheckedChange = null)
+                        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
             }
 
             ModePicker(
