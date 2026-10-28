@@ -124,7 +124,7 @@ fun H3GenerateScreen(
     }
     // v2.1.9 機器看板＋素材小卡(預設收起)
     val board = rememberMachineBoard(prefs)
-    var assetsOpen by rememberSaveable { mutableStateOf(false) }
+    var assetsOpen by rememberSaveable { mutableStateOf(true) }  // v2.2.1 預設展開（使用者：縮起來會找不到上傳位置）
     var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 

@@ -180,7 +180,7 @@ fun H3ImageScreen(
     var status by remember { mutableStateOf<H3ImageEstimate?>(null) }
     // v2.1.9 機器看板＋參考圖小卡(預設收起)
     val board = rememberMachineBoard(prefs)
-    var assetsOpen by rememberSaveable { mutableStateOf(false) }
+    var assetsOpen by rememberSaveable { mutableStateOf(true) }  // v2.2.1 預設展開（使用者：縮起來會找不到上傳位置）
     // v2.1.2 製圖機開著時每 20 秒更新一次(倒數關機看得到);關著就只查開頁那一次
     LaunchedEffect(Unit) {
         if (!prefs.isH3TokenSet) return@LaunchedEffect
