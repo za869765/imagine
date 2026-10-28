@@ -152,6 +152,21 @@ fun ImagineRoot() {
                         navController.navigate(Routes.HISTORY_DETAIL)
                     },
                     onOpenAllWorks = { navController.navigate(Routes.HISTORY) },
+                    onOpenPose = { navController.navigate(Routes.POSE_LIBRARY) },
+                )
+            }
+
+            // v2.1.6 姿勢參考庫:「當參考圖去生圖」→ H3 生圖、照片改圖模式、參考圖＝這張姿勢、提示詞預填
+            composable(Routes.POSE_LIBRARY) {
+                com.za869765.imagine.ui.pose.PoseLibraryScreen(
+                    onBack = { navController.popBackStack() },
+                    onUseAsReference = { uri, prompt ->
+                        prefs.imageEngine = com.za869765.imagine.ui.generate.ENGINE_H3
+                        com.za869765.imagine.data.prefs.DraftStore.saveList(ctx, "h3_image_refs", listOf(uri))
+                        com.za869765.imagine.data.prefs.DraftStore.save(ctx, "h3_image_mode", "ref")
+                        com.za869765.imagine.data.prefs.DraftStore.save(ctx, com.za869765.imagine.data.prefs.DraftStore.IMAGE_PROMPT, prompt)
+                        navController.navigate(Routes.GENERATE_IMAGE)
+                    },
                 )
             }
 

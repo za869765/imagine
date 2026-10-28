@@ -155,7 +155,8 @@ fun H3ImageScreen(
     var route by rememberSaveable { mutableStateOf(prefs.h3ImgRoute) }
     var allowText by rememberSaveable { mutableStateOf(false) }
     // v2.1.3 製作方式:txt 文生圖 / ref 參考圖生圖 / alpha 透明背景 / sheet 多視角角色圖
-    var mode by rememberSaveable { mutableStateOf("txt") }
+    var mode by rememberSaveable { mutableStateOf(DraftStore.load(ctx, "h3_image_mode") ?: "txt") }
+    LaunchedEffect(mode) { DraftStore.save(ctx, "h3_image_mode", mode) }
     val isSheet = mode == "sheet"
     val sendRefs = if (mode == "txt") emptyList() else if (isSheet) refStrings.take(1) else refStrings
     val sendMp = if (isSheet) 4 else mp

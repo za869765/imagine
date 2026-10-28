@@ -63,6 +63,7 @@ fun MaterialHubScreen(
     // 最近成果:點縮圖開作品詳情(uri 字串);「所有作品」開歷史清單
     onOpenRecent: (String) -> Unit = {},
     onOpenAllWorks: () -> Unit = {},
+    onOpenPose: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     // 進行中的影片任務:直接讀 WorkManager(trackedRequestId 的 SSOT 仍在生成頁,這裡只做入口)
@@ -190,6 +191,15 @@ fun MaterialHubScreen(
                 subtitle = "1000+ 內建素材一次看,點一下決定保留/丟棄;可從雲端更新",
                 trailing = "chevron_right",
                 onClick = onOpenReview,
+            )
+            ToolTile(
+                icon = "photo_library",
+                iconColor = Color(0xFFC7B4FF),
+                iconBg = Color(0xFF8E7CF0).copy(alpha = 0.16f),
+                title = "姿勢參考庫",
+                subtitle = "1439 張人偶線稿姿勢（5 個視角），點一下當參考圖去生圖",
+                trailing = "chevron_right",
+                onClick = onOpenPose,
             )
             ToolTile(
                 icon = "forum",

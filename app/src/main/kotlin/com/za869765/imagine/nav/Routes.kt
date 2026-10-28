@@ -29,5 +29,7 @@ object Routes {
     const val H3_STUDIO = "h3_studio"
     // v2.0.7 H3 生圖任務頁(帶 runId)
     const val H3_IMAGE_JOB = "h3_image_job/{runId}"
+    // v2.1.6 姿勢參考庫
+    const val POSE_LIBRARY = "pose_library"
     fun h3ImageJob(runId: String) = "h3_image_job/$runId"
 }
