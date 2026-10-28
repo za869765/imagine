@@ -2,7 +2,6 @@ package com.za869765.imagine.ui.generate
 
 import android.content.Intent
 import android.net.Uri
-import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -233,7 +232,7 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
 }
 
 /** 點縮圖直接全螢幕放大：左右滑看其他完成的成品；圖片可雙指縮放、影片直接播。 */
-@OptIn(UnstableApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun ResultViewerDialog(items: List<H3Jobs.Job>, start: Int, onDismiss: () -> Unit, onOpenJob: (H3Jobs.Job) -> Unit) {
     if (items.isEmpty()) return
