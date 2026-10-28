@@ -8,6 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -133,6 +136,56 @@ fun CollapsibleSection(title: String, summary: String, expanded: Boolean, onTogg
         }
     }
     if (expanded) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+}
+
+/** v2.2.2 最近任務依狀態分色塊:黃＝生成中、藍＝排隊中、綠＝完成、紅＝失敗／取消;生成中與排隊中都寫預計完成。 */
+@Composable
+fun RecentJobGroups(jobs: List<com.za869765.imagine.data.h3.H3Jobs.Job>, detail: (com.za869765.imagine.data.h3.H3Jobs.Job) -> String, onOpen: (String) -> Unit) {
+    data class G(val title: String, val color: Color, val states: List<String>)
+    val groups = listOf(
+        G("生成中", Color(0xFFE0A100), listOf("running", "launching", "setup")),
+        G("排隊中", Color(0xFF4A8FE7), listOf("queued", "hold")),
+        G("完成", Color(0xFF2E9E5B), listOf("done")),
+        G("失敗／取消", Color(0xFFD9534F), listOf("failed", "cancelled")),
+    )
+    val known = groups.flatMap { it.states }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        groups.forEach { g ->
+            val list = jobs.filter { it.status in g.states || (g.title == "排隊中" && it.status !in known) }
+            if (list.isEmpty()) return@forEach
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(g.color.copy(alpha = 0.12f), androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                    .border(1.dp, g.color.copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("${g.title}（${list.size}）", fontSize = 14.sp, fontWeight = FontWeight.W700, color = g.color)
+                list.forEach { job ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                            .clickable { onOpen(job.runId) }
+                            .padding(10.dp),
+                    ) {
+                        Text(job.prompt, fontSize = 13.sp, maxLines = 2, color = MaterialTheme.colorScheme.onSurface)
+                        Text(detail(job), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                        if (g.title == "生成中" || g.title == "排隊中") {
+                            Text(
+                                if (job.etaAt != null) com.za869765.imagine.data.h3.H3Format.eta(job.etaAt) else "預計完成時間計算中…",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = g.color,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** v2.2.0 最近任務區塊抬頭:粗分隔線＋留白＋大標題與筆數,和上面的設定區明顯分開。 */

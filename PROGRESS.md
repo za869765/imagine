@@ -113,6 +113,8 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 ### v2.0.8（2026-10-28）
 
 - H3 生圖任務頁「圖片動起來」→ 生影頁直接開 **H3 Studio** 引擎（圖當參考圖、提示詞預填），不再先開 Grok：NavHost 多 `KEY_INIT_VIDEO_ENGINE`，`GenerateVideoScreen(initialEngine)`。
+### v2.2.2（2026-10-29）最近 H3 生圖／影片依狀態分色塊：黃＝生成中、藍＝排隊中、綠＝完成、紅＝失敗／取消；生成中與排隊中都寫「預計 HH:mm 完成」（RecentJobGroups）
+
 ### v2.2.1（2026-10-29）素材小卡（參考圖上傳位置）改預設展開，找得到；仍可點「收起」
 
 ### v2.2.0（2026-10-29）最近任務區塊和上面的設定明顯分開：粗分隔線＋留白＋大標題「最近 H3 生圖／最近 H3 影片」與筆數

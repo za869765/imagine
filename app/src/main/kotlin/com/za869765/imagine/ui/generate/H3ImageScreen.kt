@@ -556,27 +556,7 @@ fun H3ImageScreen(
             RecentJobsPoller(prefs, recentJobs) { recentJobs = H3Jobs.all(ctx).filter { it.kind == "image" }.take(5) }
             if (recentJobs.isNotEmpty()) {
                 RecentSectionHeader("最近 H3 生圖", recentJobs.size)
-                recentJobs.forEach { job ->
-                    ImagineCard(pad = 12, onClick = { onOpenJob(job.runId) }) {
-                        Column {
-                            Text(
-                                job.prompt,
-                                fontSize = 13.sp,
-                                maxLines = 2,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                "${H3Format.statusLabel(job.status)}・${job.meta}" +
-                                    (if (job.estNtd > 0) "・預估 NT$${H3Format.ntd(job.estNtd)}" else "") +
-                                    (if (job.estCu > 0) "・${H3Format.cu(job.estCu)} CU" else "") +
-                                    (if (job.status !in listOf("done", "failed", "cancelled") && job.etaAt != null) "\n" + H3Format.eta(job.etaAt) else ""),
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
-                        }
-                    }
-                }
+                RecentJobGroups(recentJobs, detail = { job -> job.meta + (if (job.estNtd > 0) "・預估 NT$${H3Format.ntd(job.estNtd)}" else "") + (if (job.estCu > 0) "・${H3Format.cu(job.estCu)} CU" else "") }, onOpen = { onOpenJob(it) })
             }
 
             if (showLibraryPicker) {
