@@ -64,6 +64,14 @@ fun VideoEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Mo
     }
 }
 
+/** v2.3.0 每秒跳一次的現在時間(倒數用)。 */
+@Composable
+fun rememberNowMs(): Long {
+    var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(System.currentTimeMillis()) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1_000); t = System.currentTimeMillis() } }
+    return t
+}
+
 /** v2.1.9 機器看板:頁面看得到時每 20 秒向 H3 Studio 查一次(不花錢)。 */
 @Composable
 fun rememberMachineBoard(prefs: com.za869765.imagine.data.prefs.SecurePrefs): List<com.za869765.imagine.data.h3.H3Machine> {
@@ -174,7 +182,7 @@ fun RecentJobGroups(jobs: List<com.za869765.imagine.data.h3.H3Jobs.Job>, detail:
                         Text(detail(job), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
                         if (g.title == "生成中" || g.title == "排隊中") {
                             Text(
-                                if (job.etaAt != null) com.za869765.imagine.data.h3.H3Format.eta(job.etaAt) else "預計完成時間計算中…",
+                                if (job.etaAt != null) com.za869765.imagine.data.h3.H3Format.eta(job.etaAt, now = rememberNowMs()) else "預計完成時間計算中…",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.W600,
                                 color = g.color,

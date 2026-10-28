@@ -142,6 +142,7 @@ fun GenerateVideoScreen(
     initialExtendBase: String? = null,
     onBack: (() -> Unit)? = null,
     onOpenH3Job: (String) -> Unit = {},
+    onOpenH3ImageJob: (String) -> Unit = {},
     initialEngine: String? = null, // v2.0.8 "h3":H3 生圖成品「動起來」→ 直接開 H3 生影(圖當參考圖)
 ) {
     val ctx = LocalContext.current
@@ -161,6 +162,7 @@ fun GenerateVideoScreen(
             onSettingsClick = onSettingsClick,
             onNavSelected = onNavSelected,
             onOpenJob = onOpenH3Job,
+            onOpenImageJob = onOpenH3ImageJob,
             engineSelector = selector,
             initialImageUri = initialImageUri,
             initialPrompt = initialPrompt,

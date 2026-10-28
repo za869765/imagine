@@ -68,7 +68,7 @@ private val h3ImgSavedByRun = HashMap<String, List<String>>()
  * 下載成品圖存進所有作品(標 [H3])。全域互斥 + 已存紀錄(H3Jobs / 記憶體)→ 同一任務只下載、只入庫一次。
  * 回本機 uri 清單(下載失敗的張略過)。
  */
-private suspend fun saveH3ImagesToHistory(
+internal suspend fun saveH3ImagesToHistory(
     ctx: android.content.Context,
     prefs: SecurePrefs,
     runId: String,
@@ -241,7 +241,7 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                     // v2.1.9 預計完成(台北時間;前面還有幾個)
                     s?.takeIf { !it.isFinished }?.eta?.let { eta ->
                         Text(
-                            H3Format.eta(eta.etaAt, eta.etaMin) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
+                            H3Format.eta(eta.etaAt, eta.etaMin, now = rememberNowMs()) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = MaterialTheme.colorScheme.primary,

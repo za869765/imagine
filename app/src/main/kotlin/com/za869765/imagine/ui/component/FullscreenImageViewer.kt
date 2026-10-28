@@ -251,7 +251,7 @@ private fun ViewerActionSlot(
 }
 
 @Composable
-private fun ZoomableImage(url: String, onScaleChange: (Float) -> Unit) {
+internal fun ZoomableImage(url: String, onScaleChange: (Float) -> Unit) {
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val state = rememberTransformableState { zoomChange, panChange, _ ->

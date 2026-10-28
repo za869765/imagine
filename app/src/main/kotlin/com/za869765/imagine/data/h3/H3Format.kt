@@ -26,11 +26,14 @@ object H3Format {
     /** v2.1.9 台北時間 HH:mm。 */
     fun clock(ms: Long): String = java.text.SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Taipei") }.format(java.util.Date(ms))
 
-    /** 「預計 01:23 完成（約 12 分）」;etaAt 已過就寫「快好了」。 */
-    fun eta(etaAt: Long?, etaMin: Double? = null): String {
+    /** v2.3.0「預計 01:23 完成・剩 12:34」即時倒數(now 由畫面每秒更新);時間到了寫「快好了」。 */
+    fun eta(etaAt: Long?, etaMin: Double? = null, now: Long = System.currentTimeMillis(), sep: String = "・"): String {
         if (etaAt == null || etaAt <= 0) return ""
-        val left = ((etaAt - System.currentTimeMillis()) / 60_000.0)
-        return if (left <= 0.5) "預計 ${clock(etaAt)} 完成（快好了）" else "預計 ${clock(etaAt)} 完成（約 ${kotlin.math.ceil(left).toInt()} 分）"
+        val left = (etaAt - now) / 1000
+        if (left <= 0) return "預計 ${clock(etaAt)} 完成${sep}快好了"
+        val h = left / 3600; val m = (left % 3600) / 60; val s = left % 60
+        val cd = if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s) else String.format(Locale.US, "%02d:%02d", m, s)
+        return "預計 ${clock(etaAt)} 完成${sep}剩 $cd"
     }
 
     fun ntd(v: Double): String = String.format(Locale.US, "%.1f", v)

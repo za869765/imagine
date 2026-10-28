@@ -85,6 +85,7 @@ fun H3GenerateScreen(
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     onOpenJob: (String) -> Unit,
+    onOpenImageJob: (String) -> Unit = {},
     engineSelector: @Composable () -> Unit,
     initialImageUri: Uri? = null,
     initialPrompt: String? = null,
@@ -124,7 +125,8 @@ fun H3GenerateScreen(
     }
     // v2.1.9 機器看板＋素材小卡(預設收起)
     val board = rememberMachineBoard(prefs)
-    var assetsOpen by rememberSaveable { mutableStateOf(true) }  // v2.2.1 預設展開（使用者：縮起來會找不到上傳位置）
+    var assetsOpen by rememberSaveable { mutableStateOf(true) }
+    var advOpen by rememberSaveable { mutableStateOf(false) }  // v2.2.1 預設展開（使用者：縮起來會找不到上傳位置）
     var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 
@@ -254,6 +256,10 @@ fun H3GenerateScreen(
         appBar = { ImagineTopAppBar(title = "生成影片", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
         bottomAction = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            board.firstOrNull { it.route == H3Format.tierRoute(tier) }?.let { m ->
+                Text("${H3Format.tierName(tier)}・${m.name}：${m.label}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
+            }
             PrimaryButton(
                 label = if (estimating) "估算中…" else "估算並確認（H3）",
                 icon = if (estimating) null else "movie",
@@ -261,6 +267,7 @@ fun H3GenerateScreen(
                 enabled = !estimating && prefs.isH3TokenSet && prompt.isNotBlank() && sources.isNotEmpty(),
                 onClick = { startEstimate() },
             )
+            }
         },
     ) {
         Column(
@@ -287,7 +294,7 @@ fun H3GenerateScreen(
             engineSelector()
 
             // v2.1.9 下單前先看哪台空著:筆電(低畫質)、影片機(高畫質)、Colab(超高畫質)
-            MachineBoardCard(board, listOf("gputw", "local", "cloud"), highlight = H3Format.tierRoute(tier))
+            MachineChips(board, listOf("gputw", "local", "cloud"), highlight = H3Format.tierRoute(tier))
 
             // v2.0.4 AI 導演台:網頁版流程=一句需求→3 方案→分鏡微調→確認 CU 才開跑
             // v2.0.5 改切到 App 內「H3 Studio」分頁(內嵌網頁),不再開外部瀏覽器
@@ -338,40 +345,6 @@ fun H3GenerateScreen(
                                 onClick = { uncertainPending = null },
                             )
                         }
-                    }
-                }
-            }
-
-            ModePicker(
-                label = "畫質",
-                options = H3Format.VIDEO_TIERS.map { ModeOption(it, H3Format.tierName(it), H3Format.tierDesc(it) + machineNote(board, H3Format.tierRoute(it))) },
-                selectedId = tier,
-                onSelect = { tier = it; prefs.h3VideoTier = it },
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { blink = !blink },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = blink, onCheckedChange = { blink = it })
-                Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-            }
-            // v2.1.5 超高畫質:勾可用的 Colab GPU 範圍,伺服器照 G4→H100→A100 自動挑(排不到不開機、不扣 CU)
-            if (tier == "ultra") {
-                Text("可用的 Colab GPU（照 G4 → H100 → A100 自動挑，排不到不扣 CU）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                listOf(
-                    "G4" to "G4・RTX Pro 6000 96GB（最新、顯存最大）",
-                    "H100" to "H100 80GB（運算最快）",
-                    "A100" to "A100 80GB（最常有空機）",
-                ).forEach { (id, label) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            val next = if (id in colabGpus) colabGpus - id else colabGpus + id
-                            if (next.isNotEmpty()) { colabGpus = next; prefs.h3ColabGpus = next }
-                        },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(checked = id in colabGpus, onCheckedChange = null)
-                        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -427,6 +400,19 @@ fun H3GenerateScreen(
                 videoSourcePrompt = initialPrompt,
             )
 
+            ModePicker(
+                label = "畫質",
+                options = H3Format.VIDEO_TIERS.map { ModeOption(it, H3Format.tierName(it), H3Format.tierDesc(it) + machineNote(board, H3Format.tierRoute(it))) },
+                selectedId = tier,
+                onSelect = { tier = it; prefs.h3VideoTier = it },
+            )
+            // v2.3.0 長度・比例・進階收成一行摘要（Claude Design v3）
+            CollapsibleSection(
+                title = "長度・比例・進階",
+                summary = "${if (segCount > 1) "$segCount 段・每段" else "單段"} $seconds 秒・${if (aspect == "9:16") "直式" else "橫式"} $aspect" + (if (blink) "・眨眼" else "") + (if (tier == "ultra") "・GPU ${colabGpus.joinToString("/")}" else ""),
+                expanded = advOpen,
+                onToggle = { advOpen = !advOpen },
+            ) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -472,20 +458,38 @@ fun H3GenerateScreen(
                 }
             }
 
-            ImagineCard(pad = 14) {
-                Text(
-                    "按下方按鈕只會先估算（不花錢），確認視窗勾選後才會真的開跑。高畫質扣 GPUtw 台幣、超高畫質扣 Colab CU、低畫質用筆電免費。長片每段接續上一段結尾的畫面和聲音，做完自動串成一支。",
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { blink = !blink },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = blink, onCheckedChange = { blink = it })
+                Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            }
+            // v2.1.5 超高畫質:勾可用的 Colab GPU 範圍,伺服器照 G4→H100→A100 自動挑(排不到不開機、不扣 CU)
+            if (tier == "ultra") {
+                Text("可用的 Colab GPU（照 G4 → H100 → A100 自動挑，排不到不扣 CU）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                listOf(
+                    "G4" to "G4・RTX Pro 6000 96GB（最新、顯存最大）",
+                    "H100" to "H100 80GB（運算最快）",
+                    "A100" to "A100 80GB（最常有空機）",
+                ).forEach { (id, label) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            val next = if (id in colabGpus) colabGpus - id else colabGpus + id
+                            if (next.isNotEmpty()) { colabGpus = next; prefs.h3ColabGpus = next }
+                        },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = id in colabGpus, onCheckedChange = null)
+                        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
             }
 
-            RecentJobsPoller(prefs, recentJobs) { recentJobs = H3Jobs.all(ctx).filter { it.kind != "image" }.take(5) }
-            if (recentJobs.isNotEmpty()) {
-                RecentSectionHeader("最近 H3 影片", recentJobs.size)
-                RecentJobGroups(recentJobs, detail = { job -> "${H3Format.qualityLabel(job.quality)}・${job.seconds} 秒" + (if (job.estNtd > 0) "・預估 NT$${H3Format.ntd(job.estNtd)}" else if (job.estCu > 0) "・預估 ${H3Format.cu(job.estCu)} CU" else "") }, onOpen = { onOpenJob(it) })
             }
+
+            // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
+            H3ResultsSection(prefs, onOpenImageJob = onOpenImageJob, onOpenVideoJob = onOpenJob)
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(
@@ -566,7 +570,7 @@ private fun H3ConfirmSheet(
                 if (e.gpuAlive) "GPU 已開機不用冷啟動" else "需要冷啟動（約 ${H3Format.minutes(e.coldMin)} 分鐘）",
             )
             ConfirmLine("GPU 時間", "約 ${H3Format.minutes(e.minutes)} 分鐘")
-            if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin) + "（含前面排隊）", strong = true)
+            if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin, now = rememberNowMs()) + "（含前面排隊）", strong = true)
             ConfirmLine("預估消耗", when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}（按分鐘扣台幣）"; "local" -> "免費（筆電）"; else -> "${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" }, strong = true)
             ConfirmLine(
                 "目前餘額",

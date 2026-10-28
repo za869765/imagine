@@ -128,6 +128,7 @@ fun H3ImageScreen(
     onSettingsClick: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     onOpenJob: (String) -> Unit,
+    onOpenVideoJob: (String) -> Unit = {},
     engineSelector: @Composable () -> Unit,
     initialPrompt: String? = null,
 ) {
@@ -347,7 +348,7 @@ fun H3ImageScreen(
             engineSelector()
 
             // v2.1.9 下單前先看哪台空著(綠＝馬上做、黃＝要排隊、灰＝關機)
-            MachineBoardCard(board, listOf("local", "gputw_image", "gputw", "cloud"), highlight = if (route == "auto") status?.route else route)
+            MachineChips(board, listOf("local", "gputw_image", "gputw", "cloud"), highlight = if (route == "auto") status?.route else route)
 
             if (!prefs.isH3TokenSet) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
@@ -553,11 +554,8 @@ fun H3ImageScreen(
                 )
             }
 
-            RecentJobsPoller(prefs, recentJobs) { recentJobs = H3Jobs.all(ctx).filter { it.kind == "image" }.take(5) }
-            if (recentJobs.isNotEmpty()) {
-                RecentSectionHeader("最近 H3 生圖", recentJobs.size)
-                RecentJobGroups(recentJobs, detail = { job -> job.meta + (if (job.estNtd > 0) "・預估 NT$${H3Format.ntd(job.estNtd)}" else "") + (if (job.estCu > 0) "・${H3Format.cu(job.estCu)} CU" else "") }, onOpen = { onOpenJob(it) })
-            }
+            // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
+            H3ResultsSection(prefs, onOpenImageJob = onOpenJob, onOpenVideoJob = onOpenVideoJob)
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(
@@ -740,7 +738,7 @@ private fun H3ImageConfirmSheet(
                     (if (pending.refs.isNotEmpty()) "・參考 ${pending.refs.size} 張" else "") +
                     (if (pending.allowText) "・允許文字" else "・無文字"),
             )
-            if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin) + "（含前面排隊）", strong = true)
+            if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin, now = rememberNowMs()) + "（含前面排隊）", strong = true)
             ConfirmLine("餘額", balanceLine)
 
             if (block != null) {

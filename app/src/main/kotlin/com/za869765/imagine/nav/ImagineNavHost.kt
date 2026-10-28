@@ -352,6 +352,7 @@ fun ImagineRoot() {
                     // 圖片編輯改為生成頁內切模式(EditPane),不再導頁進 EditScreen → 移除 onOpenImageEdit
                     // v2.0.7 H3 生圖(Qwen)送出後進任務頁
                     onOpenH3ImageJob = { runId -> navController.navigate(Routes.h3ImageJob(runId)) },
+                    onOpenH3Job = { runId -> navController.navigate(Routes.h3Job(runId)) },
                 )
             }
 
@@ -402,6 +403,7 @@ fun ImagineRoot() {
                     initialVideoMode = initVideoMode,
                     initialExtendBase = initExtendBase,
                     onOpenH3Job = { runId -> navController.navigate(Routes.h3Job(runId)) },
+                    onOpenH3ImageJob = { runId -> navController.navigate(Routes.h3ImageJob(runId)) },
                     initialEngine = initEngine,
                 )
             }

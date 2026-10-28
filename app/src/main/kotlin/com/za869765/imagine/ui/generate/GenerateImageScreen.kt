@@ -112,6 +112,7 @@ fun GenerateImageScreen(
     onEditImage: (String, String) -> Unit = { _, _ -> },
     initialPrompt: String? = null,
     onOpenH3ImageJob: (String) -> Unit = {},
+    onOpenH3Job: (String) -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -127,6 +128,7 @@ fun GenerateImageScreen(
             onSettingsClick = onSettingsClick,
             onNavSelected = onNavSelected,
             onOpenJob = onOpenH3ImageJob,
+            onOpenVideoJob = onOpenH3Job,
             engineSelector = selector,
             initialPrompt = initialPrompt,
         )

@@ -61,7 +61,7 @@ private val h3SavedByRun = HashMap<String, String>()
 /**
  * 下載成品存進所有作品(標 [H3])。全域互斥 + 已存紀錄(H3Jobs / 記憶體)→ 同一任務只下載、只入庫一次。
  */
-private suspend fun saveH3ToHistory(
+internal suspend fun saveH3ToHistory(
     ctx: android.content.Context,
     prefs: SecurePrefs,
     runId: String,
@@ -209,7 +209,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                     // v2.1.9 預計完成(台北時間;前面還有幾個)
                     s?.takeIf { !it.isFinished }?.eta?.let { eta ->
                         Text(
-                            H3Format.eta(eta.etaAt, eta.etaMin) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
+                            H3Format.eta(eta.etaAt, eta.etaMin, now = rememberNowMs()) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = MaterialTheme.colorScheme.primary,
