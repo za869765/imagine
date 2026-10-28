@@ -127,6 +127,8 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 | `POST /api/app/images`（confirm、client_request_id） | 200，0.56 秒，run_id r_b53903167feb4c39；同鍵重送 → duplicate:true 同 run_id |
 | `GET /api/app/images/<run_id>` | 200；筆電 10 秒接手，但 **4 秒後 run_done「全部完成」且 images=[]**：筆電跑的是 10/28 07:54 前的舊工人，不認得 kind=image，走分鏡路徑。伺服器 v2.15.3 起圖單只派給回報 caps.image 的工人；筆電要 `git pull` 重啟 |
 | `POST /api/app/prompt/optimize` image／video | 200，約 6～8 秒，notes 4 條 |
+| **製圖機路線全程**（19:17 送單 route=gputw_image） | 同節點 1 分開機、Qwen 17 GB 7 分（40 MB/s）、19:26 出圖（9 分）；`GET /api/app/images/<run_id>` 回 images[{id,url,drive_id,768×1344}]，`/api/images/<id>` 下載 200 image/jpeg 268 KB；待命 3 分後 19:29 自動刪機；實扣 NT$5.9（389.80→383.89，估 8） |
+| 筆電路線 | 🔴 等筆電 git pull 重啟工人後再驗（舊工人會假完成） |
 
 ## v1.0.10 修正（2026-05-19）
 
