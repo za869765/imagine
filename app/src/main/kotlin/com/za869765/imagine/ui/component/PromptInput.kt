@@ -723,22 +723,8 @@ private fun firstPhysicalConflict(text: String, forVideo: Boolean): PromptHint? 
 private fun evaluatePrompt(p: String, maxChars: Int, forVideo: Boolean = false): PromptHint? {
     val s = p.trim()
     if (s.isEmpty()) return null
-    val low = s.lowercase()
 
-    if (HIGH_RISK_TERMS.any { matchesTerm(low, it) }) {
-        return PromptHint("🚨", "高機率被擋 (僅參考)", HintColor.Red)
-    }
-
-    // 中風險: 可能被擋
-    val medium = listOf(
-        "bikini", "topless", "lingerie", "sensual", "suggestive",
-        "blood", "gore", "violence", "violent", "kill", "killing", "murder",
-        "weapon", "gun", "knife", "scary", "horror", "fetish",
-        "比基尼", "內衣", "血腥", "暴力", "武器", "殺戮", "恐怖", "戀物",
-    )
-    if (medium.any { matchesTerm(low, it) }) {
-        return PromptHint("⚠️", "可能審核較嚴 (僅參考)", HintColor.Yellow)
-    }
+    // v2.3.3 拿掉「高機率被擋／可能審核較嚴」輸入框提示（使用者覺得礙眼）；送出前的確認視窗照舊
 
     // 物理矛盾偵測 (僅參考): 同時下兩個互相抵消的指令,成像會二選一或糊掉。
     firstPhysicalConflict(s, forVideo)?.let { return it }
