@@ -263,6 +263,15 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                     s?.error?.takeIf { it.isNotBlank() }?.let {
                         Text("錯誤：$it", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
                     }
+                    // v2.0.9:工人回「完成」卻沒有成品圖(10/28 自測:舊版筆電工人接到圖單走分鏡路徑 4 秒就「完成」)
+                    if (s != null && s.status == "done" && s.images.isEmpty()) {
+                        Text(
+                            "完成但沒有成品圖：多半是筆電工人版本太舊（要在筆電 git pull 後重啟工人）或生成失敗，細節看 H3 Studio 的生成紀錄。",
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     pollError?.let {
                         Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                     }

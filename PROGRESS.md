@@ -115,6 +115,19 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 - H3 生圖任務頁「圖片動起來」→ 生影頁直接開 **H3 Studio** 引擎（圖當參考圖、提示詞預填），不再先開 Grok：NavHost 多 `KEY_INIT_VIDEO_ENGINE`，`GenerateVideoScreen(initialEngine)`。
 - 用 Studio 登入 session 自測過 APP 會打的伺服器端點（估算→送單→筆電出圖→查詢；優化 image／video；重送同 client_request_id 去重），見 PROGRESS 下方測試紀錄。
 
+### v2.0.9（2026-10-28）
+
+- H3 生圖任務頁：工人回「完成」卻沒有成品圖時顯示紅字說明（舊版筆電工人接到圖單會走分鏡路徑、幾秒就「完成」沒圖）。
+
+### 10/28 18:25 自測紀錄（Studio 登入 session 打 APP 端點，不需 APP 權杖）
+
+| 端點 | 結果 |
+|---|---|
+| `GET /api/app/images/estimate?mp=1&count=1&route=auto` | 200，route=local（筆電 idle、caps.qwen）、minutes 1.5、ntd 0、ntd_balance 389.9、cu_balance 11.98 |
+| `POST /api/app/images`（confirm、client_request_id） | 200，0.56 秒，run_id r_b53903167feb4c39；同鍵重送 → duplicate:true 同 run_id |
+| `GET /api/app/images/<run_id>` | 200；筆電 10 秒接手，但 **4 秒後 run_done「全部完成」且 images=[]**：筆電跑的是 10/28 07:54 前的舊工人，不認得 kind=image，走分鏡路徑。伺服器 v2.15.3 起圖單只派給回報 caps.image 的工人；筆電要 `git pull` 重啟 |
+| `POST /api/app/prompt/optimize` image／video | 200，約 6～8 秒，notes 4 條 |
+
 ## v1.0.10 修正（2026-05-19）
 
 實機回報：圖片生成 toast 跳「失敗 — 解析失敗：Field 'created' is required ...」，但 xAI 後台已扣費 → 表示圖其實有產，只是 client 解析掛掉。
