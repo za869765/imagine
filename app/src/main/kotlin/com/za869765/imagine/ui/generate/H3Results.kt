@@ -75,6 +75,7 @@ private val AMBER = Color(0xFFE0A100)
 private val BLUE = Color(0xFF4A8FE7)
 private val GREEN = Color(0xFF2E9E5B)
 private val RED = Color(0xFFD9534F)
+private val VIDEO_FRAME = Color(0xFFA77BFF)
 
 private fun H3Jobs.Job.isDone() = status == "done"
 private fun H3Jobs.Job.isFailed() = status == "failed" || status == "cancelled"
@@ -166,7 +167,16 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(if (job.isDone() && uri != null) Color(0xFF1C1C25) else c.copy(alpha = 0.14f))
-            .border(if (job.isDone()) 1.dp else 2.dp, if (job.isDone()) MaterialTheme.colorScheme.outlineVariant else c, RoundedCornerShape(12.dp))
+            // v2.3.2 做完的影片紫色粗框、圖片灰色細框（網路慢預覽還沒動也分得出來）
+            .border(
+                if (job.isDone() && job.kind == "image") 1.dp else 2.dp,
+                when {
+                    !job.isDone() -> c
+                    job.kind == "image" -> MaterialTheme.colorScheme.outlineVariant
+                    else -> VIDEO_FRAME
+                },
+                RoundedCornerShape(12.dp),
+            )
             .clickable(onClick = onClick),
     ) {
         if (job.isDone() && uri != null) {
