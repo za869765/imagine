@@ -143,7 +143,7 @@ fun MaterialReviewScreen(
             r.onSuccess {
                 reloadKey++
                 lastUpdated = SeedUpdater.lastUpdatedAt(ctx)
-                AppNotice.show("素材已更新:素材 ${it.seedTotal}(新 ${it.seedAdded})・課程 ${it.lessonTotal}(新 ${it.lessonAdded})")
+                AppNotice.show("素材已更新:素材 ${it.seedTotal}(新 ${it.seedAdded})・課程到第 ${it.latestSec} 節，共 ${it.lessonTotal} 課(新 ${it.lessonAdded})")
             }.onFailure {
                 AppNotice.show("更新失敗:${it.message?.take(60) ?: "未知錯誤"}")
             }

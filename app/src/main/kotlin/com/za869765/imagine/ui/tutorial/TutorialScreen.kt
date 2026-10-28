@@ -257,7 +257,8 @@ private fun GalleryList(
 ) {
     val ctx = LocalContext.current
     // 由最新節次排到最舊(sec 大→小),新課程排前面。
-    val lessons = remember { TutorialData.load(ctx).sortedByDescending { it.sec } }
+    // v2.1.7 系列新→舊排前面,非系列實戰(sec ≥ 1000)排在後面
+    val lessons = remember { TutorialData.load(ctx).sortedWith(compareBy<TutorialLesson> { it.isPractice }.thenByDescending { it.sec }) }
     val q = query.trim()
     val filtered = remember(q) {
         if (q.isEmpty()) lessons else lessons.filter { it.title.contains(q, true) }
@@ -357,7 +358,7 @@ private fun LessonCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "第${lesson.sec}節",
+                    text = if (lesson.isPractice) "實戰案例" else "第${lesson.sec}節",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -368,7 +369,7 @@ private fun LessonCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "${visibleImages.size} 圖 · ${lesson.videos.size} 影片 · ${lesson.prompts.size} 提示詞",
+                    text = if (lesson.notes.isNotBlank() && lesson.prompts.isEmpty() && visibleImages.isEmpty()) "重點整理 · 原文在 super-i" else "${visibleImages.size} 圖 · ${lesson.videos.size} 影片 · ${lesson.prompts.size} 提示詞",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
@@ -382,6 +383,17 @@ private fun LessonCard(
         }
 
         if (isOpen) {
+            if (lesson.notes.isNotBlank()) {
+                Text(lesson.notes, fontSize = 13.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 10.dp))
+            }
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+            Text(
+                "看原文（super-i）",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.W600,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp).clickable { runCatching { uriHandler.openUri(lesson.sourceUrl) } },
+            )
             if (visibleImages.isNotEmpty()) {
                 Text(
                     text = "範例圖（點圖→動起來/重繪）",

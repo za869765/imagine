@@ -113,6 +113,8 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 ### v2.0.8（2026-10-28）
 
 - H3 生圖任務頁「圖片動起來」→ 生影頁直接開 **H3 Studio** 引擎（圖當參考圖、提示詞預填），不再先開 Grok：NavHost 多 `KEY_INIT_VIDEO_ENGINE`，`GenerateVideoScreen(initialEngine)`。
+### v2.1.7（2026-10-29）教學頁補 super-i 第 84～88 節＋22 篇實戰（雲端 Claude 做索引、Claude Code 審閱對齊；只放自己整理的重點 notes＋「看原文」連結，不含原文）；TutorialLesson 加 notes、sec≥1000＝實戰案例排在系列後面；雲端更新後顯示「課程到第 N 節」
+
 ### v2.1.6（2026-10-29）素材生成首頁多「姿勢參考庫」：anhao/ai-pose-gallery-zh 1439 張人偶線稿（4 體系、5 視角，成人分類預設隱藏），開頁從 jsDelivr 載 pose-zh.json（本機快取）＋縮圖，名稱簡→繁（data/pose/PoseLibrary.kt S2T 表）；「當參考圖去生圖」＝下載原圖存進所有作品→H3 生圖切照片改圖模式、參考圖帶入、提示詞預填姿勢名。圖片著作權歸原作者、不得商用，APP 不打包圖片
 
 ### v2.1.5（2026-10-29）超高畫質勾選可用的 Colab GPU（G4／H100／A100，預設全勾），伺服器照 G4→H100→A100 優先順序自動挑、排不到不開機不扣 CU（gpus 欄位；伺服器 launch.yml 改優先清單）

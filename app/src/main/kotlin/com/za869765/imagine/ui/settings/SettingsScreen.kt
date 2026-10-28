@@ -972,7 +972,7 @@ fun SettingsScreen(
                                         seedUpdating = false
                                         r.onSuccess {
                                             seedLastUpdated = com.za869765.imagine.data.storage.SeedUpdater.lastUpdatedAt(ctx)
-                                            Toast.makeText(ctx, "素材已更新:素材 ${it.seedTotal}(新 ${it.seedAdded})・課程 ${it.lessonTotal}(新 ${it.lessonAdded})", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(ctx, "素材已更新:素材 ${it.seedTotal}(新 ${it.seedAdded})・課程到第 ${it.latestSec} 節，共 ${it.lessonTotal} 課(新 ${it.lessonAdded})", Toast.LENGTH_LONG).show()
                                         }.onFailure {
                                             Toast.makeText(ctx, "更新失敗:${it.message?.take(60) ?: "未知錯誤"}", Toast.LENGTH_LONG).show()
                                         }

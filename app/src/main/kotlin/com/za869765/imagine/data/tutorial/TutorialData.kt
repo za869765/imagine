@@ -17,7 +17,12 @@ data class TutorialLesson(
     val prompts: List<String> = emptyList(),
     // 與 videos 同序;由影片首格 AI 產生的「開頭主題」短標題,空字串=沒標題。
     val videoCaptions: List<String> = emptyList(),
-)
+    // v2.1.7 自己整理的重點(情境／做法／注意,不含原文);sec ≥ 1000 = 非系列實戰文章
+    val notes: String = "",
+) {
+    val isPractice: Boolean get() = sec >= 1000
+    val sourceUrl: String get() = "https://www.super-i.cn/info-$id.html"
+}
 
 // 讀取打包在 assets/tutorial_lessons.json 的課程資料(只有文字+URL,~180KB)。
 // 失敗一律回空清單,絕不讓教學頁 crash。

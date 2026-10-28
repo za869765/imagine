@@ -37,7 +37,7 @@ object SeedUpdater {
     }
     private val json = Json { ignoreUnknownKeys = true }
 
-    data class Outcome(val seedTotal: Int, val seedAdded: Int, val lessonTotal: Int, val lessonAdded: Int)
+    data class Outcome(val seedTotal: Int, val seedAdded: Int, val lessonTotal: Int, val lessonAdded: Int, val latestSec: Int = 0)
 
     fun overrideFile(ctx: Context, name: String): File = File(File(ctx.filesDir, DIR), name)
 
@@ -71,6 +71,7 @@ object SeedUpdater {
                 seedAdded = seeds.count { it.url !in beforeSeed },
                 lessonTotal = lessons.size,
                 lessonAdded = lessons.count { it.id !in beforeLesson },
+                latestSec = lessons.filter { it.sec < 1000 }.maxOfOrNull { it.sec } ?: 0,
             )
         }
     }
