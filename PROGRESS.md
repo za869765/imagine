@@ -113,6 +113,8 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 ### v2.0.8（2026-10-28）
 
 - H3 生圖任務頁「圖片動起來」→ 生影頁直接開 **H3 Studio** 引擎（圖當參考圖、提示詞預填），不再先開 Grok：NavHost 多 `KEY_INIT_VIDEO_ENGINE`，`GenerateVideoScreen(initialEngine)`。
+### v2.1.1（2026-10-28）開機費要有效益：機器狀態卡顯示製圖機待命還剩幾分（現在下單免開機費）；確認視窗要開機時提醒一次多做幾張或 8 分內再下單（伺服器 v2.15.4 APP 生圖待命 3→8 分、估算回 gputw_image_idle_left）
+
 - 用 Studio 登入 session 自測過 APP 會打的伺服器端點（估算→送單→筆電出圖→查詢；優化 image／video；重送同 client_request_id 去重），見 PROGRESS 下方測試紀錄。
 
 ### v2.0.9（2026-10-28）

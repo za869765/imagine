@@ -128,6 +128,8 @@ data class H3ImageEstimate(
     @SerialName("local_alive") val localAlive: Boolean = false,
     @SerialName("gputw_alive") val gputwAlive: Boolean = false,
     @SerialName("gputw_image_alive") val gputwImageAlive: Boolean = false,
+    // v2.1.1 製圖機待命還剩幾分(開著且閒置時才有):這段時間下單不用再付開機費
+    @SerialName("gputw_image_idle_left") val gputwImageIdleLeft: Double? = null,
     @SerialName("ntd_balance") val ntdBalance: Double? = null,
     @SerialName("cu_balance") val cuBalance: Double? = null,
 )

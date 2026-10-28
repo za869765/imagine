@@ -344,9 +344,14 @@ fun H3ImageScreen(
                             color = if (laptopOk) Mint else Amber,
                         )
                         Text(
-                            "製圖機：${if (st.gputwImageAlive) "開著" else "關著"}・影片機：${if (st.gputwAlive) "開著" else "關著"}",
+                            "製圖機：" + when {
+                                st.gputwImageIdleLeft != null -> "開著，待命還剩約 ${st.gputwImageIdleLeft.toInt().coerceAtLeast(1)} 分（現在下單免開機費）"
+                                st.gputwImageAlive -> "開著（正在做圖，排後面免開機費）"
+                                else -> "關著（開一次約 NT$4～5，做完待命 8 分）"
+                            } + "・影片機：${if (st.gputwAlive) "開著" else "關著"}",
                             fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 18.sp,
+                            color = if (st.gputwImageAlive) Mint else MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
                             "GPUtw ${st.ntdBalance?.let { "NT$" + H3Format.ntd(it) } ?: "未知"}・CU ${st.cuBalance?.let { H3Format.cu(it) } ?: "未知"}",
@@ -623,6 +628,17 @@ private fun H3ImageConfirmSheet(
                         fontWeight = FontWeight.W700,
                         color = if (e.route == "local") Mint else MaterialTheme.colorScheme.primary,
                     )
+                    // v2.1.1 開機費要有效益:要開機時提醒一次多做幾張;機器開著時告訴你免開機費
+                    if (e.route == "gputw_image" || e.route == "gputw") {
+                        val alive = if (e.route == "gputw_image") e.gputwImageAlive else e.gputwAlive
+                        Text(
+                            if (alive) "機器開著，這張不用付開機費。"
+                            else "這次要開機（約 NT$4～5）。開機費一次就好：張數選 4 張，或做完 8 分鐘內再下單，都不用再付。",
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = if (alive) Mint else Amber,
+                        )
+                    }
                     if (!rerouted && !oldWorker && e.reason.isNotBlank()) {
                         Text(e.reason, fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
