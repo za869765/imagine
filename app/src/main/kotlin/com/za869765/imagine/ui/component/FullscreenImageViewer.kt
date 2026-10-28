@@ -250,6 +250,7 @@ private fun ViewerActionSlot(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // transformable(canPan=)：沒放大時讓外層翻頁接手拖曳
 @Composable
 internal fun ZoomableImage(url: String, onScaleChange: (Float) -> Unit) {
     var scale by remember { mutableStateOf(1f) }
