@@ -136,12 +136,12 @@ object H3Client {
     }
 
     /** 不消耗 CU 的估算(同時拿餘額)。seconds 4..15、quality normal|fast。 */
-    suspend fun estimate(prefs: SecurePrefs, seconds: Int, quality: String): Result<H3Estimate> =
-        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality")?.get()?.build())
+    suspend fun estimate(prefs: SecurePrefs, seconds: Int, quality: String, route: String = "cloud"): Result<H3Estimate> =
+        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route")?.get()?.build())
 
     /** ⚠️ 會消耗 Colab CU — 只能在使用者於確認視窗勾選並按「確認開跑」後呼叫。 */
     suspend fun submit(prefs: SecurePrefs, body: H3JobRequest): Result<H3JobCreated> {
-        require(body.confirm && body.estCu > 0 && body.clientRequestId.isNotBlank()) { "H3 送出前必須經過確認" }
+        require(body.confirm && (body.estCu > 0 || (body.route == "gputw" && body.estNtd > 0)) && body.clientRequestId.isNotBlank()) { "H3 送出前必須經過確認" }
         val payload = json.encodeToString(body).toRequestBody("application/json".toMediaType())
         return call<H3JobCreated>(prefs, submitHttp, request(prefs, "/api/app/jobs")?.post(payload)?.build())
     }

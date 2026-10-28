@@ -111,6 +111,9 @@ fun H3GenerateScreen(
 
     var mode by rememberSaveable { mutableStateOf(prefs.h3Mode) }
     var quality by rememberSaveable { mutableStateOf(prefs.h3Quality) }
+    // v2.1.4 三級:超高畫質 bf16／高畫質 int8／低畫質 Q4;預設高畫質(經濟實用)
+    var tier by rememberSaveable { mutableStateOf(prefs.h3VideoTier) }
+    var blink by rememberSaveable { mutableStateOf(true) }
     var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 
@@ -162,16 +165,18 @@ fun H3GenerateScreen(
         val snapshot = retry?.copy(estimate = null) ?: PendingH3(
             prompt = prompt.trim(),
             sources = sourceStrings,
-            seconds = seconds,
-            quality = quality,
+            seconds = if (tier == "low") seconds.coerceAtMost(8) else seconds,
+            quality = H3Format.tierQuality(tier),
             mode = mode,
             aspect = aspect,
+            route = H3Format.tierRoute(tier),
+            blink = blink,
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
         )
         estimating = true
         scope.launch {
-            when (val r = H3Client.estimate(prefs, snapshot.seconds, snapshot.quality)) {
+            when (val r = H3Client.estimate(prefs, snapshot.seconds, snapshot.quality, snapshot.route)) {
                 is H3Client.Result.Ok -> pendingConfirm = snapshot.copy(estimate = r.value)
                 is H3Client.Result.Err -> Toast.makeText(ctx, "估算失敗：${r.message}", Toast.LENGTH_LONG).show()
             }
@@ -319,6 +324,20 @@ fun H3GenerateScreen(
             }
 
             ModePicker(
+                label = "畫質",
+                options = H3Format.VIDEO_TIERS.map { ModeOption(it, H3Format.tierName(it), H3Format.tierDesc(it)) },
+                selectedId = tier,
+                onSelect = { tier = it; prefs.h3VideoTier = it },
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { blink = !blink },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = blink, onCheckedChange = { blink = it })
+                Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            }
+
+            ModePicker(
                 options = listOf(
                     ModeOption("ref", "參考圖（Ref2VA）", "1～9 張參考圖鎖角色／場景，不會被當成第一幀"),
                     ModeOption("first", "首幀", "第一張圖當影片第一幀，其餘當參考"),
@@ -355,17 +374,9 @@ fun H3GenerateScreen(
                 maxItemsInEachRow = 2,
             ) {
                 ParamPicker(
-                    label = "品質",
-                    value = quality,
-                    options = listOf("normal", "fast"),
-                    onSelect = { quality = it; prefs.h3Quality = it },
-                    displayName = { H3Format.qualityLabel(it) },
-                    modifier = Modifier.weight(1f),
-                )
-                ParamPicker(
                     label = "秒數",
                     value = seconds.toString(),
-                    options = (4..15).map { it.toString() },
+                    options = (4..(if (tier == "low") 8 else 15)).map { it.toString() },
                     onSelect = { seconds = it.toIntOrNull() ?: 5; prefs.h3Seconds = seconds },
                     displayName = { "$it 秒" },
                     modifier = Modifier.weight(1f),
@@ -382,7 +393,7 @@ fun H3GenerateScreen(
 
             ImagineCard(pad = 14) {
                 Text(
-                    "H3 在 Colab A100 上跑，會消耗 Colab CU（付費）。按下方按鈕只會先估算（不花錢），確認視窗勾選後才會真的開跑。",
+                    "按下方按鈕只會先估算（不花錢），確認視窗勾選後才會真的開跑。高畫質扣 GPUtw 台幣、超高畫質扣 Colab CU、低畫質用筆電免費。",
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -482,20 +493,24 @@ private fun H3ConfirmSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("確認 H3 生成", fontSize = 18.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
-            ConfirmLine("品質", H3Format.qualityLabel(e.quality))
+            ConfirmLine("機器與畫質", when (e.route) { "gputw" -> H3Format.tierName("high"); "local" -> H3Format.tierName("low"); else -> H3Format.tierName("ultra") })
             ConfirmLine("影片長度", "${pending.seconds} 秒（實際約 ${H3Format.minutes(e.videoSeconds)} 秒）")
             ConfirmLine(
                 "冷啟動",
                 if (e.gpuAlive) "GPU 已開機不用冷啟動" else "需要冷啟動（約 ${H3Format.minutes(e.coldMin)} 分鐘）",
             )
             ConfirmLine("GPU 時間", "約 ${H3Format.minutes(e.minutes)} 分鐘")
-            ConfirmLine("預估消耗", "${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）", strong = true)
+            ConfirmLine("預估消耗", when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}（按分鐘扣台幣）"; "local" -> "免費（筆電）"; else -> "${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" }, strong = true)
             ConfirmLine(
                 "目前餘額",
-                e.balance?.let { "${H3Format.cu(it)} CU（${H3Format.ago(e.balanceUpdatedAt)}）" } ?: "未知",
+                when (e.route) {
+                    "gputw" -> e.ntdBalance?.let { "GPUtw NT$${H3Format.ntd(it)} → 跑完約 NT$${H3Format.ntd(it - e.ntd)}" } ?: "GPUtw 餘額未知"
+                    "local" -> "不扣任何餘額"
+                    else -> e.balance?.let { "${H3Format.cu(it)} CU（${H3Format.ago(e.balanceUpdatedAt)}）" } ?: "未知"
+                },
             )
-            ConfirmLine("跑完後預估剩餘", e.after?.let { "${H3Format.cu(it)} CU" } ?: "未知")
-            ConfirmLine(
+            if (e.route == "cloud") ConfirmLine("跑完後預估剩餘", e.after?.let { "${H3Format.cu(it)} CU" } ?: "未知")
+            if (e.route == "cloud") ConfirmLine(
                 "剩餘還能生成",
                 e.affordableSecondsAfter?.let {
                     "正常版 ${H3Format.seconds(it.normal)}／快速版 ${H3Format.seconds(it.fast)}"
@@ -551,7 +566,7 @@ private fun H3ConfirmSheet(
                 ) {
                     Checkbox(checked = agreed, onCheckedChange = { if (!submitting) agreed = it })
                     Text(
-                        "我已確認：預估消耗 ${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）",
+                        "我已確認：" + when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}"; "local" -> "免費（筆電）"; else -> "預估消耗 ${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = MaterialTheme.colorScheme.onSurface,

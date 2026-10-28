@@ -91,6 +91,10 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3Aspect: String
         get() = prefs.getString(K_H3_ASPECT, "9:16")!!
         set(v) = prefs.edit().putString(K_H3_ASPECT, v).apply()
+    // v2.1.4 H3 生影三級(high＝GPUtw int8、ultra＝Colab bf16、low＝筆電 Q4)
+    var h3VideoTier: String
+        get() = prefs.getString("h3_video_tier", "high")!!
+        set(v) = prefs.edit().putString("h3_video_tier", v).apply()
     // v2.0.7 生圖引擎:"grok"(xAI / OpenRouter 模型)或 "h3"(H3 Studio 的 Qwen-Image 2.1);以及 H3 生圖上次用的參數
     var imageEngine: String
         get() = prefs.getString(K_IMAGE_ENGINE, "grok")!!

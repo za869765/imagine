@@ -29,6 +29,11 @@ data class H3Estimate(
     val after: Double? = null,
     @SerialName("affordable_seconds_after") val affordableSecondsAfter: H3Affordable? = null,
     @SerialName("gpu_alive") val gpuAlive: Boolean = false,
+    // v2.1.4 GPUtw 5090 路線(int8 20 步＋Sol-Attn):扣台幣,不扣 CU
+    val route: String = "cloud",
+    val ntd: Double = 0.0,
+    @SerialName("ntd_balance") val ntdBalance: Double? = null,
+    @SerialName("ntd_after") val ntdAfter: Double? = null,
 )
 
 @Serializable
@@ -51,6 +56,10 @@ data class H3JobRequest(
     @SerialName("est_cu") val estCu: Double,
     // v2.0.1 冪等鍵:同一次確認只產生一個 id,重送同 id 伺服器回既有任務(duplicate=true),不會重複扣 CU
     @SerialName("client_request_id") val clientRequestId: String,
+    // v2.1.4 route=gputw 時送 est_ntd(est_cu 填 0);exp 帶眨眼包等(伺服器 cleanExp 白名單)
+    val route: String = "cloud",
+    @SerialName("est_ntd") val estNtd: Double = 0.0,
+    val exp: Map<String, Boolean>? = null,
 )
 
 @Serializable

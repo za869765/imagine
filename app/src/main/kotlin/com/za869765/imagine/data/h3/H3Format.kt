@@ -6,6 +6,21 @@ import java.util.Locale
 object H3Format {
     fun qualityLabel(q: String): String = if (q == "fast") "快速版（4 步）" else "正常版（bf16 20 步）"
 
+    // v2.1.4 生影三級(使用者 10/28 定):超高畫質＝bf16(Colab)、高畫質＝int8(GPUtw 5090)、低畫質＝Q4(筆電,免費)
+    val VIDEO_TIERS = listOf("high", "ultra", "low")
+    fun tierRoute(t: String): String = when (t) { "ultra" -> "cloud"; "low" -> "local"; else -> "gputw" }
+    fun tierQuality(t: String): String = when (t) { "low" -> "fast"; else -> "normal" }
+    fun tierName(t: String): String = when (t) {
+        "ultra" -> "超高畫質・bf16（Colab A100）"
+        "low" -> "低畫質・Q4 草稿（筆電，免費）"
+        else -> "高畫質・int8（GPUtw 5090，建議）"
+    }
+    fun tierDesc(t: String): String = when (t) {
+        "ultra" -> "官方 bf16 20 步・畫質基準・每 5 秒約 10 分・扣 CU"
+        "low" -> "Q4 GGUF＋Acc 8 步、544×928・每 5 秒約 10 分・最長 8 秒・筆電要開著"
+        else -> "int8 未剪枝混合版 20 步＋Sol-Attn・每 5 秒約 2.8 分・扣台幣・經濟實用"
+    }
+
     fun cu(v: Double): String = String.format(Locale.US, "%.2f", v)
 
     fun ntd(v: Double): String = String.format(Locale.US, "%.1f", v)
@@ -89,6 +104,9 @@ object H3Format {
      * 規則:估算必須 > 0;餘額未知或超過 30 分鐘沒更新不能送;預估超過餘額不能送。
      */
     fun blockReason(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): String? = when {
+        // v2.1.4 GPUtw:扣台幣,只擋超過 GPUtw 餘額
+        e.route == "local" -> if (!e.gpuAlive) "筆電工人不在線，低畫質（免費）現在做不了" else null
+        e.route == "gputw" -> if (e.ntdBalance != null && e.ntd > e.ntdBalance) "預估 NT$${ntd(e.ntd)} 超過 GPUtw 餘額 NT$${ntd(e.ntdBalance)}" else null
         e.cu <= 0.0 -> "估算結果異常（CU ≤ 0），不能送出"
         e.balance == null -> "目前 CU 餘額未知，無法確認是否足夠 — 請先按下方「更新餘額」"
         e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS ->
@@ -99,9 +117,9 @@ object H3Format {
 
     /** 這個阻擋原因能靠「更新餘額」解決嗎? */
     fun balanceStale(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): Boolean =
-        e.balance == null || e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS
+        e.route != "gputw" && e.balance == null || e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS
 
     /** 送出前重新估算:CU 或 GPU 開機狀態變了就要重新確認。 */
     fun estimateChanged(old: H3Estimate, fresh: H3Estimate): Boolean =
-        kotlin.math.abs(old.cu - fresh.cu) > 0.005 || old.gpuAlive != fresh.gpuAlive
+        kotlin.math.abs(old.cu - fresh.cu) > 0.005 || kotlin.math.abs(old.ntd - fresh.ntd) >= 1.0 || old.gpuAlive != fresh.gpuAlive
 }
