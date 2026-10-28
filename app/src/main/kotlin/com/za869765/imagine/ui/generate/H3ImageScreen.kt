@@ -48,6 +48,7 @@ import com.za869765.imagine.data.h3.H3ImageEstimate
 import com.za869765.imagine.data.h3.H3ImageSubmit
 import com.za869765.imagine.data.h3.H3Images
 import com.za869765.imagine.data.h3.H3Jobs
+import com.za869765.imagine.data.h3.H3MachineWatch
 import com.za869765.imagine.data.h3.H3Submit
 import com.za869765.imagine.data.h3.PendingH3Image
 import com.za869765.imagine.data.prefs.DraftStore
@@ -164,12 +165,19 @@ fun H3ImageScreen(
 
     // v2.1.0 機器狀態:開頁查一次「自動」會派到哪(不花錢),之後每次估算也更新
     var status by remember { mutableStateOf<H3ImageEstimate?>(null) }
+    // v2.1.2 製圖機開著時每 20 秒更新一次(倒數關機看得到);關著就只查開頁那一次
     LaunchedEffect(Unit) {
-        if (prefs.isH3TokenSet) {
+        if (!prefs.isH3TokenSet) return@LaunchedEffect
+        while (true) {
             when (val r = H3Client.imageEstimate(prefs, 1, 1, "auto")) {
-                is H3Client.Result.Ok -> status = r.value
+                is H3Client.Result.Ok -> {
+                    status = r.value
+                    if (r.value.gputwImageAlive) H3MachineWatch.start(ctx)
+                }
                 is H3Client.Result.Err -> {}
             }
+            if (status?.gputwImageAlive != true) break
+            delay(20_000)
         }
     }
 

@@ -74,6 +74,7 @@ object H3ImageSubmit {
                             estNtd = r.value.estimate?.ntd ?: est.ntd,
                         ),
                     )
+                    if (route == "gputw_image") H3MachineWatch.start(ctx) // v2.1.2 通知列倒數關機
                     H3Submit.Outcome.Created(runId, r.value.duplicate)
                 }
             }
