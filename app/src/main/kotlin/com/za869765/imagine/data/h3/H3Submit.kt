@@ -18,6 +18,10 @@ data class PendingH3(
     val route: String = "cloud",
     val blink: Boolean = true,
     val gpus: List<String> = emptyList(),
+    val segments: Int = 1,
+    val beats: List<String> = emptyList(),
+    val subjectId: String? = null,
+    val subjectName: String? = null,
     val clientRequestId: String,
     val estimate: H3Estimate?,
 )
@@ -61,7 +65,7 @@ object H3Submit {
         }
 
         onProgress("送出前重新估算…")
-        val fresh = when (val r = H3Client.estimate(prefs, pending.seconds, pending.quality, pending.route)) {
+        val fresh = when (val r = H3Client.estimate(prefs, pending.seconds, pending.quality, pending.route, pending.segments)) {
             is H3Client.Result.Ok -> r.value
             is H3Client.Result.Err -> return Outcome.LocalError("重新估算失敗，未送出：${r.message}")
         }
@@ -83,6 +87,9 @@ object H3Submit {
             estNtd = confirmed.ntd,
             exp = if (pending.blink) mapOf("blink" to true) else null,
             gpus = if (pending.route == "cloud" && pending.gpus.isNotEmpty()) pending.gpus else null,
+            segments = pending.segments,
+            beats = if (pending.segments > 1 && pending.beats.any { it.isNotBlank() }) pending.beats else null,
+            subjectId = pending.subjectId,
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {

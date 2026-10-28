@@ -61,6 +61,10 @@ data class H3JobRequest(
     val exp: Map<String, Boolean>? = null,
     // v2.1.5 超高畫質可用的 Colab GPU 範圍(伺服器照 G4→H100→A100 優先順序自動挑,排不到不扣 CU)
     val gpus: List<String>? = null,
+    // v2.1.8 長片:segments 段接續(每段 seconds 秒);beats=每段自己寫的內容(空字串＝交給導演大腦拆);subject_id=資產庫角色(鎖臉鎖聲)
+    val segments: Int = 1,
+    val beats: List<String>? = null,
+    @SerialName("subject_id") val subjectId: String? = null,
 )
 
 @Serializable
@@ -113,6 +117,13 @@ data class H3JobStatus(
 
 @Serializable
 data class H3ErrorBody(val error: String? = null)
+
+/** GET /api/app/subjects — H3 Studio 資產庫角色(face_locked＝已建臉部模型;voice＝有參考音)。 */
+@Serializable
+data class H3Subject(val id: String, val name: String, val desc: String = "", @SerialName("face_locked") val faceLocked: Boolean = false, val voice: Boolean = false, val thumb: String? = null)
+
+@Serializable
+data class H3SubjectList(val subjects: List<H3Subject> = emptyList())
 
 // ── v2.0.7 H3 Studio 生圖(Qwen-Image 2.1)與 ✨ 優化提示詞。欄位對齊 [[path]].js 的 app/images 與 app/prompt/optimize ──
 

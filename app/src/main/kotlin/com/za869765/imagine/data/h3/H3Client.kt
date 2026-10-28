@@ -136,8 +136,12 @@ object H3Client {
     }
 
     /** 不消耗 CU 的估算(同時拿餘額)。seconds 4..15、quality normal|fast。 */
-    suspend fun estimate(prefs: SecurePrefs, seconds: Int, quality: String, route: String = "cloud"): Result<H3Estimate> =
-        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route")?.get()?.build())
+    suspend fun estimate(prefs: SecurePrefs, seconds: Int, quality: String, route: String = "cloud", segments: Int = 1): Result<H3Estimate> =
+        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route&segments=$segments")?.get()?.build())
+
+    /** v2.1.8 資產庫角色清單(綁角色＝臉部模型＋聲音每段都掛)。 */
+    suspend fun subjects(prefs: SecurePrefs): Result<H3SubjectList> =
+        call<H3SubjectList>(prefs, http, request(prefs, "/api/app/subjects")?.get()?.build())
 
     /** ⚠️ 會消耗 Colab CU — 只能在使用者於確認視窗勾選並按「確認開跑」後呼叫。 */
     suspend fun submit(prefs: SecurePrefs, body: H3JobRequest): Result<H3JobCreated> {

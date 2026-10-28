@@ -113,6 +113,8 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 ### v2.0.8（2026-10-28）
 
 - H3 生圖任務頁「圖片動起來」→ 生影頁直接開 **H3 Studio** 引擎（圖當參考圖、提示詞預填），不再先開 Grok：NavHost 多 `KEY_INIT_VIDEO_ENGINE`，`GenerateVideoScreen(initialEngine)`。
+### v2.1.8（2026-10-29）H3 生影長片：「長度」1～4 段接續（每段 4～15 秒，第 2 段起接上一段結尾的畫面＋聲音、提示詞加接續句），每段內容可自己寫、空白由導演大腦拆（台詞原樣）；「角色（鎖臉鎖聲）」選資產庫角色＝臉部模型＋聲音模型每段都掛，照片改選填；做完回串好的完整版（伺服器 v2.16.0～2.16.1）
+
 ### v2.1.7（2026-10-29）教學頁補 super-i 第 84～88 節＋22 篇實戰（雲端 Claude 做索引、Claude Code 審閱對齊；只放自己整理的重點 notes＋「看原文」連結，不含原文）；TutorialLesson 加 notes、sec≥1000＝實戰案例排在系列後面；雲端更新後顯示「課程到第 N 節」
 
 ### v2.1.6（2026-10-29）素材生成首頁多「姿勢參考庫」：anhao/ai-pose-gallery-zh 1439 張人偶線稿（4 體系、5 視角，成人分類預設隱藏），開頁從 jsDelivr 載 pose-zh.json（本機快取）＋縮圖，名稱簡→繁（data/pose/PoseLibrary.kt S2T 表）；「當參考圖去生圖」＝下載原圖存進所有作品→H3 生圖切照片改圖模式、參考圖帶入、提示詞預填姿勢名。圖片著作權歸原作者、不得商用，APP 不打包圖片

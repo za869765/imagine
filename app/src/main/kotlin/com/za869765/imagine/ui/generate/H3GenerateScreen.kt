@@ -115,6 +115,14 @@ fun H3GenerateScreen(
     var tier by rememberSaveable { mutableStateOf(prefs.h3VideoTier) }
     var blink by rememberSaveable { mutableStateOf(true) }
     var colabGpus by rememberSaveable { mutableStateOf(prefs.h3ColabGpus) }
+    // v2.1.8 長片段數(1～4,每段接續上一段)與每段內容(空白＝導演大腦從主描述拆);資產庫角色(鎖臉鎖聲)
+    var segCount by rememberSaveable { mutableStateOf(1) }
+    var beats by rememberSaveable { mutableStateOf(List(4) { "" }) }
+    var subjects by remember { mutableStateOf<List<com.za869765.imagine.data.h3.H3Subject>>(emptyList()) }
+    var subjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        if (prefs.isH3TokenSet) (H3Client.subjects(prefs) as? H3Client.Result.Ok)?.value?.let { subjects = it.subjects }
+    }
     var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 
@@ -158,7 +166,7 @@ fun H3GenerateScreen(
             Toast.makeText(ctx, "請先輸入提示詞", Toast.LENGTH_SHORT).show()
             return
         }
-        if (retry == null && sources.isEmpty()) {
+        if (retry == null && sources.isEmpty() && subjectId == null) {
             Toast.makeText(ctx, if (mode == "first") "請先選擇首幀圖" else "請先選擇參考圖（1～9 張）", Toast.LENGTH_SHORT).show()
             return
         }
@@ -173,12 +181,16 @@ fun H3GenerateScreen(
             route = H3Format.tierRoute(tier),
             blink = blink,
             gpus = colabGpus,
+            segments = segCount,
+            beats = beats.take(segCount),
+            subjectId = subjectId,
+            subjectName = subjects.firstOrNull { it.id == subjectId }?.name,
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
         )
         estimating = true
         scope.launch {
-            when (val r = H3Client.estimate(prefs, snapshot.seconds, snapshot.quality, snapshot.route)) {
+            when (val r = H3Client.estimate(prefs, snapshot.seconds, snapshot.quality, snapshot.route, snapshot.segments)) {
                 is H3Client.Result.Ok -> pendingConfirm = snapshot.copy(estimate = r.value)
                 is H3Client.Result.Err -> Toast.makeText(ctx, "估算失敗：${r.message}", Toast.LENGTH_LONG).show()
             }
@@ -359,6 +371,17 @@ fun H3GenerateScreen(
                 }
             }
 
+            // v2.1.8 角色:綁資產庫角色＝臉部模型＋聲音每段都掛(嚴格鎖臉鎖聲),照片可不放
+            ModePicker(
+                label = "角色（鎖臉鎖聲）",
+                options = listOf(ModeOption("none", "不綁角色", "只用下面的照片當參考")) + subjects.filter { it.faceLocked }.map {
+                    ModeOption(it.id, it.name, "臉部模型" + (if (it.voice) "＋聲音模型" else "") + "，每一段都鎖同一張臉" + (if (it.voice) "、同一個聲音" else ""))
+                },
+                selectedId = subjectId ?: "none",
+                onSelect = { subjectId = if (it == "none") null else it },
+                footnote = "角色在 H3 Studio 資產庫建（要先按「重建臉鎖」做出臉部模型）。",
+            )
+
             ModePicker(
                 options = listOf(
                     ModeOption("ref", "參考圖（Ref2VA）", "1～9 張參考圖鎖角色／場景，不會被當成第一幀"),
@@ -369,7 +392,7 @@ fun H3GenerateScreen(
             )
 
             SourceSlot(
-                title = if (mode == "first") "首幀圖（第一張為第一幀）" else "參考圖（1～9 張）",
+                title = if (subjectId != null) "補充照片（選填：場景、服裝）" else if (mode == "first") "首幀圖（第一張為第一幀）" else "參考圖（1～9 張）",
                 uris = sources,
                 maxCount = H3_MAX_IMAGES,
                 emptyHint = "點此從素材庫或手機相簿選取",
@@ -396,11 +419,19 @@ fun H3GenerateScreen(
                 maxItemsInEachRow = 2,
             ) {
                 ParamPicker(
-                    label = "秒數",
+                    label = if (segCount > 1) "每段秒數" else "秒數",
                     value = seconds.toString(),
                     options = (4..(if (tier == "low") 8 else 15)).map { it.toString() },
                     onSelect = { seconds = it.toIntOrNull() ?: 5; prefs.h3Seconds = seconds },
                     displayName = { "$it 秒" },
+                    modifier = Modifier.weight(1f),
+                )
+                ParamPicker(
+                    label = "長度",
+                    value = segCount.toString(),
+                    options = (1..4).map { it.toString() },
+                    onSelect = { segCount = it.toIntOrNull() ?: 1 },
+                    displayName = { if (it == "1") "單段" else "$it 段接續（約 ${(it.toIntOrNull() ?: 1) * (if (tier == "low") seconds.coerceAtMost(8) else seconds)} 秒）" },
                     modifier = Modifier.weight(1f),
                 )
                 ParamPicker(
@@ -413,9 +444,23 @@ fun H3GenerateScreen(
                 )
             }
 
+            // v2.1.8 長片每段內容:空白的段落由導演大腦從上面的描述拆;第 2 段起自動接續上一段結尾(畫面＋聲音)
+            if (segCount > 1) {
+                Text("每段要演什麼（選填；空白就由導演大腦從上面的描述拆，台詞原樣保留）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                (0 until segCount).forEach { k ->
+                    androidx.compose.material3.OutlinedTextField(
+                        value = beats.getOrElse(k) { "" },
+                        onValueChange = { v -> beats = beats.toMutableList().also { it[k] = v } },
+                        label = { Text(if (k == 0) "第 1 段" else "第 ${k + 1} 段（接續上一段）") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                    )
+                }
+            }
+
             ImagineCard(pad = 14) {
                 Text(
-                    "按下方按鈕只會先估算（不花錢），確認視窗勾選後才會真的開跑。高畫質扣 GPUtw 台幣、超高畫質扣 Colab CU、低畫質用筆電免費。",
+                    "按下方按鈕只會先估算（不花錢），確認視窗勾選後才會真的開跑。高畫質扣 GPUtw 台幣、超高畫質扣 Colab CU、低畫質用筆電免費。長片每段接續上一段結尾的畫面和聲音，做完自動串成一支。",
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -539,6 +584,8 @@ private fun H3ConfirmSheet(
                 } ?: "未知",
             )
             ConfirmLine("圖片", "${pending.sources.size} 張・${if (pending.mode == "first") "首幀" else "參考圖"}・${pending.aspect}")
+            if (pending.segments > 1) ConfirmLine("長度", "${pending.segments} 段接續・每段 ${pending.seconds} 秒・約 ${pending.segments * pending.seconds} 秒")
+            pending.subjectName?.let { ConfirmLine("角色", "$it（臉部模型＋聲音每段都鎖）") }
 
             if (block != null) {
                 Text(
