@@ -31,7 +31,6 @@ data class H3Estimate(
     @SerialName("gpu_alive") val gpuAlive: Boolean = false,
     // v2.1.4 GPUtw 5090 路線(int8 20 步＋Sol-Attn):扣台幣,不扣 CU
     val route: String = "cloud",
-    val ntd: Double = 0.0,
     @SerialName("ntd_balance") val ntdBalance: Double? = null,
     @SerialName("ntd_after") val ntdAfter: Double? = null,
 )
