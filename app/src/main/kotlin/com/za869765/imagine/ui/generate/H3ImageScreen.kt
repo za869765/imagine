@@ -603,7 +603,8 @@ private fun H3ImageConfirmSheet(
     val prefs = remember { SecurePrefs.get(ctx) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // 勾選綁定「這一份估算」:估算一換(新物件)就重置,必須重新勾
-    var agreed by remember(pending) { mutableStateOf(false) }
+    // v2.2.3 免費(筆電)不用勾選,直接可送;要花錢的照舊要勾
+    var agreed by remember(pending) { mutableStateOf(e.route == "local") }
     var submitting by remember(pending) { mutableStateOf(false) }
     var progressText by remember(pending) { mutableStateOf<String?>(null) }
     val name = H3Format.routeName(e.route)
@@ -750,6 +751,8 @@ private fun H3ImageConfirmSheet(
                     color = MaterialTheme.colorScheme.error,
                     lineHeight = 19.sp,
                 )
+            } else if (e.route == "local") {
+                Text("免費（筆電），不用勾選，直接送出", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
             } else {
                 Row(
                     modifier = Modifier
