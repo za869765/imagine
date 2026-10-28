@@ -87,7 +87,7 @@ private val Mint = Color(0xFF7FD9A6)
  * v2.1.0 「在哪台機器生成」選單:每個選項寫費用與目前狀態(狀態來自開頁時一次不花錢的估算)。
  * st 為 null(還沒查到)時只寫費用。
  */
-private fun machineOptions(st: H3ImageEstimate?): List<ModeOption> {
+private fun machineOptions(st: H3ImageEstimate?, board: List<com.za869765.imagine.data.h3.H3Machine> = emptyList()): List<ModeOption> {
     val laptop = when {
         st == null -> ""
         !st.localAlive -> "・現在離線"
@@ -108,10 +108,10 @@ private fun machineOptions(st: H3ImageEstimate?): List<ModeOption> {
     val autoNow = st?.let { "・現在會派到：${H3Format.routeShort(it.route)}" } ?: ""
     return listOf(
         ModeOption("auto", "自動（建議）", "筆電有空就免費 → 開著的機器順便做 → 再不然開製圖機約 NT$8$autoNow"),
-        ModeOption("local", "筆電 3070", "免費・一張約 1～2 分・筆電要開著$laptop"),
-        ModeOption("gputw_image", "製圖機（GPUtw）", "約 NT$8／次（含開機 14 分）$gi"),
-        ModeOption("gputw", "GPUtw 5090（影片機）", "影片機開著時順便做・同製圖機費率$g"),
-        ModeOption("cloud", "Colab A100", "花 CU・1 張約 1.04 CU ≈ NT$4・冷啟動 6 分$cu"),
+        ModeOption("local", "筆電 3070", "免費・一張約 1～2 分・筆電要開著" + machineNote(board, "local").ifEmpty { laptop }),
+        ModeOption("gputw_image", "製圖機（GPUtw）", "約 NT$8／次（含開機 14 分）" + machineNote(board, "gputw_image").ifEmpty { gi }),
+        ModeOption("gputw", "GPUtw 5090（影片機）", "影片機開著時順便做・同製圖機費率" + machineNote(board, "gputw").ifEmpty { g }),
+        ModeOption("cloud", "Colab A100", "花 CU・1 張約 1.04 CU ≈ NT$4・冷啟動 6 分" + machineNote(board, "cloud") + cu),
     )
 }
 
@@ -179,6 +179,9 @@ fun H3ImageScreen(
 
     // v2.1.0 機器狀態:開頁查一次「自動」會派到哪(不花錢),之後每次估算也更新
     var status by remember { mutableStateOf<H3ImageEstimate?>(null) }
+    // v2.1.9 機器看板＋參考圖小卡(預設收起)
+    val board = rememberMachineBoard(prefs)
+    var assetsOpen by rememberSaveable { mutableStateOf(false) }
     // v2.1.2 製圖機開著時每 20 秒更新一次(倒數關機看得到);關著就只查開頁那一次
     LaunchedEffect(Unit) {
         if (!prefs.isH3TokenSet) return@LaunchedEffect
@@ -344,6 +347,9 @@ fun H3ImageScreen(
             )
             engineSelector()
 
+            // v2.1.9 下單前先看哪台空著(綠＝馬上做、黃＝要排隊、灰＝關機)
+            MachineBoardCard(board, listOf("local", "gputw_image", "gputw", "cloud"), highlight = if (route == "auto") status?.route else route)
+
             if (!prefs.isH3TokenSet) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
                     Text(
@@ -425,7 +431,12 @@ fun H3ImageScreen(
                 onSelect = { mode = it },
             )
 
-            if (mode != "txt") SourceSlot(
+            if (mode != "txt") CollapsibleSection(
+                title = "素材（參考圖・素材庫）",
+                summary = if (isSheet) "人物照片 ${refs.take(1).size} 張" else "參考圖 ${refs.size} 張" + (if (refs.isEmpty()) "・點開從素材庫或相簿選" else ""),
+                expanded = assetsOpen,
+                onToggle = { assetsOpen = !assetsOpen },
+            ) { SourceSlot(
                 title = when (mode) { "sheet" -> "人物照片（1 張）"; "ref" -> "參考圖（1～$H3_IMG_MAX_REFS 張）"; else -> "參考圖（選填，最多 $H3_IMG_MAX_REFS 張）" },
                 uris = if (isSheet) refs.take(1) else refs,
                 maxCount = if (isSheet) 1 else H3_IMG_MAX_REFS,
@@ -435,7 +446,7 @@ fun H3ImageScreen(
                     refStrings = refStrings.toMutableList().also { if (index < it.size) it.removeAt(index) }
                 },
                 note = droppedNote ?: "上傳前自動轉正、縮到長邊 1600px 並壓成 JPEG（每張 < 1.5MB）",
-            )
+            ) }
 
             PromptInput(
                 value = prompt,
@@ -511,7 +522,7 @@ fun H3ImageScreen(
             // v2.1.0 在哪台機器生成:每個選項寫費用與目前狀態(ModePicker 名稱＋說明兩行)
             ModePicker(
                 label = "在哪台機器生成",
-                options = machineOptions(status),
+                options = machineOptions(status, board),
                 selectedId = route,
                 onSelect = { route = it; prefs.h3ImgRoute = it },
                 footnote = "狀態是開頁時向 H3 Studio 查的，不花錢；費用都是預估，確認視窗會再算一次。",
@@ -543,6 +554,7 @@ fun H3ImageScreen(
                 )
             }
 
+            RecentJobsPoller(prefs, recentJobs) { recentJobs = H3Jobs.all(ctx).filter { it.kind == "image" }.take(5) }
             if (recentJobs.isNotEmpty()) {
                 SectionHeader("最近 H3 生圖")
                 recentJobs.forEach { job ->
@@ -557,7 +569,8 @@ fun H3ImageScreen(
                             Text(
                                 "${H3Format.statusLabel(job.status)}・${job.meta}" +
                                     (if (job.estNtd > 0) "・預估 NT$${H3Format.ntd(job.estNtd)}" else "") +
-                                    (if (job.estCu > 0) "・${H3Format.cu(job.estCu)} CU" else ""),
+                                    (if (job.estCu > 0) "・${H3Format.cu(job.estCu)} CU" else "") +
+                                    (if (job.status !in listOf("done", "failed", "cancelled") && job.etaAt != null) "\n" + H3Format.eta(job.etaAt) else ""),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 2.dp),
@@ -747,6 +760,7 @@ private fun H3ImageConfirmSheet(
                     (if (pending.refs.isNotEmpty()) "・參考 ${pending.refs.size} 張" else "") +
                     (if (pending.allowText) "・允許文字" else "・無文字"),
             )
+            if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin) + "（含前面排隊）", strong = true)
             ConfirmLine("餘額", balanceLine)
 
             if (block != null) {

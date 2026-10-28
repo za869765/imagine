@@ -24,6 +24,8 @@ object H3Jobs {
         val kind: String = "video",
         val meta: String = "",
         val estNtd: Double = 0.0,
+        // v2.1.9 預計完成(epoch ms;任務頁／清單輪詢時更新)
+        val etaAt: Long? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"

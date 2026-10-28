@@ -140,6 +140,10 @@ object H3Client {
         call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route&segments=$segments")?.get()?.build())
 
     /** v2.1.8 資產庫角色清單(綁角色＝臉部模型＋聲音每段都掛)。 */
+    /** v2.1.9 機器看板(不花錢):各機器生成中／排隊／待機倒數／關機。 */
+    suspend fun machines(prefs: SecurePrefs): Result<H3MachineBoard> =
+        call<H3MachineBoard>(prefs, http, request(prefs, "/api/app/machines")?.get()?.build())
+
     suspend fun subjects(prefs: SecurePrefs): Result<H3SubjectList> =
         call<H3SubjectList>(prefs, http, request(prefs, "/api/app/subjects")?.get()?.build())
 

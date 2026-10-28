@@ -123,6 +123,9 @@ fun H3GenerateScreen(
     LaunchedEffect(Unit) {
         if (prefs.isH3TokenSet) (H3Client.subjects(prefs) as? H3Client.Result.Ok)?.value?.let { subjects = it.subjects }
     }
+    // v2.1.9 機器看板＋素材小卡(預設收起)
+    val board = rememberMachineBoard(prefs)
+    var assetsOpen by rememberSaveable { mutableStateOf(false) }
     var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 
@@ -284,6 +287,9 @@ fun H3GenerateScreen(
             )
             engineSelector()
 
+            // v2.1.9 下單前先看哪台空著:筆電(低畫質)、影片機(高畫質)、Colab(超高畫質)
+            MachineBoardCard(board, listOf("gputw", "local", "cloud"), highlight = H3Format.tierRoute(tier))
+
             // v2.0.4 AI 導演台:網頁版流程=一句需求→3 方案→分鏡微調→確認 CU 才開跑
             // v2.0.5 改切到 App 內「H3 Studio」分頁(內嵌網頁),不再開外部瀏覽器
             ImagineCard(pad = 14, onClick = { onNavSelected(NavTab.H3) }) {
@@ -339,7 +345,7 @@ fun H3GenerateScreen(
 
             ModePicker(
                 label = "畫質",
-                options = H3Format.VIDEO_TIERS.map { ModeOption(it, H3Format.tierName(it), H3Format.tierDesc(it)) },
+                options = H3Format.VIDEO_TIERS.map { ModeOption(it, H3Format.tierName(it), H3Format.tierDesc(it) + machineNote(board, H3Format.tierRoute(it))) },
                 selectedId = tier,
                 onSelect = { tier = it; prefs.h3VideoTier = it },
             )
@@ -371,6 +377,14 @@ fun H3GenerateScreen(
                 }
             }
 
+            // v2.1.9 角色、參考圖、素材庫收成一張小卡
+            CollapsibleSection(
+                title = "素材（角色・參考圖）",
+                summary = "角色：" + (subjects.firstOrNull { it.id == subjectId }?.name ?: "不綁") +
+                    "・${if (mode == "first") "首幀" else "參考圖"} ${sources.size} 張",
+                expanded = assetsOpen,
+                onToggle = { assetsOpen = !assetsOpen },
+            ) {
             // v2.1.8 角色:綁資產庫角色＝臉部模型＋聲音每段都掛(嚴格鎖臉鎖聲),照片可不放
             ModePicker(
                 label = "角色（鎖臉鎖聲）",
@@ -402,6 +416,7 @@ fun H3GenerateScreen(
                 },
                 note = droppedNote ?: "上傳前自動轉正、縮到長邊 1600px 並壓成 JPEG（每張 < 1.5MB）",
             )
+            }
 
             PromptInput(
                 value = prompt,
@@ -467,6 +482,7 @@ fun H3GenerateScreen(
                 )
             }
 
+            RecentJobsPoller(prefs, recentJobs) { recentJobs = H3Jobs.all(ctx).filter { it.kind != "image" }.take(5) }
             if (recentJobs.isNotEmpty()) {
                 SectionHeader("最近 H3 任務")
                 recentJobs.forEach { job ->
@@ -479,7 +495,8 @@ fun H3GenerateScreen(
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                "${H3Format.statusLabel(job.status)}・${H3Format.qualityLabel(job.quality)}・${job.seconds} 秒・預估 ${H3Format.cu(job.estCu)} CU",
+                                "${H3Format.statusLabel(job.status)}・${H3Format.qualityLabel(job.quality)}・${job.seconds} 秒・預估 ${H3Format.cu(job.estCu)} CU" +
+                                    (if (job.status !in listOf("done", "failed", "cancelled") && job.etaAt != null) "\n" + H3Format.eta(job.etaAt) else ""),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 2.dp),
@@ -567,6 +584,7 @@ private fun H3ConfirmSheet(
                 if (e.gpuAlive) "GPU 已開機不用冷啟動" else "需要冷啟動（約 ${H3Format.minutes(e.coldMin)} 分鐘）",
             )
             ConfirmLine("GPU 時間", "約 ${H3Format.minutes(e.minutes)} 分鐘")
+            if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin) + "（含前面排隊）", strong = true)
             ConfirmLine("預估消耗", when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}（按分鐘扣台幣）"; "local" -> "免費（筆電）"; else -> "${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" }, strong = true)
             ConfirmLine(
                 "目前餘額",

@@ -76,6 +76,7 @@ object H3ImageSubmit {
                             kind = "image",
                             meta = (if (pending.sheet) "多視角 ${pending.count * 4} 個角度" else "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張" + (if (pending.transparent) "・透明背景" else "")) + "・${H3Format.routeShort(route)}",
                             estNtd = r.value.estimate?.ntd ?: est.ntd,
+                            etaAt = r.value.estimate?.etaAt ?: est.etaAt,
                         ),
                     )
                     if (route == "gputw_image") H3MachineWatch.start(ctx) // v2.1.2 通知列倒數關機

@@ -106,6 +106,7 @@ object H3Submit {
                             seconds = pending.seconds,
                             estCu = confirmed.cu,
                             createdAtMs = System.currentTimeMillis(),
+                            etaAt = confirmed.etaAt,
                         ),
                     )
                     Outcome.Created(runId, r.value.duplicate)

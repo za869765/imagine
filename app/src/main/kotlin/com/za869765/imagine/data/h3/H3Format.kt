@@ -23,6 +23,16 @@ object H3Format {
 
     fun cu(v: Double): String = String.format(Locale.US, "%.2f", v)
 
+    /** v2.1.9 台北時間 HH:mm。 */
+    fun clock(ms: Long): String = java.text.SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Taipei") }.format(java.util.Date(ms))
+
+    /** 「預計 01:23 完成（約 12 分）」;etaAt 已過就寫「快好了」。 */
+    fun eta(etaAt: Long?, etaMin: Double? = null): String {
+        if (etaAt == null || etaAt <= 0) return ""
+        val left = ((etaAt - System.currentTimeMillis()) / 60_000.0)
+        return if (left <= 0.5) "預計 ${clock(etaAt)} 完成（快好了）" else "預計 ${clock(etaAt)} 完成（約 ${kotlin.math.ceil(left).toInt()} 分）"
+    }
+
     fun ntd(v: Double): String = String.format(Locale.US, "%.1f", v)
 
     fun minutes(v: Double): String = String.format(Locale.US, "%.1f", v)

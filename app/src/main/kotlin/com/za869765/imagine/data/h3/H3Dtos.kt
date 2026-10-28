@@ -33,6 +33,9 @@ data class H3Estimate(
     val route: String = "cloud",
     @SerialName("ntd_balance") val ntdBalance: Double? = null,
     @SerialName("ntd_after") val ntdAfter: Double? = null,
+    // v2.1.9 排在該機器最後面的預計完成(分鐘、epoch ms)
+    @SerialName("eta_min") val etaMin: Double? = null,
+    @SerialName("eta_at") val etaAt: Long? = null,
 )
 
 @Serializable
@@ -107,6 +110,7 @@ data class H3JobStatus(
     val worker: H3Worker? = null,
     @SerialName("video_url") val videoUrl: String? = null,
     val output: JsonElement? = null,
+    val eta: H3Eta? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 
@@ -124,6 +128,29 @@ data class H3Subject(val id: String, val name: String, val desc: String = "", @S
 
 @Serializable
 data class H3SubjectList(val subjects: List<H3Subject> = emptyList())
+
+/** v2.1.9 單一任務預計完成:etaAt＝epoch ms;ahead＝前面還有幾個。 */
+@Serializable
+data class H3Eta(@SerialName("eta_min") val etaMin: Double = 0.0, @SerialName("eta_at") val etaAt: Long = 0, val ahead: Int = 0)
+
+/** GET /api/app/machines — 每台機器:state=idle|standby|busy|booting|off|offline,label 例「生成中・排隊 2 個」「待機倒數・6 分後關機」。 */
+@Serializable
+data class H3Machine(
+    val route: String,
+    val name: String,
+    val cost: String = "",
+    val state: String = "off",
+    val label: String = "",
+    val detail: String = "",
+    val queue: Int = 0,
+    val running: Int = 0,
+    val waiting: Int = 0,
+    @SerialName("wait_min") val waitMin: Double = 0.0,
+    @SerialName("standby_left_min") val standbyLeftMin: Double? = null,
+)
+
+@Serializable
+data class H3MachineBoard(val machines: List<H3Machine> = emptyList())
 
 // ── v2.0.7 H3 Studio 生圖(Qwen-Image 2.1)與 ✨ 優化提示詞。欄位對齊 [[path]].js 的 app/images 與 app/prompt/optimize ──
 
@@ -157,6 +184,8 @@ data class H3ImageEstimate(
     @SerialName("gputw_image_idle_left") val gputwImageIdleLeft: Double? = null,
     @SerialName("ntd_balance") val ntdBalance: Double? = null,
     @SerialName("cu_balance") val cuBalance: Double? = null,
+    @SerialName("eta_min") val etaMin: Double? = null,
+    @SerialName("eta_at") val etaAt: Long? = null,
 )
 
 /** POST /api/app/images — 伺服器要求 confirm=true,否則 400;client_request_id 同一筆不會重複建單。 */
@@ -202,6 +231,7 @@ data class H3ImageStatus(
     val route: String? = null,
     @SerialName("last_event") val lastEvent: H3Event? = null,
     val images: List<H3ImageOut> = emptyList(),
+    val eta: H3Eta? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 }

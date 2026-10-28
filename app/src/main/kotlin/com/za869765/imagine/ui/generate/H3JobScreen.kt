@@ -122,7 +122,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                     is H3Client.Result.Ok -> {
                         status = r.value
                         pollError = null
-                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status) }
+                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status, etaAt = r.value.eta?.etaAt ?: it.etaAt) }
                         if (r.value.isFinished) {
                             pollStopped = true
                             val v = r.value.videoUrl
@@ -206,6 +206,15 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                             else -> MaterialTheme.colorScheme.onSurface
                         },
                     )
+                    // v2.1.9 預計完成(台北時間;前面還有幾個)
+                    s?.takeIf { !it.isFinished }?.eta?.let { eta ->
+                        Text(
+                            H3Format.eta(eta.etaAt, eta.etaMin) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     val ev = s?.lastEvent
                     ev?.message?.takeIf { it.isNotBlank() }?.let {
                         Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
