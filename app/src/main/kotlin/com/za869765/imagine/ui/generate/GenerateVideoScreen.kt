@@ -142,14 +142,15 @@ fun GenerateVideoScreen(
     initialExtendBase: String? = null,
     onBack: (() -> Unit)? = null,
     onOpenH3Job: (String) -> Unit = {},
+    initialEngine: String? = null, // v2.0.8 "h3":H3 生圖成品「動起來」→ 直接開 H3 生影(圖當參考圖)
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     // 從其他頁帶參數進來(教學 i2v/ref2v 範本、「動起來」、帶提示詞、組合延長)都是 Grok 流程 →
-    // 一律先開 Grok,不因上次選 H3 就默默跳到 H3;使用者仍可手動切換
+    // 一律先開 Grok,不因上次選 H3 就默默跳到 H3;使用者仍可手動切換。來源指定引擎(initialEngine)時照指定
     val hasEntryArgs = initialImageUri != null || !initialPrompt.isNullOrBlank() ||
         initialVideoMode != null || initialExtendBase != null
-    var engine by rememberSaveable { mutableStateOf(if (hasEntryArgs) ENGINE_GROK else prefs.videoEngine) }
+    var engine by rememberSaveable { mutableStateOf(initialEngine ?: if (hasEntryArgs) ENGINE_GROK else prefs.videoEngine) }
     val selector: @Composable () -> Unit = {
         VideoEngineSelector(engine = engine, onSelect = { engine = it; prefs.videoEngine = it })
     }

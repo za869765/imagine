@@ -110,6 +110,11 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 
 伺服器端對應 H3 Studio v2.15.2（`video` 優化模板）。🔴 待實機驗：生圖整段流程、優化按鈕、2K、參考圖。
 
+### v2.0.8（2026-10-28）
+
+- H3 生圖任務頁「圖片動起來」→ 生影頁直接開 **H3 Studio** 引擎（圖當參考圖、提示詞預填），不再先開 Grok：NavHost 多 `KEY_INIT_VIDEO_ENGINE`，`GenerateVideoScreen(initialEngine)`。
+- 用 Studio 登入 session 自測過 APP 會打的伺服器端點（估算→送單→筆電出圖→查詢；優化 image／video；重送同 client_request_id 去重），見 PROGRESS 下方測試紀錄。
+
 ## v1.0.10 修正（2026-05-19）
 
 實機回報：圖片生成 toast 跳「失敗 — 解析失敗：Field 'created' is required ...」，但 xAI 後台已扣費 → 表示圖其實有產，只是 client 解析掛掉。

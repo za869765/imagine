@@ -54,6 +54,7 @@ private const val KEY_INIT_PROMPT = "init_media_prompt"
 private const val KEY_INIT_EDIT_MODE = "init_edit_mode"   // "image" / "video" / "extend"
 private const val KEY_INIT_VIDEO_MODE = "init_video_mode" // "i2v" → 影片頁開在圖生影模式(教學 i2v 範本用)
 private const val KEY_INIT_EXTEND_BASE = "init_extend_base" // 組合延長:原片 file:// uri
+private const val KEY_INIT_VIDEO_ENGINE = "init_video_engine" // v2.0.8 "h3" → 生影頁直接開 H3 引擎(H3 生圖成品「動起來」)
 private const val KEY_HISTORY_URI = "history_entry_uri"
 
 @Composable
@@ -348,14 +349,17 @@ fun ImagineRoot() {
                     ?.savedStateHandle?.get<String>(KEY_INIT_VIDEO_MODE)
                 val initExtendBase = navController.previousBackStackEntry
                     ?.savedStateHandle?.get<String>(KEY_INIT_EXTEND_BASE)
+                val initEngine = navController.previousBackStackEntry
+                    ?.savedStateHandle?.get<String>(KEY_INIT_VIDEO_ENGINE)
                 // 清除 gate 涵蓋各種來源,否則殘留會汙染下一次進場。
-                LaunchedEffect(initUrl, initPrompt, initVideoMode, initExtendBase) {
-                    if (initUrl != null || initPrompt != null || initVideoMode != null || initExtendBase != null) {
+                LaunchedEffect(initUrl, initPrompt, initVideoMode, initExtendBase, initEngine) {
+                    if (initUrl != null || initPrompt != null || initVideoMode != null || initExtendBase != null || initEngine != null) {
                         navController.previousBackStackEntry?.savedStateHandle?.apply {
                             remove<String>(KEY_INIT_MEDIA)
                             remove<String>(KEY_INIT_PROMPT)
                             remove<String>(KEY_INIT_VIDEO_MODE)
                             remove<String>(KEY_INIT_EXTEND_BASE)
+                            remove<String>(KEY_INIT_VIDEO_ENGINE)
                         }
                     }
                 }
@@ -383,6 +387,7 @@ fun ImagineRoot() {
                     initialVideoMode = initVideoMode,
                     initialExtendBase = initExtendBase,
                     onOpenH3Job = { runId -> navController.navigate(Routes.h3Job(runId)) },
+                    initialEngine = initEngine,
                 )
             }
 
@@ -404,6 +409,7 @@ fun ImagineRoot() {
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
                             set(KEY_INIT_MEDIA, url)
                             set(KEY_INIT_PROMPT, prompt)
+                            set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3)  // v2.0.8 H3 的圖直接接 H3 生影
                         }
                         navController.navigate(Routes.GENERATE_VIDEO)
                     },
