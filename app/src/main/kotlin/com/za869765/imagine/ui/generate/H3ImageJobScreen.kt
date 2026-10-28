@@ -277,7 +277,8 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                 }
             }
 
-            if (s?.status == "done" && s.images.isNotEmpty()) {
+            // 不靠 s?.status 的 smart cast(安全呼叫比對不保證推出 s != null),明寫
+            if (s != null && s.status == "done" && s.images.isNotEmpty()) {
                 ImagineCard(pad = 0) {
                     Column {
                         if (savedUris.isEmpty()) {
