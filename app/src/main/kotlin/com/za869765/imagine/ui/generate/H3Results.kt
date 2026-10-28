@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,7 +31,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,14 +53,21 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
+import com.za869765.imagine.ImagineApp
 import com.za869765.imagine.data.h3.H3Client
 import com.za869765.imagine.data.h3.H3Format
 import com.za869765.imagine.data.h3.H3Jobs
 import com.za869765.imagine.data.h3.H3Machine
 import com.za869765.imagine.data.prefs.SecurePrefs
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // v2.3.0 成品集中看（Claude Design v3 稿）：生成頁一排縮圖、成品頁（全部／圖片／影片＋狀態）、點縮圖直接全螢幕放大
 
@@ -118,7 +128,36 @@ fun MachineChips(board: List<H3Machine>, routes: List<String>, highlight: String
     }
 }
 
-/** 一格成品：完成＝縮圖（影片抓畫格＋▶）；生成中黃框、排隊中藍框寫預計完成；失敗紅框。 */
+/** v2.3.1 縮圖裡的影片：靜音、循環、自動播（一眼分得出是影片）；離開畫面就釋放。 */
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+private fun MutedLoopPreview(uri: String, modifier: Modifier) {
+    val ctx = LocalContext.current
+    val player = remember(uri) {
+        ExoPlayer.Builder(ctx).build().apply {
+            volume = 0f
+            repeatMode = Player.REPEAT_MODE_ALL
+            setMediaItem(MediaItem.fromUri(uri))
+            prepare()
+            playWhenReady = true
+        }
+    }
+    DisposableEffect(uri) { onDispose { player.release() } }
+    AndroidView(
+        factory = { c ->
+            PlayerView(c).apply {
+                this.player = player
+                useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+            }
+        },
+        update = { it.player = player },
+        modifier = modifier,
+    )
+}
+
+/** 一格成品：完成＝縮圖（影片靜音循環預覽＋▶）；生成中黃框、排隊中藍框寫預計完成；失敗紅框。 */
 @Composable
 private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit) {
     val uri = job.firstUri()
@@ -132,6 +171,7 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
     ) {
         if (job.isDone() && uri != null) {
             AsyncImage(model = uri, contentDescription = job.prompt, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (job.kind != "image") MutedLoopPreview(uri, Modifier.fillMaxSize())
             if (job.kind != "image") {
                 Text(
                     "▶ ${job.seconds} 秒",
@@ -230,13 +270,14 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
     }
 }
 
-/** 點縮圖直接全螢幕放大：左右滑看其他完成的成品；圖片可雙指縮放、影片直接播。 */
+/** 點縮圖直接全螢幕放大：上下滑看其他完成的成品（v2.3.1 改上下）；圖片可雙指縮放（放大時不翻頁）、影片直接播。 */
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun ResultViewerDialog(items: List<H3Jobs.Job>, start: Int, onDismiss: () -> Unit, onOpenJob: (H3Jobs.Job) -> Unit) {
     if (items.isEmpty()) return
     val ctx = LocalContext.current
     val pager = rememberPagerState(initialPage = start.coerceIn(0, items.size - 1)) { items.size }
+    val scales = remember { mutableStateMapOf<Int, Float>() }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
@@ -248,13 +289,13 @@ fun ResultViewerDialog(items: List<H3Jobs.Job>, start: Int, onDismiss: () -> Uni
                     color = Color(0xFFCFCBDB),
                 )
             }
-            HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { page ->
+            VerticalPager(state = pager, userScrollEnabled = (scales[pager.currentPage] ?: 1f) <= 1.01f, modifier = Modifier.weight(1f)) { page ->
                 val j = items[page]
                 val uri = j.firstUri()
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {
                         uri == null -> Text("成品還在存進手機，稍候再開", color = Color.White)
-                        j.kind == "image" -> com.za869765.imagine.ui.component.ZoomableImage(uri) {}
+                        j.kind == "image" -> com.za869765.imagine.ui.component.ZoomableImage(uri) { s -> scales[page] = s }
                         page == pager.currentPage -> H3VideoPlayer(url = uri, headers = emptyMap(), userAgent = "imagine", modifier = Modifier.fillMaxSize())
                         else -> AsyncImage(model = uri, contentDescription = j.prompt, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
                     }
@@ -303,21 +344,28 @@ fun H3ResultsSection(prefs: SecurePrefs, onOpenImageJob: (String) -> Unit, onOpe
         if (todo.isEmpty() || !prefs.isH3TokenSet) return@LaunchedEffect
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
+                val app = ctx.applicationContext
                 for (id in todo) {
                     val j = H3Jobs.find(ctx, id) ?: continue
                     if (j.kind == "image") {
                         val r = (H3Client.imageRun(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
                         H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt) }
-                        if (r.status == "done" && r.images.isNotEmpty() && j.firstUri() == null) saveH3ImagesToHistory(ctx.applicationContext, prefs, id, r.images, j.prompt)
+                        if (r.status == "done" && r.images.isNotEmpty() && j.firstUri() == null) {
+                            ImagineApp.appScope.launch { saveH3ImagesToHistory(app, prefs, id, r.images, j.prompt) }
+                        }
                     } else {
                         val r = (H3Client.job(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
                         H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt) }
                         val v = r.videoUrl
-                        if (r.status == "done" && v != null && j.firstUri() == null) saveH3ToHistory(ctx.applicationContext, prefs, id, v, j.prompt)
+                        if (r.status == "done" && v != null && j.firstUri() == null) {
+                            ImagineApp.appScope.launch { saveH3ToHistory(app, prefs, id, v, j.prompt) }
+                        }
                     }
+                    jobs = H3Jobs.all(ctx)
                 }
+                // 有剛做完正在存的就 5 秒後再看（存好縮圖馬上出現），其餘 30 秒
+                delay(if (jobs.any { it.isDone() && it.firstUri() == null }) 5_000 else 30_000)
                 jobs = H3Jobs.all(ctx)
-                delay(30_000)
             }
         }
     }

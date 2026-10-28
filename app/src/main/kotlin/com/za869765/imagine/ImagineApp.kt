@@ -4,6 +4,7 @@ import android.app.Application
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import coil3.video.VideoFrameDecoder
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import okio.Path.Companion.toOkioPath
@@ -31,6 +32,8 @@ class ImagineApp : Application(), SingletonImageLoader.Factory {
                     .maxSizePercent(0.10)
                     .build()
             }
+            // v2.3.1 影片抓畫格當縮圖（coil-video 不會自動註冊，沒加這行影片縮圖一直空白）
+            .components { add(VideoFrameDecoder.Factory()) }
             .build()
 
     companion object {

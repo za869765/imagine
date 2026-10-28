@@ -277,7 +277,7 @@ internal fun ZoomableImage(url: String, onScaleChange: (Float) -> Unit) {
                     translationX = offset.x
                     translationY = offset.y
                 }
-                .transformable(state)
+                .transformable(state, canPan = { scale > 1f })
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = {
