@@ -16,6 +16,8 @@ data class PendingH3Image(
     val count: Int,
     val route: String,
     val allowText: Boolean,
+    val transparent: Boolean = false,
+    val sheet: Boolean = false,
     val clientRequestId: String,
     val estimate: H3ImageEstimate?,
 )
@@ -49,6 +51,8 @@ object H3ImageSubmit {
             count = pending.count,
             refImages = refs,
             allowText = pending.allowText,
+            transparent = pending.transparent,
+            sheet = pending.sheet,
             route = pending.route,
             confirm = true,
             clientRequestId = pending.clientRequestId,
@@ -70,7 +74,7 @@ object H3ImageSubmit {
                             estCu = r.value.estimate?.cu ?: est.cu,
                             createdAtMs = System.currentTimeMillis(),
                             kind = "image",
-                            meta = "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張・${H3Format.routeShort(route)}",
+                            meta = (if (pending.sheet) "多視角 ${pending.count * 4} 個角度" else "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張" + (if (pending.transparent) "・透明背景" else "")) + "・${H3Format.routeShort(route)}",
                             estNtd = r.value.estimate?.ntd ?: est.ntd,
                         ),
                     )

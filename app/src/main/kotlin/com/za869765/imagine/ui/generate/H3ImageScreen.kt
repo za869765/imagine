@@ -154,6 +154,19 @@ fun H3ImageScreen(
     var count by rememberSaveable { mutableStateOf(prefs.h3ImgCount.coerceIn(1, 4)) }
     var route by rememberSaveable { mutableStateOf(prefs.h3ImgRoute) }
     var allowText by rememberSaveable { mutableStateOf(false) }
+    // v2.1.3 製作方式:txt 文生圖 / ref 參考圖生圖 / alpha 透明背景 / sheet 多視角角色圖
+    var mode by rememberSaveable { mutableStateOf("txt") }
+    val isSheet = mode == "sheet"
+    val sendRefs = if (mode == "txt") emptyList() else if (isSheet) refStrings.take(1) else refStrings
+    val sendMp = if (isSheet) 4 else mp
+    val sendCount = if (isSheet) count.coerceIn(1, 2) else count
+    // 預估時間:參數一變就向伺服器問一次(不花錢),依生成紀錄平均
+    var preview by remember { mutableStateOf<H3ImageEstimate?>(null) }
+    LaunchedEffect(mode, mp, count, route) {
+        if (!prefs.isH3TokenSet) return@LaunchedEffect
+        delay(400)
+        preview = (H3Client.imageEstimate(prefs, sendMp, sendCount, route) as? H3Client.Result.Ok)?.value
+    }
 
     var showLibraryPicker by remember { mutableStateOf(false) }
     var estimating by remember { mutableStateOf(false) }
@@ -207,19 +220,25 @@ fun H3ImageScreen(
             Toast.makeText(ctx, "請先到設定填入 H3 Studio 權杖", Toast.LENGTH_LONG).show()
             return
         }
-        if (retry == null && prompt.isBlank()) {
+        if (retry == null && prompt.isBlank() && !isSheet) {
             Toast.makeText(ctx, "請先輸入提示詞", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (retry == null && (mode == "ref" || isSheet) && refStrings.isEmpty()) {
+            Toast.makeText(ctx, if (isSheet) "請先放 1 張人物照片" else "請先放參考圖", Toast.LENGTH_SHORT).show()
             return
         }
         focusManager.clearFocus()
         val snapshot = retry?.copy(estimate = null) ?: PendingH3Image(
             prompt = prompt.trim(),
-            refs = refStrings,
-            aspect = aspect,
-            mp = mp,
-            count = count,
+            refs = sendRefs,
+            aspect = if (isSheet) "1:1" else aspect,
+            mp = sendMp,
+            count = sendCount,
             route = route,
             allowText = allowText,
+            transparent = mode == "alpha",
+            sheet = isSheet,
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
         )
@@ -296,7 +315,7 @@ fun H3ImageScreen(
                 label = if (estimating) "估算中…" else "估算並確認（H3 生圖）",
                 icon = if (estimating) null else "image",
                 loading = estimating,
-                enabled = !estimating && prefs.isH3TokenSet && prompt.isNotBlank(),
+                enabled = !estimating && prefs.isH3TokenSet && (prompt.isNotBlank() || isSheet),
                 onClick = { startEstimate() },
             )
         },
@@ -394,11 +413,22 @@ fun H3ImageScreen(
                 }
             }
 
-            SourceSlot(
-                title = "參考圖（選填，最多 $H3_IMG_MAX_REFS 張）",
-                uris = refs,
-                maxCount = H3_IMG_MAX_REFS,
-                emptyHint = "同一個人／同一件商品要一致時放參考圖；純文生圖可不放",
+            ModePicker(
+                options = listOf(
+                    ModeOption("txt", "文生圖", "只寫文字描述就生成新圖"),
+                    ModeOption("ref", "參考圖生圖／改圖", "放 1～10 張圖：同一個人換衣服換場景、商品外觀不變、或照說明修改"),
+                    ModeOption("alpha", "透明背景", "人物或物件去背成 PNG，做素材用（可放參考圖）"),
+                    ModeOption("sheet", "多視角角色圖", "1 張人物照 → 正面、側面、半側等 4 或 8 個角度，給 H3 建臉鎖用"),
+                ),
+                selectedId = mode,
+                onSelect = { mode = it },
+            )
+
+            if (mode != "txt") SourceSlot(
+                title = when (mode) { "sheet" -> "人物照片（1 張）"; "ref" -> "參考圖（1～$H3_IMG_MAX_REFS 張）"; else -> "參考圖（選填，最多 $H3_IMG_MAX_REFS 張）" },
+                uris = if (isSheet) refs.take(1) else refs,
+                maxCount = if (isSheet) 1 else H3_IMG_MAX_REFS,
+                emptyHint = if (isSheet) "放一張正面清楚的人物照" else "同一個人／同一件商品要一致時放參考圖",
                 onPick = { showLibraryPicker = true },
                 onRemove = { index ->
                     refStrings = refStrings.toMutableList().also { if (index < it.size) it.removeAt(index) }
@@ -409,13 +439,24 @@ fun H3ImageScreen(
             PromptInput(
                 value = prompt,
                 onValueChange = { prompt = it },
-                placeholder = "例：台灣衛生所大廳，明亮自然光，寫實照片，沒有人；或：這個人換成白袍站在診間，正面微笑",
+                placeholder = when (mode) {
+                    "sheet" -> "選填：描述服裝（不寫就照照片）"
+                    "ref" -> "例：這個人換成白袍站在診間，正面微笑"
+                    "alpha" -> "例：穿藍色背心的志工，全身，正面站姿"
+                    else -> "例：台灣衛生所大廳，明亮自然光，寫實照片，沒有人"
+                },
                 minHeight = 88,
                 optimizeKind = "image",
                 optimizeContext = mapOf("aspect" to aspect, "refs" to refs.size.toString()),
             )
 
-            FlowRow(
+            if (isSheet) ParamPicker(
+                label = "角度數",
+                value = sendCount.toString(),
+                options = listOf("1", "2"),
+                onSelect = { count = it.toIntOrNull() ?: 1 },
+                displayName = { if (it == "2") "8 個角度（2 張格子圖）" else "4 個角度（1 張格子圖）" },
+            ) else FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 maxItemsInEachRow = 3,
@@ -451,6 +492,18 @@ fun H3ImageScreen(
                     onSelect = { count = it.toIntOrNull() ?: 1; prefs.h3ImgCount = count },
                     displayName = { "$it 張" },
                     modifier = Modifier.weight(1f),
+                )
+            }
+
+            // v2.1.3 預估時間(依生成紀錄平均;未滿 20 張標樣本不足)
+            preview?.let { pv ->
+                Text(
+                    "預估：約 ${H3Format.minutes(pv.minutes)} 分（${H3Format.routeShort(pv.route)}）" +
+                        (pv.genSeconds?.let { "・其中生成約 ${it.toInt()} 秒" } ?: "") +
+                        (if (pv.statsReady) "・依最近 ${pv.samples} 張平均" else "・樣本不足（${pv.samples}/20 張），先用預設值"),
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 

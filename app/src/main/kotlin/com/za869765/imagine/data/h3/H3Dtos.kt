@@ -125,6 +125,10 @@ data class H3ImageEstimate(
     val ntd: Double = 0.0,
     val cu: Double = 0.0,
     val text: String = "",
+    // v2.1.3 生成紀錄平均(樣本 < 20 張時 statsReady=false,伺服器用預設值)
+    @SerialName("gen_seconds") val genSeconds: Double? = null,
+    val samples: Int = 0,
+    @SerialName("stats_ready") val statsReady: Boolean = false,
     @SerialName("local_alive") val localAlive: Boolean = false,
     @SerialName("gputw_alive") val gputwAlive: Boolean = false,
     @SerialName("gputw_image_alive") val gputwImageAlive: Boolean = false,
@@ -143,6 +147,9 @@ data class H3ImageRequest(
     val count: Int,
     @SerialName("ref_images") val refImages: List<H3JobImage>,
     @SerialName("allow_text") val allowText: Boolean,
+    val transparent: Boolean = false,
+    // v2.1.3 多視角角色圖:第 1 張參考照 → 2×2 四視角(count＝格子張數 1～2)
+    val sheet: Boolean = false,
     val route: String,
     val confirm: Boolean,
     @SerialName("client_request_id") val clientRequestId: String,
