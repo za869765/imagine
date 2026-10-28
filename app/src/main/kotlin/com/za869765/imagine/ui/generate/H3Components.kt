@@ -27,9 +27,14 @@ import com.za869765.imagine.ui.component.SegmentedTab
 const val ENGINE_GROK = "grok"
 const val ENGINE_H3 = "h3"
 
+/** v2.0.7 生圖頁:「生成引擎：Grok Imagine ｜ H3 Studio（Qwen 生圖）」,同一組 id(grok / h3)。 */
+@Composable
+fun ImageEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) =
+    VideoEngineSelector(engine = engine, onSelect = onSelect, modifier = modifier, h3Label = "H3 Studio（Qwen 生圖）")
+
 /** 生影頁 / 設定頁共用:「生成引擎：Grok Imagine ｜ H3 Studio」。 */
 @Composable
-fun VideoEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+fun VideoEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier, h3Label: String = "H3 Studio") {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             "生成引擎",
@@ -40,7 +45,7 @@ fun VideoEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Mo
         SegmentedTab(
             options = listOf(
                 SegmentedOption(ENGINE_GROK, "Grok Imagine"),
-                SegmentedOption(ENGINE_H3, "H3 Studio"),
+                SegmentedOption(ENGINE_H3, h3Label),
             ),
             activeId = engine,
             onSelected = onSelect,

@@ -103,3 +103,76 @@ data class H3JobStatus(
 
 @Serializable
 data class H3ErrorBody(val error: String? = null)
+
+// ── v2.0.7 H3 Studio 生圖(Qwen-Image 2.1)與 ✨ 優化提示詞。欄位對齊 [[path]].js 的 app/images 與 app/prompt/optimize ──
+
+/** GET /api/app/images/estimate?mp&count&route — 派工結果 + 估價(分鐘 / NT$ / CU)+ 餘額(未知時 null)。 */
+@Serializable
+data class H3ImageEstimate(
+    val route: String = "auto",
+    val reason: String = "",
+    val minutes: Double = 0.0,
+    val ntd: Double = 0.0,
+    val cu: Double = 0.0,
+    val text: String = "",
+    @SerialName("local_alive") val localAlive: Boolean = false,
+    @SerialName("gputw_alive") val gputwAlive: Boolean = false,
+    @SerialName("gputw_image_alive") val gputwImageAlive: Boolean = false,
+    @SerialName("ntd_balance") val ntdBalance: Double? = null,
+    @SerialName("cu_balance") val cuBalance: Double? = null,
+)
+
+/** POST /api/app/images — 伺服器要求 confirm=true,否則 400;client_request_id 同一筆不會重複建單。 */
+@Serializable
+data class H3ImageRequest(
+    val prompt: String,
+    val aspect: String,
+    val mp: Int,
+    val count: Int,
+    @SerialName("ref_images") val refImages: List<H3JobImage>,
+    @SerialName("allow_text") val allowText: Boolean,
+    val route: String,
+    val confirm: Boolean,
+    @SerialName("client_request_id") val clientRequestId: String,
+)
+
+@Serializable
+data class H3ImageCreated(
+    @SerialName("run_id") val runId: String? = null,
+    @SerialName("project_id") val projectId: String? = null,
+    val route: String? = null,
+    val reason: String? = null,
+    val estimate: H3ImageEstimate? = null,
+    val duplicate: Boolean = false,
+)
+
+@Serializable
+data class H3ImageOut(
+    val id: String,
+    val url: String,
+    val width: Int? = null,
+    val height: Int? = null,
+)
+
+/** GET /api/app/images/{run_id} */
+@Serializable
+data class H3ImageStatus(
+    val status: String = "queued",
+    val error: String? = null,
+    val route: String? = null,
+    @SerialName("last_event") val lastEvent: H3Event? = null,
+    val images: List<H3ImageOut> = emptyList(),
+) {
+    val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
+}
+
+/** POST /api/app/prompt/optimize — kind image|video|shot|director|subject|generic。 */
+@Serializable
+data class H3OptimizeRequest(val kind: String, val text: String, val context: Map<String, String> = emptyMap())
+
+@Serializable
+data class H3Optimized(
+    val kind: String = "",
+    val optimized: String = "",
+    val notes: List<String> = emptyList(),
+)

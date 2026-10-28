@@ -19,6 +19,11 @@ object H3Jobs {
         val createdAtMs: Long,
         val status: String = "queued",
         val savedUri: String? = null,
+        // v2.0.7 生圖任務:kind="image"(影片任務沿用預設 "video"),meta=顯示用規格(「9:16・1K・2 張・製圖機」),
+        // estNtd=預估台幣;生圖的 seconds 放張數、savedUri 放多張本機 uri(換行分隔)
+        val kind: String = "video",
+        val meta: String = "",
+        val estNtd: Double = 0.0,
     )
 
     private const val PREFS = "imagine_h3_jobs"

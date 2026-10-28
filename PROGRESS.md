@@ -94,6 +94,22 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 | 5 | 主題切換（系統/淺/深 三選） | 目前跟隨系統 |
 | 6 | HistoryDetailScreen 接真實資料 | 點進清單後仍是樣本 prompt + 寫死 meta（v1.0.6 後 HistoryScreen 清單已真實，Detail 還沒同步） |
 
+## v2.0.7（2026-10-28）H3 生圖（Qwen）＋ ✨ 優化提示詞
+
+目的：文生圖不再依賴 Grok Imagine — 生圖頁多一個引擎「H3 Studio（Qwen 生圖）」，走 H3 Studio 的 APP API（APP 權杖即可）；所有提示詞欄多一顆「優化」。
+
+| # | 內容 | 檔案 |
+|---|------|------|
+| 1 | 生圖頁「生成引擎」切換（Grok Imagine ｜ H3 Studio）；原生圖頁改名 `GrokImageScreen`（private），`GenerateImageScreen` 變成包裝 | `ui/generate/GenerateImageScreen.kt`、`H3Components.kt`（`ImageEngineSelector`） |
+| 2 | `H3ImageScreen`：參考圖 0～10 張、提示詞、長寬比 5 種、1K/2K、1～4 張、機器（自動／筆電／製圖機／GPUtw 5090／Colab）、允許畫面文字；估算（不花錢）→ 確認視窗（機器＋原因、規格、分鐘、費用 NT$／CU、餘額）→ 勾選才能送 | `ui/generate/H3ImageScreen.kt` |
+| 3 | `H3ImageJobScreen`：每 5 秒輪詢，完成後下載成品（帶權杖）存進所有作品（標 [H3]），可放大、儲存相簿、分享、「圖片動起來」帶到生影頁 | `ui/generate/H3ImageJobScreen.kt`、`nav/Routes.kt`（`H3_IMAGE_JOB`）、`ImagineNavHost.kt` |
+| 4 | API：`GET /api/app/images/estimate`、`POST /api/app/images`（confirm + client_request_id 冪等）、`GET /api/app/images/{run_id}`、`POST /api/app/prompt/optimize`、`downloadBytes` | `data/h3/H3Client.kt`、`H3Dtos.kt`、`H3ImageSubmit.kt` |
+| 5 | `H3Jobs.Job` 加 `kind`（image/video）、`meta`、`estNtd`；生影頁「最近 H3 任務」只列影片 | `data/h3/H3Jobs.kt`、`H3GenerateScreen.kt` |
+| 6 | ✨ 優化：`PromptInput` 工具列多「優化」chip（需 H3 權杖；kind 依 forVideo = video/image，可傳 `optimizeKind`/`optimizeContext`），結果先看再「套用」，「更多」選單可「還原優化前的原文」 | `ui/component/PromptInput.kt` |
+| 7 | prefs：`imageEngine`、`h3ImgAspect/Mp/Count/Route` | `data/prefs/SecurePrefs.kt` |
+
+伺服器端對應 H3 Studio v2.15.2（`video` 優化模板）。🔴 待實機驗：生圖整段流程、優化按鈕、2K、參考圖。
+
 ## v1.0.10 修正（2026-05-19）
 
 實機回報：圖片生成 toast 跳「失敗 — 解析失敗：Field 'created' is required ...」，但 xAI 後台已扣費 → 表示圖其實有產，只是 client 解析掛掉。
@@ -163,6 +179,8 @@ cd imagine
 唯一需要：`git` + `gh` CLI 已登入。
 
 ## 重要 commits（最近 → 早期）
+
+- `v2.0.7` — 生圖引擎加 H3 Studio（Qwen-Image 2.1，估算→確認→送單→輪詢）＋所有提示詞欄「優化」chip
 
 - `v1.0.10` — 修圖片 ImageGenerationResponse DTO 容錯（xAI 無 `created` 欄 → SerializationException）
 - `67ab5f8` — v1.0.9 鎖屏 overlay 不中斷 state + 審核失敗回報 + Biometric STRONG/WEAK + Bill raw 顯示

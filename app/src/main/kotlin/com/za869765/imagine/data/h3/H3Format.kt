@@ -37,6 +37,40 @@ object H3Format {
         else -> s
     }
 
+    // ── v2.0.7 生圖:派工機器與尺寸 ──
+    val IMAGE_ROUTES = listOf("auto", "local", "gputw_image", "gputw", "cloud")
+
+    fun routeLabel(r: String): String = when (r) {
+        "auto" -> "自動（筆電免費 → 開著的機器 → 製圖機）"
+        "local" -> "筆電 3070（免費，一張約 1～2 分）"
+        "gputw_image" -> "製圖機（GPUtw 只搬 Qwen 權重，按時計費）"
+        "gputw" -> "GPUtw 5090（影片機順便做）"
+        "cloud" -> "Colab A100（花 CU）"
+        else -> r
+    }
+
+    fun routeShort(r: String?): String = when (r) {
+        "auto" -> "自動"
+        "local" -> "筆電"
+        "gputw_image" -> "製圖機"
+        "gputw" -> "GPUtw 5090"
+        "cloud" -> "Colab"
+        else -> r ?: "—"
+    }
+
+    /** Qwen 尺寸(對齊伺服器 QWEN_SIZES:約 1 MP;2K 各乘 2)。 */
+    fun imageSize(aspect: String, mp: Int): String {
+        val (w, h) = when (aspect) {
+            "16:9" -> 1344 to 768
+            "1:1" -> 1024 to 1024
+            "3:4" -> 896 to 1152
+            "4:3" -> 1152 to 896
+            else -> 768 to 1344
+        }
+        val k = if (mp == 4) 2 else 1
+        return "${w * k}×${h * k}"
+    }
+
     /** 餘額超過這麼久沒更新就當「未知」。 */
     const val BALANCE_MAX_AGE_MS = 30L * 60 * 1000
 

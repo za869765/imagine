@@ -101,7 +101,7 @@ private val IMAGE_MODE_OPTIONS = listOf(
     ModeOption("edit", "修改圖片", "以一張圖片為來源，依說明改動；可加角色參考鎖臉"),
 )
 
-@OptIn(ExperimentalLayoutApi::class)
+// v2.0.7 生圖引擎切換:Grok Imagine(既有 xAI / OpenRouter 流程)｜H3 Studio(Qwen-Image 2.1,估算→確認→送單→輪詢)。
 @Composable
 fun GenerateImageScreen(
     onSwitchToVideo: () -> Unit,
@@ -111,6 +111,50 @@ fun GenerateImageScreen(
     onAnimateImage: (String, String) -> Unit = { _, _ -> },
     onEditImage: (String, String) -> Unit = { _, _ -> },
     initialPrompt: String? = null,
+    onOpenH3ImageJob: (String) -> Unit = {},
+) {
+    val ctx = LocalContext.current
+    val prefs = remember { SecurePrefs.get(ctx) }
+    // 從其他頁帶提示詞進來(教學 / 歷史 / Grok 對話)都是 Grok 流程 → 先開 Grok;使用者仍可手動切換
+    var engine by rememberSaveable { mutableStateOf(if (!initialPrompt.isNullOrBlank()) ENGINE_GROK else prefs.imageEngine) }
+    val selector: @Composable () -> Unit = {
+        ImageEngineSelector(engine = engine, onSelect = { engine = it; prefs.imageEngine = it })
+    }
+    if (engine == ENGINE_H3) {
+        H3ImageScreen(
+            onSwitchToVideo = onSwitchToVideo,
+            onSwitchToChat = onSwitchToChat,
+            onSettingsClick = onSettingsClick,
+            onNavSelected = onNavSelected,
+            onOpenJob = onOpenH3ImageJob,
+            engineSelector = selector,
+            initialPrompt = initialPrompt,
+        )
+    } else {
+        GrokImageScreen(
+            onSwitchToVideo = onSwitchToVideo,
+            onSettingsClick = onSettingsClick,
+            onNavSelected = onNavSelected,
+            onSwitchToChat = onSwitchToChat,
+            onAnimateImage = onAnimateImage,
+            onEditImage = onEditImage,
+            initialPrompt = initialPrompt,
+            engineSelector = selector,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GrokImageScreen(
+    onSwitchToVideo: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onNavSelected: (NavTab) -> Unit,
+    onSwitchToChat: () -> Unit = {},
+    onAnimateImage: (String, String) -> Unit = { _, _ -> },
+    onEditImage: (String, String) -> Unit = { _, _ -> },
+    initialPrompt: String? = null,
+    engineSelector: (@Composable () -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -431,6 +475,7 @@ fun GenerateImageScreen(
                 },
                 activeColor = Color(0xFF2E3A6E),
             )
+            engineSelector?.invoke()
 
             // 製作方式 2 選 1(UI_REDESIGN_PLAN 1.2):取代 L2 底線分頁
             ModePicker(

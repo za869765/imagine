@@ -118,7 +118,7 @@ fun H3GenerateScreen(
     var estimating by remember { mutableStateOf(false) }
     // 確認視窗:非 null = 顯示;估算當下的參數一起凍結,送出用的就是使用者看到的那份
     var pendingConfirm by remember { mutableStateOf<PendingH3?>(null) }
-    var recentJobs by remember { mutableStateOf(H3Jobs.all(ctx).take(5)) }
+    var recentJobs by remember { mutableStateOf(H3Jobs.all(ctx).filter { it.kind != "image" }.take(5)) }
     // 送出結果不明(網路中斷/5xx)的那一筆:保留同一個 client_request_id,「以同一筆重新確認」時伺服器會去重
     var uncertainPending by remember { mutableStateOf<PendingH3?>(null) }
 
@@ -180,7 +180,7 @@ fun H3GenerateScreen(
     }
 
     fun handleOutcome(pending: PendingH3, outcome: H3Submit.Outcome) {
-        recentJobs = H3Jobs.all(ctx).take(5)
+        recentJobs = H3Jobs.all(ctx).filter { it.kind != "image" }.take(5)
         when (outcome) {
             is H3Submit.Outcome.Created -> {
                 pendingConfirm = null
@@ -587,7 +587,7 @@ private fun H3ConfirmSheet(
 }
 
 @Composable
-private fun ConfirmLine(label: String, value: String, strong: Boolean = false) {
+internal fun ConfirmLine(label: String, value: String, strong: Boolean = false) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Text(
             label,

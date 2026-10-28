@@ -334,6 +334,8 @@ fun ImagineRoot() {
                         navController.navigate(Routes.EDIT)
                     },
                     // 圖片編輯改為生成頁內切模式(EditPane),不再導頁進 EditScreen → 移除 onOpenImageEdit
+                    // v2.0.7 H3 生圖(Qwen)送出後進任務頁
+                    onOpenH3ImageJob = { runId -> navController.navigate(Routes.h3ImageJob(runId)) },
                 )
             }
 
@@ -389,6 +391,22 @@ fun ImagineRoot() {
                 com.za869765.imagine.ui.generate.H3JobScreen(
                     runId = runId,
                     onBack = { navController.popBackStack() },
+                )
+            }
+
+            // v2.0.7 H3 生圖任務頁:輪詢 → 成品存進所有作品;「圖片動起來」帶到生影頁(同 Grok 成品做法)
+            composable(Routes.H3_IMAGE_JOB) { entry ->
+                val runId = entry.arguments?.getString("runId").orEmpty()
+                com.za869765.imagine.ui.generate.H3ImageJobScreen(
+                    runId = runId,
+                    onBack = { navController.popBackStack() },
+                    onAnimate = { url, prompt ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            set(KEY_INIT_PROMPT, prompt)
+                        }
+                        navController.navigate(Routes.GENERATE_VIDEO)
+                    },
                 )
             }
 

@@ -91,6 +91,22 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3Aspect: String
         get() = prefs.getString(K_H3_ASPECT, "9:16")!!
         set(v) = prefs.edit().putString(K_H3_ASPECT, v).apply()
+    // v2.0.7 生圖引擎:"grok"(xAI / OpenRouter 模型)或 "h3"(H3 Studio 的 Qwen-Image 2.1);以及 H3 生圖上次用的參數
+    var imageEngine: String
+        get() = prefs.getString(K_IMAGE_ENGINE, "grok")!!
+        set(v) = prefs.edit().putString(K_IMAGE_ENGINE, v).apply()
+    var h3ImgAspect: String
+        get() = prefs.getString(K_H3_IMG_ASPECT, "9:16")!!
+        set(v) = prefs.edit().putString(K_H3_IMG_ASPECT, v).apply()
+    var h3ImgMp: Int
+        get() = prefs.getInt(K_H3_IMG_MP, 1)
+        set(v) = prefs.edit().putInt(K_H3_IMG_MP, v).apply()
+    var h3ImgCount: Int
+        get() = prefs.getInt(K_H3_IMG_COUNT, 1)
+        set(v) = prefs.edit().putInt(K_H3_IMG_COUNT, v).apply()
+    var h3ImgRoute: String
+        get() = prefs.getString(K_H3_IMG_ROUTE, "auto")!!
+        set(v) = prefs.edit().putString(K_H3_IMG_ROUTE, v).apply()
 
     // ── PIN (hash + salt + length-hint) ──────────────────────────
     var pinHash: String?
@@ -204,6 +220,12 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_H3_MODE = "h3_mode"
         private const val K_H3_SECONDS = "h3_seconds"
         private const val K_H3_ASPECT = "h3_aspect"
+        // v2.0.7 H3 生圖
+        private const val K_IMAGE_ENGINE = "image_engine"
+        private const val K_H3_IMG_ASPECT = "h3_img_aspect"
+        private const val K_H3_IMG_MP = "h3_img_mp"
+        private const val K_H3_IMG_COUNT = "h3_img_count"
+        private const val K_H3_IMG_ROUTE = "h3_img_route"
 
         @Volatile private var instance: SecurePrefs? = null
         fun get(ctx: Context): SecurePrefs = instance ?: synchronized(this) {

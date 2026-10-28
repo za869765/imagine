@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +50,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.za869765.imagine.data.h3.H3Client
+import com.za869765.imagine.data.h3.H3Optimized
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
@@ -71,6 +75,10 @@ fun PromptInput(
     videoHasImage: Boolean = false,
     // 來源圖原 prompt(半智能排序圖生影範本用)
     videoSourcePrompt: String? = null,
+    // v2.0.7 ✨ 優化提示詞(走 H3 Studio 的導演大腦改寫,需 H3 權杖):null 不顯示;"image"/"video"/"shot"…=改寫模板,
+    // 預設依 forVideo 決定。optimizeContext 給模板的額外資訊(長寬比、參考圖張數)
+    optimizeKind: String? = if (forVideo) "video" else "image",
+    optimizeContext: Map<String, String> = emptyMap(),
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -206,6 +214,60 @@ fun PromptInput(
         pendingFocus = true
     }
 
+    // v2.0.7 ✨ 優化:結果先看(對話框),按「套用」才覆蓋;原文留在 optBackup,「更多」選單可還原
+    var optimizing by remember { mutableStateOf(false) }
+    var optResult by remember { mutableStateOf<H3Optimized?>(null) }
+    var optBackup by remember { mutableStateOf<String?>(null) }
+    fun runOptimize() {
+        val kind = optimizeKind ?: return
+        if (optimizing) return
+        if (tfValue.text.isBlank()) {
+            Toast.makeText(ctx, "先寫點東西再優化", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!prefs.isH3TokenSet) {
+            Toast.makeText(ctx, "✨ 優化要先在「設定 › H3 Studio」填入權杖", Toast.LENGTH_LONG).show()
+            return
+        }
+        optimizing = true
+        scope.launch {
+            when (val r = H3Client.optimizePrompt(prefs, kind, tfValue.text, optimizeContext)) {
+                is H3Client.Result.Ok -> optResult = r.value
+                is H3Client.Result.Err -> Toast.makeText(ctx, "優化失敗：${r.message}", Toast.LENGTH_LONG).show()
+            }
+            optimizing = false
+        }
+    }
+    optResult?.let { r ->
+        AlertDialog(
+            onDismissRequest = { optResult = null },
+            title = { Text("✨ 優化結果", fontWeight = FontWeight.W700) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(r.optimized, fontSize = 13.sp, lineHeight = 19.sp)
+                    if (r.notes.isNotEmpty()) {
+                        Text(
+                            r.notes.joinToString("\n") { "・$it" },
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    optBackup = tfValue.text
+                    setWholeText(r.optimized)
+                    optResult = null
+                    Toast.makeText(ctx, "已套用；「更多」選單可還原原文", Toast.LENGTH_SHORT).show()
+                }) { Text("套用") }
+            },
+            dismissButton = { TextButton(onClick = { optResult = null }) { Text("取消") } },
+        )
+    }
+
     // 範本「使用」後 sheet 關閉 → 聚焦輸入框 (游標待命)。requestFocus 包 runCatching 防未 attach
     LaunchedEffect(pendingFocus, showTemplateSheet, showAdvisorSheet) {
         if (pendingFocus && !showTemplateSheet && !showAdvisorSheet) {
@@ -238,6 +300,9 @@ fun PromptInput(
                 // 收進右側「更多」選單(UI_REDESIGN_PLAN 1.5)
                 PromptToolChip(icon = "content_paste", label = "套用範本") { showApplyTemplate = true }
                 PromptToolChip(icon = "auto_awesome", label = "自己組") { showTemplateSheet = true }
+                if (optimizeKind != null) {
+                    PromptToolChip(icon = "star", label = if (optimizing) "優化中…" else "優化") { runOptimize() }
+                }
                 if (value.isNotBlank()) {
                     Box {
                         ImagineIconButton(
@@ -261,6 +326,18 @@ fun PromptInput(
                                 leadingIcon = { ImagineIcon(name = "lightbulb", size = 18.dp) },
                                 onClick = { showMoreMenu = false; showAdvisorSheet = true },
                             )
+                            if (optBackup != null) {
+                                DropdownMenuItem(
+                                    text = { Text("還原優化前的原文") },
+                                    leadingIcon = { ImagineIcon(name = "history", size = 18.dp) },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        val back = optBackup
+                                        optBackup = null
+                                        if (back != null) setWholeText(back)
+                                    },
+                                )
+                            }
                             // B1: 只有當內容含【】(套了範本/擴寫) 才顯示
                             if (placeholderCount > 0) {
                                 DropdownMenuItem(

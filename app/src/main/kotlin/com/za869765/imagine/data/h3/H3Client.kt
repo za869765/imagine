@@ -166,6 +166,43 @@ object H3Client {
         }
     }
 
+    // ── v2.0.7 Qwen-Image 2.1 生圖(估算不花錢 → 確認 → 送單 → 輪詢)與 ✨ 優化提示詞 ──
+
+    /** 不花錢的生圖估算:派工結果(筆電 / 製圖機 / GPUtw / Colab)+ 分鐘 / NT$ / CU + 餘額。 */
+    suspend fun imageEstimate(prefs: SecurePrefs, mp: Int, count: Int, route: String): Result<H3ImageEstimate> =
+        call<H3ImageEstimate>(prefs, http, request(prefs, "/api/app/images/estimate?mp=$mp&count=$count&route=${enc(route)}")?.get()?.build())
+
+    /** ⚠️ 會開機器／花錢 — 只能在使用者於確認視窗勾選並按「確認開跑」後呼叫。 */
+    suspend fun submitImage(prefs: SecurePrefs, body: H3ImageRequest): Result<H3ImageCreated> {
+        require(body.confirm && body.clientRequestId.isNotBlank()) { "H3 生圖送出前必須經過確認" }
+        val payload = json.encodeToString(body).toRequestBody("application/json".toMediaType())
+        return call<H3ImageCreated>(prefs, submitHttp, request(prefs, "/api/app/images")?.post(payload)?.build())
+    }
+
+    suspend fun imageRun(prefs: SecurePrefs, runId: String): Result<H3ImageStatus> =
+        call<H3ImageStatus>(prefs, http, request(prefs, "/api/app/images/$runId")?.get()?.build())
+
+    /** ✨ 優化提示詞:用 H3 Studio 的導演大腦改寫並說明改了什麼(不花 CU)。 */
+    suspend fun optimizePrompt(prefs: SecurePrefs, kind: String, text: String, context: Map<String, String> = emptyMap()): Result<H3Optimized> {
+        val payload = json.encodeToString(H3OptimizeRequest(kind, text, context)).toRequestBody("application/json".toMediaType())
+        return call<H3Optimized>(prefs, http, request(prefs, "/api/app/prompt/optimize")?.post(payload)?.build())
+    }
+
+    private fun enc(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
+
+    /** 下載成品位元組(帶權杖,只限站內路徑)與 content-type;失敗回 null。 */
+    suspend fun downloadBytes(prefs: SecurePrefs, path: String): Pair<ByteArray, String?>? =
+        withContext(Dispatchers.IO) {
+            val req = request(prefs, path)?.get()?.build() ?: return@withContext null
+            runCatching {
+                downloadHttp.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@use null
+                    val bytes = resp.body?.bytes() ?: return@use null
+                    bytes to resp.header("content-type")
+                }
+            }.getOrNull()
+        }
+
     /** 下載成品(帶權杖,只限站內路徑),交給 consumer 讀串流;失敗回 null。 */
     suspend fun <T> download(prefs: SecurePrefs, videoPath: String, consumer: suspend (InputStream) -> T?): T? =
         withContext(Dispatchers.IO) {
