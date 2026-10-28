@@ -60,7 +60,6 @@ import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
 import com.za869765.imagine.ui.component.PrimaryButton
 import com.za869765.imagine.ui.component.PromptInput
-import com.za869765.imagine.ui.component.SectionHeader
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.SourceSlot
@@ -484,7 +483,7 @@ fun H3GenerateScreen(
 
             RecentJobsPoller(prefs, recentJobs) { recentJobs = H3Jobs.all(ctx).filter { it.kind != "image" }.take(5) }
             if (recentJobs.isNotEmpty()) {
-                SectionHeader("最近 H3 任務")
+                RecentSectionHeader("最近 H3 影片", recentJobs.size)
                 recentJobs.forEach { job ->
                     ImagineCard(pad = 12, onClick = { onOpenJob(job.runId) }) {
                         Column {

@@ -9,6 +9,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
@@ -132,6 +133,17 @@ fun CollapsibleSection(title: String, summary: String, expanded: Boolean, onTogg
         }
     }
     if (expanded) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+}
+
+/** v2.2.0 最近任務區塊抬頭:粗分隔線＋留白＋大標題與筆數,和上面的設定區明顯分開。 */
+@Composable
+fun RecentSectionHeader(title: String, count: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 20.dp)) {
+        androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
+        Text(title, fontSize = 18.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
+        Text("共 $count 筆・點一筆看進度與成品", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 /** v2.1.9 最近任務清單:沒做完的每 30 秒查一次狀態與預計完成,寫回 H3Jobs 後 onChanged 重讀清單。 */
