@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -40,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.za869765.imagine.ImagineApp
 import com.za869765.imagine.data.h3.H3Client
 import com.za869765.imagine.data.h3.H3Format
+import com.za869765.imagine.data.h3.H3ImageEstimate
 import com.za869765.imagine.data.h3.H3ImageSubmit
 import com.za869765.imagine.data.h3.H3Images
 import com.za869765.imagine.data.h3.H3Jobs
@@ -50,8 +55,11 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.CrashLogger
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineCard
+import com.za869765.imagine.ui.component.ImagineChip
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
+import com.za869765.imagine.ui.component.ModeOption
+import com.za869765.imagine.ui.component.ModePicker
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.ParamPicker
@@ -69,10 +77,48 @@ import kotlinx.coroutines.withContext
 private const val H3_IMG_MAX_REFS = 10
 private const val H3_IMG_REFS_DRAFT = "h3_image_refs"
 
+// 提醒色(被改派／筆電版本舊):設計稿的琥珀
+private val Amber = Color(0xFFF2C14E)
+private val AmberBg = Color(0xFF3A2E12)
+private val Mint = Color(0xFF7FD9A6)
+
+/**
+ * v2.1.0 「在哪台機器生成」選單:每個選項寫費用與目前狀態(狀態來自開頁時一次不花錢的估算)。
+ * st 為 null(還沒查到)時只寫費用。
+ */
+private fun machineOptions(st: H3ImageEstimate?): List<ModeOption> {
+    val laptop = when {
+        st == null -> ""
+        !st.localAlive -> "・現在離線"
+        st.caps?.image != true -> "・在線但工人版本舊，還不能生圖（到筆電更新一次）"
+        else -> "・在線，可以免費做"
+    }
+    val gi = when {
+        st == null -> ""
+        st.gputwImageAlive -> "・現在開著，只多幾十秒"
+        else -> "・現在關著，開機約 14 分"
+    }
+    val g = when {
+        st == null -> ""
+        st.gputwAlive -> "・現在開著，順便做"
+        else -> "・現在關著（要搬 52 GB 權重，不建議只為生圖開）"
+    }
+    val cu = st?.cuBalance?.let { "・CU 餘額 ${H3Format.cu(it)}" } ?: ""
+    val autoNow = st?.let { "・現在會派到：${H3Format.routeShort(it.route)}" } ?: ""
+    return listOf(
+        ModeOption("auto", "自動（建議）", "筆電有空就免費 → 開著的機器順便做 → 再不然開製圖機約 NT$8$autoNow"),
+        ModeOption("local", "筆電 3070", "免費・一張約 1～2 分・筆電要開著$laptop"),
+        ModeOption("gputw_image", "製圖機（GPUtw）", "約 NT$8／次（含開機 14 分）$gi"),
+        ModeOption("gputw", "GPUtw 5090（影片機）", "影片機開著時順便做・同製圖機費率$g"),
+        ModeOption("cloud", "Colab A100", "花 CU・1 張約 1.04 CU ≈ NT$4・冷啟動 6 分$cu"),
+    )
+}
+
 /**
  * v2.0.7 H3 Studio 生圖(Qwen-Image 2.1,不走 Grok Imagine)。
  * 流程同 H3 生影:估算(不花錢)→ 確認視窗(勾選才能按)→ POST(confirm、client_request_id 冪等鍵)→ 任務頁輪詢。
  * 機器由 H3 Studio 派:筆電免費 → 開著的 GPUtw／製圖機順便做 → 開製圖機(只搬 Qwen 權重)→ 指定 Colab 才花 CU。
+ * v2.1.0:開頁先查一次機器狀態(不花錢)寫進選單;確認視窗機器名＋費用放大、被改派時琥珀提醒＋一鍵換機器、只顯示會扣的餘額。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -116,6 +162,17 @@ fun H3ImageScreen(
     // 送出結果不明(網路中斷/5xx)的那一筆:保留同一個 client_request_id,重送伺服器會去重
     var uncertainPending by remember { mutableStateOf<PendingH3Image?>(null) }
 
+    // v2.1.0 機器狀態:開頁查一次「自動」會派到哪(不花錢),之後每次估算也更新
+    var status by remember { mutableStateOf<H3ImageEstimate?>(null) }
+    LaunchedEffect(Unit) {
+        if (prefs.isH3TokenSet) {
+            when (val r = H3Client.imageEstimate(prefs, 1, 1, "auto")) {
+                is H3Client.Result.Ok -> status = r.value
+                is H3Client.Result.Err -> {}
+            }
+        }
+    }
+
     var droppedNote by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         val readable = refStrings.filter { H3Images.isReadable(ctx, Uri.parse(it)) }
@@ -135,7 +192,7 @@ fun H3ImageScreen(
         }
     }
 
-    // retry != null:重新估算同一筆(沿用 client_request_id);null:依目前畫面參數開新的一筆(新 id)
+    // retry != null:重新估算同一筆(沿用 client_request_id;換機器也走這裡);null:依目前畫面參數開新的一筆(新 id)
     fun startEstimate(retry: PendingH3Image? = null) {
         if (estimating) return
         if (!prefs.isH3TokenSet) {
@@ -161,7 +218,10 @@ fun H3ImageScreen(
         estimating = true
         scope.launch {
             when (val r = H3Client.imageEstimate(prefs, snapshot.mp, snapshot.count, snapshot.route)) {
-                is H3Client.Result.Ok -> pendingConfirm = snapshot.copy(estimate = r.value)
+                is H3Client.Result.Ok -> {
+                    pendingConfirm = snapshot.copy(estimate = r.value)
+                    if (snapshot.route == "auto") status = r.value
+                }
                 is H3Client.Result.Err -> Toast.makeText(ctx, "估算失敗：${r.message}", Toast.LENGTH_LONG).show()
             }
             estimating = false
@@ -210,6 +270,13 @@ fun H3ImageScreen(
             pending = pending,
             onDismiss = { pendingConfirm = null },
             onOutcome = { outcome -> handleOutcome(pending, outcome) },
+            // 換機器:關窗、同一筆改機器重估(畫面上的選單也跟著換)
+            onChangeRoute = { r ->
+                pendingConfirm = null
+                route = r
+                prefs.h3ImgRoute = r
+                startEstimate(pending.copy(route = r))
+            },
         )
     }
 
@@ -257,6 +324,36 @@ fun H3ImageScreen(
                         color = MaterialTheme.colorScheme.error,
                         lineHeight = 19.sp,
                     )
+                }
+            }
+
+            // v2.1.0 機器狀態一眼看:筆電能不能免費做、製圖機開著沒、兩種餘額
+            status?.let { st ->
+                val laptopOk = st.localAlive && st.caps?.image == true
+                ImagineCard(pad = 12) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("機器狀態", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            when {
+                                !st.localAlive -> "筆電：離線（免費路線不能用）"
+                                !laptopOk -> "筆電：在線，但工人版本舊、還不能生圖（到筆電更新一次）"
+                                else -> "筆電：在線，可以免費做" + (st.caps?.ver?.let { "（工人 $it）" } ?: "")
+                            },
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            color = if (laptopOk) Mint else Amber,
+                        )
+                        Text(
+                            "製圖機：${if (st.gputwImageAlive) "開著" else "關著"}・影片機：${if (st.gputwAlive) "開著" else "關著"}",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "GPUtw ${st.ntdBalance?.let { "NT$" + H3Format.ntd(it) } ?: "未知"}・CU ${st.cuBalance?.let { H3Format.cu(it) } ?: "未知"}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
@@ -308,7 +405,7 @@ fun H3ImageScreen(
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                maxItemsInEachRow = 2,
+                maxItemsInEachRow = 3,
             ) {
                 ParamPicker(
                     label = "長寬比",
@@ -342,15 +439,16 @@ fun H3ImageScreen(
                     displayName = { "$it 張" },
                     modifier = Modifier.weight(1f),
                 )
-                ParamPicker(
-                    label = "機器",
-                    value = route,
-                    options = H3Format.IMAGE_ROUTES,
-                    onSelect = { route = it; prefs.h3ImgRoute = it },
-                    displayName = { H3Format.routeLabel(it) },
-                    modifier = Modifier.weight(1f),
-                )
             }
+
+            // v2.1.0 在哪台機器生成:每個選項寫費用與目前狀態(ModePicker 名稱＋說明兩行)
+            ModePicker(
+                label = "在哪台機器生成",
+                options = machineOptions(status),
+                selectedId = route,
+                onSelect = { route = it; prefs.h3ImgRoute = it },
+                footnote = "狀態是開頁時向 H3 Studio 查的，不花錢；費用都是預估，確認視窗會再算一次。",
+            )
 
             Row(
                 modifier = Modifier
@@ -371,7 +469,7 @@ fun H3ImageScreen(
 
             ImagineCard(pad = 14) {
                 Text(
-                    "Qwen-Image 2.1 照片級寫實。按下方按鈕只會先估算（不花錢）：筆電免費、開著的機器順便做、否則開製圖機（約 NT$7 起）；確認視窗勾選後才會真的開跑。成品會進 H3 Studio 的「Imagine APP 生圖」作品，也會自動存進這台手機的所有作品。",
+                    "Qwen-Image 2.1 照片級寫實。按下方按鈕只會先估算（不花錢），確認視窗勾選後才會真的開跑。成品會進 H3 Studio 的「Imagine APP 生圖」作品，也會自動存進這台手機的所有作品。",
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -419,12 +517,27 @@ fun H3ImageScreen(
     }
 }
 
+@Composable
+private fun Tag(text: String, bg: Color, fg: Color) {
+    Text(
+        text,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.W700,
+        color = fg,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun H3ImageConfirmSheet(
     pending: PendingH3Image,
     onDismiss: () -> Unit,
     onOutcome: (H3Submit.Outcome) -> Unit,
+    onChangeRoute: (String) -> Unit,
 ) {
     val e = pending.estimate ?: return
     val ctx = LocalContext.current
@@ -434,10 +547,19 @@ private fun H3ImageConfirmSheet(
     var agreed by remember(pending) { mutableStateOf(false) }
     var submitting by remember(pending) { mutableStateOf(false) }
     var progressText by remember(pending) { mutableStateOf<String?>(null) }
+    val name = H3Format.routeName(e.route)
     val costText = when (e.route) {
-        "cloud" -> "${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）"
-        "local" -> "免費（筆電）"
-        else -> "約 NT$${H3Format.ntd(e.ntd)}（GPUtw 按分鐘扣）"
+        "cloud" -> "${H3Format.cu(e.cu)} CU ≈ NT$${H3Format.ntd(e.ntd)}"
+        "local" -> "免費"
+        else -> "約 NT$${H3Format.ntd(e.ntd)}（按分鐘扣）"
+    }
+    // 你明確選了某台,伺服器卻派到別台 → 要讓你一眼看到;筆電版本舊的原因也要讓你知道
+    val rerouted = pending.route != "auto" && e.route != pending.route
+    val oldWorker = e.reason.contains("版本舊")
+    val balanceLine = when (e.route) {
+        "cloud" -> e.cuBalance?.let { "CU ${H3Format.cu(it)} → 跑完約 ${H3Format.cu(it - e.cu)}" } ?: "CU 餘額未知"
+        "local" -> "免費，不扣任何餘額"
+        else -> e.ntdBalance?.let { "GPUtw NT$${H3Format.ntd(it)} → 跑完約 NT$${H3Format.ntd(it - e.ntd)}" } ?: "GPUtw 餘額未知"
     }
     // 阻擋原因;null = 可以送出(伺服器送出時還會再擋一次)
     val block: String? = when {
@@ -482,18 +604,72 @@ private fun H3ImageConfirmSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("確認 H3 生圖", fontSize = 18.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
-            ConfirmLine("機器", "${H3Format.routeShort(e.route)}：${e.reason}")
+
+            // 機器卡:名稱＋費用放大;被改派／筆電版本舊 → 琥珀提醒＋一鍵換機器
+            ImagineCard(pad = 14) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("這次用的機器", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(name, fontSize = 20.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
+                        when (e.route) {
+                            "cloud" -> Tag("花 CU", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+                            "local" -> Tag("免費", Mint, Color(0xFF0F2A1C))
+                            else -> Tag("扣台幣", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                    Text(
+                        "約 ${H3Format.minutes(e.minutes)} 分鐘 · $costText",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.W700,
+                        color = if (e.route == "local") Mint else MaterialTheme.colorScheme.primary,
+                    )
+                    if (!rerouted && !oldWorker && e.reason.isNotBlank()) {
+                        Text(e.reason, fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (rerouted || oldWorker) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AmberBg)
+                                .border(1.dp, Amber.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                if (rerouted) "你選的是「${H3Format.routeName(pending.route)}」，這次改派 $name" else "注意",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W700,
+                                color = Amber,
+                            )
+                            Text(e.reason, fontSize = 13.sp, lineHeight = 18.sp, color = Color(0xFFF6E3A6))
+                            if (oldWorker) {
+                                Text(
+                                    "免費：到筆電更新工人（30 秒）。省錢：改選製圖機，機器開著時只多幾十秒。",
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                    color = Color(0xFFF6E3A6),
+                                )
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (e.route != "gputw_image") ImagineChip(label = "改選製圖機 · 約 NT$8", onClick = { if (!submitting) onChangeRoute("gputw_image") })
+                        if (pending.route != "auto") ImagineChip(label = "改選自動", onClick = { if (!submitting) onChangeRoute("auto") })
+                        if (e.route != "local" && e.localAlive && e.caps?.image == true) {
+                            ImagineChip(label = "改選筆電（免費）", onClick = { if (!submitting) onChangeRoute("local") })
+                        }
+                    }
+                }
+            }
+
             ConfirmLine(
                 "規格",
                 "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}（${H3Format.imageSize(pending.aspect, pending.mp)}）・${pending.count} 張" +
                     (if (pending.refs.isNotEmpty()) "・參考 ${pending.refs.size} 張" else "") +
                     (if (pending.allowText) "・允許文字" else "・無文字"),
             )
-            ConfirmLine("預估時間", "約 ${H3Format.minutes(e.minutes)} 分鐘")
-            ConfirmLine("預估費用", costText, strong = true)
-            if (e.text.isNotBlank()) ConfirmLine("說明", e.text)
-            ConfirmLine("GPUtw 餘額", e.ntdBalance?.let { "NT$${H3Format.ntd(it)}" } ?: "未知")
-            ConfirmLine("CU 餘額", e.cuBalance?.let { "${H3Format.cu(it)} CU" } ?: "未知")
+            ConfirmLine("餘額", balanceLine)
 
             if (block != null) {
                 Text(
@@ -539,8 +715,9 @@ private fun H3ImageConfirmSheet(
                 )
             }
             Text(
-                "按「取消」不會有任何花費。機器由 H3 Studio 在送出當下決定，開著的機器會順便做、不另外開機。",
+                "按「取消」不會有任何花費。勾選後「確認開跑」才會亮；機器由 H3 Studio 在送出當下決定，開著的機器會順便做。",
                 fontSize = 12.sp,
+                lineHeight = 17.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

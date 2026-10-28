@@ -106,11 +106,21 @@ data class H3ErrorBody(val error: String? = null)
 
 // ── v2.0.7 H3 Studio 生圖(Qwen-Image 2.1)與 ✨ 優化提示詞。欄位對齊 [[path]].js 的 app/images 與 app/prompt/optimize ──
 
+/** 筆電工人心跳回報的能力(v2.1.0 機器狀態用):image=會處理圖單(舊工人沒有)、ver=工人版本。 */
+@Serializable
+data class H3Caps(
+    val qwen: Boolean = false,
+    val image: Boolean = false,
+    val refmod: Boolean = false,
+    val ver: String? = null,
+)
+
 /** GET /api/app/images/estimate?mp&count&route — 派工結果 + 估價(分鐘 / NT$ / CU)+ 餘額(未知時 null)。 */
 @Serializable
 data class H3ImageEstimate(
     val route: String = "auto",
     val reason: String = "",
+    val caps: H3Caps? = null,
     val minutes: Double = 0.0,
     val ntd: Double = 0.0,
     val cu: Double = 0.0,

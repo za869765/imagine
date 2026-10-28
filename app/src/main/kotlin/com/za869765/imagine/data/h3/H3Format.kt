@@ -49,6 +49,16 @@ object H3Format {
         else -> r
     }
 
+    /** v2.1.0 確認視窗用的機器名(比 routeShort 完整)。 */
+    fun routeName(r: String?): String = when (r) {
+        "auto" -> "自動"
+        "local" -> "筆電 3070"
+        "gputw_image" -> "製圖機（GPUtw 5090）"
+        "gputw" -> "GPUtw 5090（影片機）"
+        "cloud" -> "Colab A100"
+        else -> r ?: "—"
+    }
+
     fun routeShort(r: String?): String = when (r) {
         "auto" -> "自動"
         "local" -> "筆電"

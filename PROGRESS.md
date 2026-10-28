@@ -119,6 +119,14 @@ Splash / PinSetup / ApiKeySetup / Lock / GenerateImage / GenerateVideo / Edit / 
 
 - H3 生圖任務頁：工人回「完成」卻沒有成品圖時顯示紅字說明（舊版筆電工人接到圖單會走分鏡路徑、幾秒就「完成」沒圖）。
 
+### v2.1.0（2026-10-28）H3 生圖介面改清楚（依 Claude Design 設計稿 https://claude.ai/artifact/3iNoNuuDb2vjcqaGBtVTWS）
+
+| # | 內容 | 檔案 |
+|---|---|---|
+| 1 | 開頁先打一次 `estimate?route=auto`（不花錢）→「機器狀態」卡：筆電在線／工人版本舊／可免費、製圖機與影片機開著沒、GPUtw 與 CU 餘額 | `H3ImageScreen.kt`、`H3Dtos.kt`（`H3Caps`、`H3ImageEstimate.caps`） |
+| 2 | 「在哪台機器生成」改 ModePicker：每個選項寫費用與目前狀態（自動會派到哪、筆電版本舊、製圖機開著沒、CU 餘額） | `H3ImageScreen.kt` |
+| 3 | 確認視窗：機器卡（機器名＋「花 CU／免費／扣台幣」標籤＋分鐘與費用大字）；你選了 X 卻被改派 Y 或筆電版本舊 → 琥珀提醒＋原因＋出路；一鍵「改選製圖機／自動／筆電」原地重估；只顯示這次會扣的餘額並寫跑完剩多少；刪掉「說明」「預估時間」列 | `H3ImageScreen.kt`、`H3Format.routeName` |
+
 ### 10/28 18:25 自測紀錄（Studio 登入 session 打 APP 端點，不需 APP 權杖）
 
 | 端點 | 結果 |
