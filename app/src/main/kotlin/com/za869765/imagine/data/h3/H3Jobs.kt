@@ -31,6 +31,8 @@ object H3Jobs {
         val forgotten: Boolean = false,
         // v2.3.6 只留在 APP 的成品之後補上傳到 Studio 了
         val reuploaded: Boolean = false,
+        // v2.4.2 派給哪台機器（local／gputw_image／gputw／cloud；輪詢時跟伺服器更新）
+        val route: String = "",
     )
 
     private const val PREFS = "imagine_h3_jobs"

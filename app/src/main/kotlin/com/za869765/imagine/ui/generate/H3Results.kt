@@ -85,6 +85,11 @@ private val VIDEO_FRAME = Color(0xFFA77BFF)
 private fun H3Jobs.Job.isDone() = status == "done"
 private fun H3Jobs.Job.isFailed() = status == "failed" || status == "cancelled"
 private fun H3Jobs.Job.isRunning() = status in listOf("running", "launching", "setup")
+/** v2.4.2 這件派給哪台：新任務記 route；舊任務從規格字尾（「…・製圖機」）推 */
+private fun H3Jobs.Job.machine(): String? =
+    route.takeIf { it.isNotBlank() && it != "auto" }?.let { H3Format.routeShort(it) }
+        ?: meta.substringAfterLast("・", "").takeIf { it in listOf("筆電", "製圖機", "GPUtw 5090", "Colab", "5090", "GPUtw") }
+
 private fun H3Jobs.Job.firstUri(): String? = savedUri?.split('\n')?.firstOrNull { it.isNotBlank() }
 private fun H3Jobs.Job.statusColor(): Color = when {
     isDone() -> GREEN
@@ -195,6 +200,12 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
         if (job.isDone() && uri != null) {
             AsyncImage(model = uri, contentDescription = job.prompt, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             if (job.kind != "image") MutedLoopPreview(uri, Modifier.fillMaxSize())
+            job.machine()?.let { m ->
+                Text(
+                    m, fontSize = 10.sp, color = Color.White,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp).background(Color(0x99000000), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
             if (job.kind != "image") {
                 Text(
                     "▶ ${job.seconds} 秒",
@@ -205,7 +216,7 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
             }
         } else {
             Column(modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)) {
-                Text(if (job.kind == "image") "圖片" else "影片", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text((if (job.kind == "image") "圖片" else "影片") + (job.machine()?.let { "・$it" } ?: ""), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     when {
                         job.isDone() -> "完成・存檔中…"
@@ -598,13 +609,13 @@ fun H3ResultsSection(
                     val j = H3Jobs.find(ctx, id) ?: continue
                     if (j.kind == "image") {
                         val r = (H3Client.imageRun(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
-                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt) }
+                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route) }
                         if (r.status == "done" && r.images.isNotEmpty() && j.firstUri() == null) {
                             ImagineApp.appScope.launch { saveH3ImagesToHistory(app, prefs, id, r.images, j.prompt) }
                         }
                     } else {
                         val r = (H3Client.job(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
-                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt) }
+                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route) }
                         val v = r.videoUrl
                         if (r.status == "done" && v != null && j.firstUri() == null) {
                             ImagineApp.appScope.launch { saveH3ToHistory(app, prefs, id, v, j.prompt) }

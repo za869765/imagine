@@ -121,6 +121,7 @@ data class H3JobStatus(
     @SerialName("video_url") val videoUrl: String? = null,
     val output: JsonElement? = null,
     val eta: H3Eta? = null,
+    val route: String? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 

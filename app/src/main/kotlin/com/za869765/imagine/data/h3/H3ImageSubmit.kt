@@ -78,6 +78,7 @@ object H3ImageSubmit {
                             estNtd = r.value.estimate?.ntd ?: est.ntd,
                             etaAt = r.value.estimate?.etaAt ?: est.etaAt,
                             keepInStudio = prefs.h3KeepInStudio,
+                            route = route,
                         ),
                     )
                     if (route == "gputw_image") H3MachineWatch.start(ctx) // v2.1.2 通知列倒數關機
