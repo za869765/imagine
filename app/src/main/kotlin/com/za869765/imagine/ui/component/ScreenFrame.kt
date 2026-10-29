@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 //   (LazyColumn / LazyRow / LazyVerticalGrid / LazyHorizontalGrid) 必須傳 scroll = false
 //   否則 vertical scroll 嵌套會 throw IllegalStateException「infinity maximum height」。
 //   v1.0.54 我把 HistoryScreen 改 LazyVerticalGrid 沒設 scroll = false → v1.0.56 一裝就閃退。
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ImagineScreen(
     appBar: @Composable (() -> Unit)? = { ImagineTopAppBar() },
@@ -71,7 +73,8 @@ fun ImagineScreen(
             }
             // 共用可復原 Snackbar(UI_REDESIGN_PLAN 2.4)
             SnackbarHost(hostState = UndoBar.host)
-            if (bottomAction != null) {
+            // v2.3.9 鍵盤打開時先藏起底部主按鈕（不然會壓在輸入框上）；收鍵盤就回來
+            if (bottomAction != null && !WindowInsets.isImeVisible) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()

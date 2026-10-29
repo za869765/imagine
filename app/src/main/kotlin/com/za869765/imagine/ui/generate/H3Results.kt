@@ -1,6 +1,5 @@
 package com.za869765.imagine.ui.generate
 
-import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -387,14 +386,6 @@ fun ResultViewerDialog(
                         busy = null
                     }
                     Unit
-                })
-                if (uri != null) add("分享" to {
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = if (cur.kind == "image") "image/*" else "video/*"
-                        putExtra(Intent.EXTRA_STREAM, Uri.parse(uri))
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    ctx.startActivity(Intent.createChooser(send, "分享成品"))
                 })
                 add("複製提示詞" to {
                     val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
