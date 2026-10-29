@@ -1142,11 +1142,14 @@ internal fun LibraryImagePickerSheet(
     onDismiss: () -> Unit,
     onPickFromGallery: () -> Unit,
     onPick: (MediaEntry) -> Unit,
+    // v2.3.4 有給才顯示「姿勢庫」入口（選中的姿勢圖下載到本機後回傳 Uri）
+    onPickPose: ((Uri) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var images by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
+    var posesOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         images = MediaHistory.loadAll(ctx).filter { !it.isVideo }
@@ -1163,6 +1166,10 @@ internal fun LibraryImagePickerSheet(
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         ) {
+            if (posesOpen && onPickPose != null) {
+                com.za869765.imagine.ui.component.PosePickerContent(onPicked = onPickPose, onBack = { posesOpen = false })
+                return@Column
+            }
             SectionHeader("從素材庫選圖")
             // 手機相簿入口：app 生成圖在 filesDir/media(PhotoPicker 看不到)走下方縮圖；
             // 要選手機相簿/外部圖則點此關閉 sheet 後叫系統 PhotoPicker。
@@ -1170,6 +1177,14 @@ internal fun LibraryImagePickerSheet(
                 label = "從手機相簿選",
                 icon = "image",
                 onClick = onPickFromGallery,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            )
+            if (onPickPose != null) OutlinedActionButton(
+                label = "姿勢庫（人偶姿勢參考）",
+                icon = "image",
+                onClick = { posesOpen = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),

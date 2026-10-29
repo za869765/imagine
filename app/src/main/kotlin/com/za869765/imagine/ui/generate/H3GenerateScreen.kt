@@ -498,6 +498,10 @@ fun H3GenerateScreen(
                         if (sourceStrings.size < H3_MAX_IMAGES) sourceStrings = sourceStrings + entry.uri.toString()
                         showLibraryPicker = false
                     },
+                    onPickPose = { uri ->
+                        if (sourceStrings.size < H3_MAX_IMAGES) sourceStrings = sourceStrings + uri.toString()
+                        showLibraryPicker = false
+                    },
                     onPickFromGallery = {
                         showLibraryPicker = false
                         pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
