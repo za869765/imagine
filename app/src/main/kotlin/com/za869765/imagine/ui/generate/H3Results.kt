@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.aspectRatio
@@ -233,11 +236,12 @@ fun ResultsStrip(jobs: List<H3Jobs.Job>, onOpenAll: () -> Unit, onTap: (H3Jobs.J
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (H3Jobs.Job) -> Unit) {
+    val navBottom = rememberHostNavBottom()
     var kind by remember { mutableStateOf("all") }
     var st by remember { mutableStateOf("all") }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(
-            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = navBottom),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -319,14 +323,18 @@ fun ResultViewerDialog(
     var showFull by remember { mutableStateOf(false) }
     var gone by remember { mutableStateOf(setOf<String>()) }
     var rev by remember { mutableStateOf(0) }  // 補上傳／移出 Studio 後重讀這件的最新狀態
+    var editOpen by remember { mutableStateOf(false) }
+    var editText by remember { mutableStateOf("") }
+    var editEst by remember { mutableStateOf<com.za869765.imagine.data.h3.H3ImageEstimate?>(null) }
+    val navBottom = rememberHostNavBottom()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         // decorFitsSystemWindows=false 才讀得到手勢列／狀態列高度（同 FullscreenImageViewer），按鈕才不會掉到手勢列底下
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = navBottom),
         ) {
             val base = items[pager.currentPage]
             val cur = remember(base.runId, rev) { H3Jobs.find(ctx, base.runId) ?: base }
@@ -369,6 +377,7 @@ fun ResultViewerDialog(
             msg?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9FE3B0), modifier = Modifier.padding(horizontal = 8.dp)) }
             val uri = cur.firstUri()
             val acts = buildList<Pair<String, () -> Unit>> {
+                if (cur.kind == "image" && uri != null) add("修改" to { editText = ""; editEst = null; editOpen = true })
                 if (uri != null) add("存到相簿" to {
                     busy = "存到相簿"
                     scope.launch {
@@ -436,6 +445,71 @@ fun ResultViewerDialog(
                 }
             }
         }
+        if (editOpen) {
+            val (eAspect, eMp) = aspectMpOf(cur, prefs)
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { if (busy == null) editOpen = false },
+                title = { Text("修改這張圖") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = editText,
+                            onValueChange = { editText = it; editEst = null },
+                            placeholder = { Text("例：衣服換成白色襯衫、背景改成海邊") },
+                            minLines = 3,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            "用這張當參考圖送 H3 生圖（$eAspect・${if (eMp == 4) "2K" else "1K"}・1 張），臉、姿勢、其他沒提到的地方照原圖。" +
+                                "機器照生圖頁的設定（${H3Format.routeShort(prefs.h3ImgRoute)}）。",
+                            fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        editEst?.let { Text(it.text, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        enabled = editText.isNotBlank() && busy == null,
+                        onClick = {
+                            val est = editEst
+                            busy = "修改"
+                            if (est == null) {
+                                scope.launch {
+                                    when (val r = H3Client.imageEstimate(prefs, eMp, 1, prefs.h3ImgRoute)) {
+                                        is H3Client.Result.Ok -> editEst = r.value
+                                        is H3Client.Result.Err -> msg = "估算失敗：${r.message}"
+                                    }
+                                    busy = null
+                                }
+                            } else {
+                                val pending = com.za869765.imagine.data.h3.PendingH3Image(
+                                    prompt = editText.trim() + "。其餘（人物臉孔、髮型、姿勢、構圖）保持與參考圖相同。",
+                                    refs = listOf(uri!!), aspect = eAspect, mp = eMp, count = 1, route = prefs.h3ImgRoute,
+                                    allowText = false, clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est,
+                                )
+                                val app = ctx.applicationContext
+                                ImagineApp.appScope.launch {
+                                    val out = runCatching { com.za869765.imagine.data.h3.H3ImageSubmit.run(app, prefs, pending) {} }
+                                        .getOrElse { com.za869765.imagine.data.h3.H3Submit.Outcome.Uncertain(it.message ?: "未預期錯誤") }
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        msg = when (out) {
+                                            is com.za869765.imagine.data.h3.H3Submit.Outcome.Created -> "已送出修改，做好會出現在最近成品"
+                                            is com.za869765.imagine.data.h3.H3Submit.Outcome.Conflict -> "沒送出：${out.message}"
+                                            is com.za869765.imagine.data.h3.H3Submit.Outcome.Rejected -> "沒送出：${out.message}"
+                                            is com.za869765.imagine.data.h3.H3Submit.Outcome.Uncertain -> "不確定有沒有送出：${out.message}（看最近成品）"
+                                            is com.za869765.imagine.data.h3.H3Submit.Outcome.LocalError -> "沒送出：${out.message}"
+                                            else -> "預估變了，請再按一次修改"
+                                        }
+                                        busy = null; editOpen = false; onChanged()
+                                    }
+                                }
+                            }
+                        },
+                    ) { Text(if (busy == "修改") "處理中…" else if (editEst == null) "估算" else "開始修改") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(enabled = busy == null, onClick = { editOpen = false }) { Text("取消") } },
+            )
+        }
         confirm?.let { (text, act) ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirm = null },
@@ -445,6 +519,33 @@ fun ResultViewerDialog(
             )
         }
     }
+}
+
+/**
+ * v2.3.8 底部要讓開的高度：從 APP 主畫面（不是對話框）量導覽列／手勢區，對話框裡量到的常是 0；
+ * 至少 56dp（三鍵導覽列 48dp＋餘裕）。
+ */
+@Composable
+private fun rememberHostNavBottom(): androidx.compose.ui.unit.Dp {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    return remember(view) {
+        val px = androidx.core.view.ViewCompat.getRootWindowInsets(view)?.let { ins ->
+            maxOf(
+                ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars()).bottom,
+                ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.mandatorySystemGestures()).bottom,
+            )
+        } ?: 0
+        maxOf(with(density) { px.toDp() } + 12.dp, 56.dp)
+    }
+}
+
+/** 從任務規格（「9:16・2K・1 張・筆電」）取比例與畫質，取不到用生圖頁設定。 */
+private fun aspectMpOf(j: H3Jobs.Job, prefs: SecurePrefs): Pair<String, Int> {
+    val a = j.meta.substringBefore("・").trim()
+    val aspect = if (a in listOf("9:16", "16:9", "1:1", "3:4", "4:3")) a else prefs.h3ImgAspect
+    val mp = when { "2K" in j.meta -> 4; "1K" in j.meta -> 1; else -> prefs.h3ImgMp }
+    return aspect to mp
 }
 
 /** 補上傳：圖片壓成 JPEG（長邊 1600）一張一張傳；影片整支傳（上限約 80MB）。回傳給使用者看的結果。 */
