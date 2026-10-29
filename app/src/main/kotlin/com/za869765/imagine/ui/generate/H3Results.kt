@@ -245,8 +245,7 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
                 Text((if (job.kind == "image") "圖片" else "影片") + (job.machine()?.let { "・$it" } ?: ""), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     when {
-                        job.isDone() -> if (saveState[job.runId] == "failed") "存檔失敗
-點一下重試" else "完成・存檔中…"
+                        job.isDone() -> if (saveState[job.runId] == "failed") "存檔失敗\n點一下重試" else "完成・存檔中…"
                         job.isFailed() -> H3Format.statusLabel(job.status)
                         else -> H3Format.statusLabel(job.status) + "\n" + (job.etaAt?.let { H3Format.eta(it, now = rememberNowMs(), sep = "\n") } ?: "預計時間計算中")
                     },

@@ -104,8 +104,7 @@ internal suspend fun saveH3SegmentsToHistory(
         }
         val uri = com.za869765.imagine.data.video.VideoMerger.merge(ctx, files.map { android.net.Uri.fromFile(it) }, tag)
             ?: files.mapNotNull { f -> f.inputStream().use { com.za869765.imagine.data.storage.MediaSaver.saveVideo(ctx, it, tag) } }
-                .takeIf { it.size == files.size }?.joinToString("
-")
+                .takeIf { it.size == files.size }?.joinToString("\n")
         if (uri != null) {
             h3SavedByRun[runId] = uri
             H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
