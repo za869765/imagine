@@ -107,6 +107,7 @@ object H3Submit {
                             estCu = confirmed.cu,
                             createdAtMs = System.currentTimeMillis(),
                             etaAt = confirmed.etaAt,
+                            keepInStudio = prefs.h3KeepInStudio,
                         ),
                     )
                     Outcome.Created(runId, r.value.duplicate)

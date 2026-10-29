@@ -187,6 +187,12 @@ object H3Client {
         return call<H3ImageCreated>(prefs, submitHttp, request(prefs, "/api/app/images")?.post(payload)?.build())
     }
 
+    /** v2.3.5 已存到手機的單：請 Studio 刪掉這份（雲端硬碟檔移到垃圾桶，耗時紀錄保留）。 */
+    suspend fun forget(prefs: SecurePrefs, runId: String): Boolean {
+        val req = request(prefs, "/api/app/forget/$runId")?.post("{}".toRequestBody("application/json".toMediaType()))?.build()
+        return call<H3ErrorBody>(prefs, http, req) is Result.Ok
+    }
+
     suspend fun imageRun(prefs: SecurePrefs, runId: String): Result<H3ImageStatus> =
         call<H3ImageStatus>(prefs, http, request(prefs, "/api/app/images/$runId")?.get()?.build())
 

@@ -91,8 +91,16 @@ internal suspend fun saveH3ImagesToHistory(
     if (out.isNotEmpty()) {
         h3ImgSavedByRun[runId] = out
         H3Jobs.update(ctx, runId) { it.copy(savedUri = out.joinToString("\n")) }
+        forgetInStudioIfAsked(ctx, prefs, runId)
     }
     out
+}
+
+/** v2.3.5 這件設定「不留在 Studio」且已存到手機 → 請 Studio 刪掉（失敗就下次存檔時再試）。 */
+internal suspend fun forgetInStudioIfAsked(ctx: android.content.Context, prefs: SecurePrefs, runId: String) {
+    val j = H3Jobs.find(ctx, runId) ?: return
+    if (j.keepInStudio || j.forgotten || j.savedUri.isNullOrBlank()) return
+    if (H3Client.forget(prefs, runId)) H3Jobs.update(ctx, runId) { it.copy(forgotten = true) }
 }
 
 /**
@@ -132,7 +140,7 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
     var pollStopped by remember(runId) { mutableStateOf(false) }
     LaunchedEffect(runId, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (isActive && !pollStopped) {
+            while (isActive && !pollStopped && H3Jobs.find(ctx, runId)?.forgotten != true) {
                 when (val r = H3Client.imageRun(prefs, runId)) {
                     is H3Client.Result.Ok -> {
                         status = r.value

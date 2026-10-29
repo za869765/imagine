@@ -26,6 +26,9 @@ object H3Jobs {
         val estNtd: Double = 0.0,
         // v2.1.9 預計完成(epoch ms;任務頁／清單輪詢時更新)
         val etaAt: Long? = null,
+        // v2.3.5 keepInStudio=false：存到手機後請 Studio 刪掉；forgotten=已刪（之後不再向 Studio 查這件）
+        val keepInStudio: Boolean = true,
+        val forgotten: Boolean = false,
     )
 
     private const val PREFS = "imagine_h3_jobs"

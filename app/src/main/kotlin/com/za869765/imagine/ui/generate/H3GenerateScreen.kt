@@ -465,6 +465,18 @@ fun H3GenerateScreen(
                 Checkbox(checked = blink, onCheckedChange = { blink = it })
                 Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             }
+            // v2.3.5 存到手機後不留在 H3 Studio（設定記在手機，下一張單照用）
+            var noKeep by remember { mutableStateOf(!prefs.h3KeepInStudio) }
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { noKeep = !noKeep; prefs.h3KeepInStudio = !noKeep },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = noKeep, onCheckedChange = { noKeep = it; prefs.h3KeepInStudio = !it })
+                Column {
+                    Text("存到手機後不留在 H3 Studio", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                    Text("做好、存進所有作品後，自動刪掉 Studio 那份（雲端硬碟檔移到垃圾桶，30 天內可救回）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             // v2.1.5 超高畫質:勾可用的 Colab GPU 範圍,伺服器照 G4→H100→A100 自動挑(排不到不開機、不扣 CU)
             if (tier == "ultra") {
                 Text("可用的 Colab GPU（照 G4 → H100 → A100 自動挑，排不到不扣 CU）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

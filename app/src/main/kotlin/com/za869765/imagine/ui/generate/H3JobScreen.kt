@@ -75,6 +75,7 @@ internal suspend fun saveH3ToHistory(
     if (uri != null) {
         h3SavedByRun[runId] = uri
         H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
+        forgetInStudioIfAsked(ctx, prefs, runId)
     }
     uri
 }
@@ -117,7 +118,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
     var pollStopped by remember(runId) { mutableStateOf(false) }
     LaunchedEffect(runId, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (isActive && !pollStopped) {
+            while (isActive && !pollStopped && H3Jobs.find(ctx, runId)?.forgotten != true) {
                 when (val r = H3Client.job(prefs, runId)) {
                     is H3Client.Result.Ok -> {
                         status = r.value

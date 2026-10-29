@@ -373,6 +373,8 @@ fun H3ResultsSection(prefs: SecurePrefs, onOpenImageJob: (String) -> Unit, onOpe
                     }
                     jobs = H3Jobs.all(ctx)
                 }
+                // v2.3.5 設了「不留在 Studio」但上次刪失敗的，再試一次
+                for (j in H3Jobs.all(ctx).filter { !it.keepInStudio && !it.forgotten && !it.savedUri.isNullOrBlank() }) forgetInStudioIfAsked(app, prefs, j.runId)
                 // 有剛做完正在存的就 5 秒後再看（存好縮圖馬上出現），其餘 30 秒
                 delay(if (jobs.any { it.isDone() && it.firstUri() == null }) 5_000 else 30_000)
                 jobs = H3Jobs.all(ctx)
