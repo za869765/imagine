@@ -97,6 +97,14 @@ private fun H3Jobs.Job.statusColor(): Color = when {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MachineChips(board: List<H3Machine>, routes: List<String>, highlight: String? = null) {
+    // v2.4.0 Cloudflare 用量異常（h3-cron 每小時檢查）
+    H3UsageAlerts.alerts.takeIf { it.isNotEmpty() }?.let { a ->
+        Text(
+            "⚠️ Cloudflare 用量異常：" + a.joinToString("；"),
+            fontSize = 12.sp, lineHeight = 17.sp, color = Color(0xFFFFD7DA),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp).background(Color(0xFF5B1D22), RoundedCornerShape(10.dp)).padding(10.dp),
+        )
+    }
     val list = routes.mapNotNull { r -> board.firstOrNull { it.route == r } }
     if (list.isEmpty()) return
     var open by remember { mutableStateOf(false) }

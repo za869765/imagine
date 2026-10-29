@@ -72,6 +72,11 @@ fun rememberNowMs(): Long {
     return t
 }
 
+/** v2.4.0 Cloudflare 用量警報(Studio 的 h3-cron 每小時檢查):看板每次更新時順便帶回,機器晶片上方顯示紅字。 */
+object H3UsageAlerts {
+    var alerts by androidx.compose.runtime.mutableStateOf<List<String>>(emptyList())
+}
+
 /** v2.1.9 機器看板:頁面看得到時每 20 秒向 H3 Studio 查一次(不花錢)。 */
 @Composable
 fun rememberMachineBoard(prefs: com.za869765.imagine.data.prefs.SecurePrefs): List<com.za869765.imagine.data.h3.H3Machine> {
@@ -81,7 +86,7 @@ fun rememberMachineBoard(prefs: com.za869765.imagine.data.prefs.SecurePrefs): Li
         if (!prefs.isH3TokenSet) return@LaunchedEffect
         owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             while (true) {
-                (com.za869765.imagine.data.h3.H3Client.machines(prefs) as? com.za869765.imagine.data.h3.H3Client.Result.Ok)?.value?.let { board = it.machines }
+                (com.za869765.imagine.data.h3.H3Client.machines(prefs) as? com.za869765.imagine.data.h3.H3Client.Result.Ok)?.value?.let { board = it.machines; H3UsageAlerts.alerts = it.alerts }
                 kotlinx.coroutines.delay(20_000)
             }
         }
