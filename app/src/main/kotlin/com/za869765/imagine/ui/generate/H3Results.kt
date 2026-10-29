@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.aspectRatio
@@ -324,6 +323,7 @@ fun ResultViewerDialog(
     var gone by remember { mutableStateOf(setOf<String>()) }
     var rev by remember { mutableStateOf(0) }  // 補上傳／移出 Studio 後重讀這件的最新狀態
     var editOpen by remember { mutableStateOf(false) }
+    var editJob by remember { mutableStateOf<H3Jobs.Job?>(null) }
     var editText by remember { mutableStateOf("") }
     var editEst by remember { mutableStateOf<com.za869765.imagine.data.h3.H3ImageEstimate?>(null) }
     val navBottom = rememberHostNavBottom()
@@ -377,7 +377,7 @@ fun ResultViewerDialog(
             msg?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9FE3B0), modifier = Modifier.padding(horizontal = 8.dp)) }
             val uri = cur.firstUri()
             val acts = buildList<Pair<String, () -> Unit>> {
-                if (cur.kind == "image" && uri != null) add("修改" to { editText = ""; editEst = null; editOpen = true })
+                if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editOpen = true })
                 if (uri != null) add("存到相簿" to {
                     busy = "存到相簿"
                     scope.launch {
@@ -445,8 +445,9 @@ fun ResultViewerDialog(
                 }
             }
         }
-        if (editOpen) {
-            val (eAspect, eMp) = aspectMpOf(cur, prefs)
+        val ej = editJob
+        if (editOpen && ej != null) {
+            val (eAspect, eMp) = aspectMpOf(ej, prefs)
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { if (busy == null) editOpen = false },
                 title = { Text("修改這張圖") },
@@ -484,7 +485,7 @@ fun ResultViewerDialog(
                             } else {
                                 val pending = com.za869765.imagine.data.h3.PendingH3Image(
                                     prompt = editText.trim() + "。其餘（人物臉孔、髮型、姿勢、構圖）保持與參考圖相同。",
-                                    refs = listOf(uri!!), aspect = eAspect, mp = eMp, count = 1, route = prefs.h3ImgRoute,
+                                    refs = listOf(ej.firstUri()!!), aspect = eAspect, mp = eMp, count = 1, route = prefs.h3ImgRoute,
                                     allowText = false, clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est,
                                 )
                                 val app = ctx.applicationContext
