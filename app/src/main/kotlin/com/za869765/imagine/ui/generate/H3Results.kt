@@ -235,7 +235,7 @@ fun ResultsStrip(jobs: List<H3Jobs.Job>, onOpenAll: () -> Unit, onTap: (H3Jobs.J
 fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (H3Jobs.Job) -> Unit) {
     var kind by remember { mutableStateOf("all") }
     var st by remember { mutableStateOf("all") }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -319,7 +319,8 @@ fun ResultViewerDialog(
     var showFull by remember { mutableStateOf(false) }
     var gone by remember { mutableStateOf(setOf<String>()) }
     var rev by remember { mutableStateOf(0) }  // 補上傳／移出 Studio 後重讀這件的最新狀態
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        // decorFitsSystemWindows=false 才讀得到手勢列／狀態列高度（同 FullscreenImageViewer），按鈕才不會掉到手勢列底下
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -424,7 +425,7 @@ fun ResultViewerDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 maxItemsInEachRow = 4,
-                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 20.dp),
             ) {
                 acts.forEach { (label, act) ->
                     Box(
