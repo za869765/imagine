@@ -39,7 +39,14 @@ data class H3Estimate(
 )
 
 @Serializable
-data class H3ImportRequest(val kind: String, val base64: String, val mime: String, val name: String, val prompt: String, val seconds: Int = 0)
+data class H3ImportRequest(
+    val kind: String, val base64: String = "", val mime: String = "", val name: String = "", val prompt: String, val seconds: Int = 0,
+    // v2.4.1 影片先串流上傳（PUT /api/app/upload）拿到 key，再帶 upload_key 匯入
+    @SerialName("upload_key") val uploadKey: String? = null,
+)
+
+@Serializable
+data class H3UploadResult(val ok: Boolean = false, val key: String? = null, val size: Long = 0)
 
 @Serializable
 data class H3JobImage(

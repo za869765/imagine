@@ -548,7 +548,7 @@ private fun aspectMpOf(j: H3Jobs.Job, prefs: SecurePrefs): Pair<String, Int> {
     return aspect to mp
 }
 
-/** 補上傳：圖片壓成 JPEG（長邊 1600）一張一張傳；影片整支傳（上限約 80MB）。回傳給使用者看的結果。 */
+/** 補上傳：圖片壓成 JPEG（長邊 1600）一張一張傳；影片串流上傳（上限 100MB）。回傳給使用者看的結果。 */
 private suspend fun reuploadToStudio(ctx: android.content.Context, prefs: SecurePrefs, j: H3Jobs.Job): String {
     val uris = j.savedUri.orEmpty().split('\n').filter { it.isNotBlank() }
     if (uris.isEmpty()) return "手機裡找不到這件成品"
@@ -558,11 +558,11 @@ private suspend fun reuploadToStudio(ctx: android.content.Context, prefs: Secure
             val im = com.za869765.imagine.data.h3.H3Images.encode(ctx, Uri.parse(u), i) ?: continue
             com.za869765.imagine.data.h3.H3ImportRequest("image", im.base64, im.mime, "APP補上傳_" + j.prompt.take(16), j.prompt)
         } else {
-            val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching { ctx.contentResolver.openInputStream(Uri.parse(u))?.use { it.readBytes() } }.getOrNull()
-            } ?: continue
-            if (bytes.size > 80_000_000) return "影片太大（超過 80MB），沒有上傳"
-            com.za869765.imagine.data.h3.H3ImportRequest("video", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP), "video/mp4", "APP補上傳", j.prompt, j.seconds)
+            // v2.4.1 影片先串流上傳到 Studio 的 R2 暫存（上限 100MB），再請 Studio 轉存雲端硬碟
+            when (val up = H3Client.uploadRaw(prefs, ctx, Uri.parse(u), "video/mp4")) {
+                is H3Client.Result.Ok -> com.za869765.imagine.data.h3.H3ImportRequest(kind = "video", prompt = j.prompt, seconds = j.seconds, uploadKey = up.value.key)
+                is H3Client.Result.Err -> return "影片上傳失敗：${up.message}"
+            }
         }
         if (H3Client.importToStudio(prefs, req) is H3Client.Result.Ok) ok++
     }

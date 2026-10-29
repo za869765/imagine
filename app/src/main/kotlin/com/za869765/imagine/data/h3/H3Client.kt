@@ -194,6 +194,30 @@ object H3Client {
     }
 
     /** v2.3.6 補上傳：只留在 APP 的成品之後自己傳進 Studio（圖≤1.9MB JPEG；影片上限約 80MB）。 */
+    /** v2.4.1 大檔串流上傳到 Studio 的 R2 暫存（上限 100MB），回 key；不把整支影片讀進記憶體。 */
+    suspend fun uploadRaw(prefs: SecurePrefs, ctx: android.content.Context, uri: android.net.Uri, mime: String): Result<H3UploadResult> {
+        val size = withContext(Dispatchers.IO) {
+            runCatching { ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
+        }
+        if (size <= 0) return Result.Err("讀不到檔案大小")
+        if (size > 100_000_000L) return Result.Err("檔案太大（超過 100MB）")
+        val body = object : okhttp3.RequestBody() {
+            override fun contentType() = mime.toMediaType()
+            override fun contentLength() = size
+            override fun writeTo(sink: okio.BufferedSink) {
+                ctx.contentResolver.openInputStream(uri)?.use { input ->
+                    val buf = ByteArray(256 * 1024)
+                    while (true) { val n = input.read(buf); if (n < 0) break; sink.write(buf, 0, n) }
+                } ?: throw java.io.IOException("打不開檔案")
+            }
+        }
+        return call<H3UploadResult>(prefs, uploadHttp, request(prefs, "/api/app/upload?mime=${enc(mime)}")?.put(body)?.build())
+    }
+
+    private val uploadHttp: OkHttpClient by lazy {
+        http.newBuilder().retryOnConnectionFailure(false).writeTimeout(600, TimeUnit.SECONDS).readTimeout(300, TimeUnit.SECONDS).build()
+    }
+
     suspend fun importToStudio(prefs: SecurePrefs, body: H3ImportRequest): Result<H3ErrorBody> {
         val payload = json.encodeToString(body).toRequestBody("application/json".toMediaType())
         return call<H3ErrorBody>(prefs, submitHttp, request(prefs, "/api/app/import")?.post(payload)?.build())
