@@ -80,6 +80,42 @@ internal suspend fun saveH3ToHistory(
     uri
 }
 
+/**
+ * v2.4.4 長片機器端沒串成完整版：把各段下載到暫存、手機上直接接成一支存進所有作品。
+ * 接不起來（格式不一致）就各段分開存，至少成品不會卡在「存檔中」。
+ */
+internal suspend fun saveH3SegmentsToHistory(
+    ctx: android.content.Context,
+    prefs: SecurePrefs,
+    runId: String,
+    segmentUrls: List<String>,
+    prompt: String,
+): String? = h3SaveMutex.withLock {
+    (h3SavedByRun[runId] ?: H3Jobs.find(ctx, runId)?.savedUri)?.let { return@withLock it }
+    val tag = H3_PROMPT_TAG + prompt.ifBlank { "H3 Studio 長片" }
+    val dir = java.io.File(ctx.cacheDir, "h3_segs_$runId").apply { mkdirs() }
+    try {
+        val files = segmentUrls.mapIndexed { i, url ->
+            val f = java.io.File(dir, "seg_$i.mp4")
+            if (!(f.exists() && f.length() > 0)) {
+                H3Client.download(prefs, url) { s -> withContext(Dispatchers.IO) { f.outputStream().use { s.copyTo(it) } }; true } ?: return@withLock null
+            }
+            f
+        }
+        val uri = com.za869765.imagine.data.video.VideoMerger.merge(ctx, files.map { android.net.Uri.fromFile(it) }, tag)
+            ?: files.mapNotNull { f -> f.inputStream().use { com.za869765.imagine.data.storage.MediaSaver.saveVideo(ctx, it, tag) } }
+                .takeIf { it.size == files.size }?.joinToString("
+")
+        if (uri != null) {
+            h3SavedByRun[runId] = uri
+            H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
+            forgetInStudioIfAsked(ctx, prefs, runId)
+            dir.deleteRecursively()
+        }
+        uri
+    } catch (_: Exception) { null }
+}
+
 /** 存進所有作品時的提示詞前綴 — 歷史清單靠它辨識 H3 成品(可搜尋「H3」)。 */
 const val H3_PROMPT_TAG = "[H3] "
 

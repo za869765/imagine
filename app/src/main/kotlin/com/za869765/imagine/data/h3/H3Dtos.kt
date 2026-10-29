@@ -122,6 +122,8 @@ data class H3JobStatus(
     val output: JsonElement? = null,
     val eta: H3Eta? = null,
     val route: String? = null,
+    /** v2.4.4 長片機器端沒串成完整版時，各段影片網址（依段落順序），APP 自己接 */
+    @SerialName("segment_urls") val segmentUrls: List<String>? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 

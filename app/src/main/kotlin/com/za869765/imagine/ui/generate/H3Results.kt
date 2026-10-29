@@ -90,6 +90,32 @@ private fun H3Jobs.Job.machine(): String? =
     route.takeIf { it.isNotBlank() && it != "auto" }?.let { H3Format.routeShort(it) }
         ?: meta.substringAfterLast("・", "").takeIf { it in listOf("筆電", "製圖機", "GPUtw 5090", "Colab", "5090", "GPUtw") }
 
+/** v2.4.4 做完存進手機的進度：saving＝下載／串接中、failed＝上次失敗（不再自動重抓，等使用者點縮圖重試） */
+private val saveState = mutableStateMapOf<String, String>()
+
+/** 查一次 Studio 拿成品網址並存進所有作品；同一件同時只跑一次。回傳是否存好。 */
+private suspend fun saveJobOutputs(app: android.content.Context, prefs: SecurePrefs, id: String): Boolean {
+    val j = H3Jobs.find(app, id) ?: return false
+    if (j.firstUri() != null) return true
+    if (saveState[id] == "saving") return false
+    saveState[id] = "saving"
+    val ok = if (j.kind == "image") {
+        val r = (H3Client.imageRun(prefs, id) as? H3Client.Result.Ok)?.value
+        r != null && r.images.isNotEmpty() && saveH3ImagesToHistory(app, prefs, id, r.images, j.prompt).isNotEmpty()
+    } else {
+        val r = (H3Client.job(prefs, id) as? H3Client.Result.Ok)?.value
+        val v = r?.videoUrl
+        val segs = r?.segmentUrls
+        when {
+            v != null -> saveH3ToHistory(app, prefs, id, v, j.prompt) != null
+            !segs.isNullOrEmpty() -> saveH3SegmentsToHistory(app, prefs, id, segs, j.prompt) != null
+            else -> false
+        }
+    }
+    if (ok) saveState.remove(id) else saveState[id] = "failed"
+    return ok
+}
+
 private fun H3Jobs.Job.firstUri(): String? = savedUri?.split('\n')?.firstOrNull { it.isNotBlank() }
 private fun H3Jobs.Job.statusColor(): Color = when {
     isDone() -> GREEN
@@ -219,7 +245,8 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
                 Text((if (job.kind == "image") "圖片" else "影片") + (job.machine()?.let { "・$it" } ?: ""), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     when {
-                        job.isDone() -> "完成・存檔中…"
+                        job.isDone() -> if (saveState[job.runId] == "failed") "存檔失敗
+點一下重試" else "完成・存檔中…"
                         job.isFailed() -> H3Format.statusLabel(job.status)
                         else -> H3Format.statusLabel(job.status) + "\n" + (job.etaAt?.let { H3Format.eta(it, now = rememberNowMs(), sep = "\n") } ?: "預計時間計算中")
                     },
@@ -610,15 +637,14 @@ fun H3ResultsSection(
                     if (j.kind == "image") {
                         val r = (H3Client.imageRun(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
                         H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route) }
-                        if (r.status == "done" && r.images.isNotEmpty() && j.firstUri() == null) {
-                            ImagineApp.appScope.launch { saveH3ImagesToHistory(app, prefs, id, r.images, j.prompt) }
+                        if (r.status == "done" && r.images.isNotEmpty() && j.firstUri() == null && saveState[id] == null) {
+                            ImagineApp.appScope.launch { saveJobOutputs(app, prefs, id) }
                         }
                     } else {
                         val r = (H3Client.job(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
                         H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route) }
-                        val v = r.videoUrl
-                        if (r.status == "done" && v != null && j.firstUri() == null) {
-                            ImagineApp.appScope.launch { saveH3ToHistory(app, prefs, id, v, j.prompt) }
+                        if (r.status == "done" && j.firstUri() == null && saveState[id] == null) {
+                            ImagineApp.appScope.launch { saveJobOutputs(app, prefs, id) }
                         }
                     }
                     jobs = H3Jobs.all(ctx)
@@ -627,7 +653,7 @@ fun H3ResultsSection(
                 for (j in H3Jobs.all(ctx).filter { !it.keepInStudio && !it.forgotten && !it.savedUri.isNullOrBlank() }) forgetInStudioIfAsked(app, prefs, j.runId)
                 // 有剛做完正在存的就 5 秒後再看（存好縮圖馬上出現），其餘 30 秒
                 // v2.4.3 生成中的每 10 秒查一次（做好約 10 秒內就出現；原本 30 秒，看起來比實際慢）；排隊中的 30 秒
-                delay(if (jobs.any { (it.isDone() && it.firstUri() == null) }) 5_000 else if (jobs.any { it.isRunning() }) 10_000 else 30_000)
+                delay(if (jobs.any { it.isDone() && it.firstUri() == null && saveState[it.runId] != "failed" }) 5_000 else if (jobs.any { it.isRunning() }) 10_000 else 30_000)
                 jobs = H3Jobs.all(ctx)
             }
         }
@@ -636,7 +662,22 @@ fun H3ResultsSection(
     val tap: (H3Jobs.Job) -> Unit = { j ->
         val done = jobs.filter { it.isDone() && it.firstUri() != null }
         val i = done.indexOfFirst { it.runId == j.runId }
-        if (i >= 0) viewer = done to i else openJob(j)
+        when {
+            i >= 0 -> viewer = done to i
+            // v2.4.4 做完卻沒存到手機（例如長片機器端沒串成完整版）：點一下重抓／在手機上串接
+            j.isDone() && saveState[j.runId] != "saving" -> {
+                saveState.remove(j.runId)
+                android.widget.Toast.makeText(ctx, "重新存檔中…", android.widget.Toast.LENGTH_SHORT).show()
+                ImagineApp.appScope.launch {
+                    val ok = saveJobOutputs(ctx.applicationContext, prefs, j.runId)
+                    jobs = H3Jobs.all(ctx)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        android.widget.Toast.makeText(ctx, if (ok) "已存好" else "還是存不了，稍後再點一次", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            else -> openJob(j)
+        }
     }
     ResultsStrip(jobs, onOpenAll = { showAll = true }, onTap = tap)
     if (showAll) ResultsGalleryDialog(jobs, onDismiss = { showAll = false }, onTap = tap)
