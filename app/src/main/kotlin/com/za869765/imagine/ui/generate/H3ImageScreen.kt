@@ -131,6 +131,7 @@ fun H3ImageScreen(
     onOpenVideoJob: (String) -> Unit = {},
     engineSelector: @Composable () -> Unit,
     initialPrompt: String? = null,
+    onAnimate: (String, String) -> Unit = { _, _ -> },
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -552,8 +553,8 @@ fun H3ImageScreen(
             ) {
                 Checkbox(checked = noKeep, onCheckedChange = { noKeep = it; prefs.h3KeepInStudio = !it })
                 Column {
-                    Text("存到手機後不留在 H3 Studio", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
-                    Text("做好、存進所有作品後，自動刪掉 Studio 那份（雲端硬碟檔移到垃圾桶，30 天內可救回）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("只留在 APP，不上 H3 Studio", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                    Text("生成時仍經過 Studio，存進手機後自動刪掉 Studio 那份（雲端硬碟檔移垃圾桶）；之後可在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -567,7 +568,7 @@ fun H3ImageScreen(
             }
 
             // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
-            H3ResultsSection(prefs, onOpenImageJob = onOpenJob, onOpenVideoJob = onOpenVideoJob)
+            H3ResultsSection(prefs, onOpenImageJob = onOpenJob, onOpenVideoJob = onOpenVideoJob, onReusePrompt = { prompt = it }, onAnimate = onAnimate)
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(

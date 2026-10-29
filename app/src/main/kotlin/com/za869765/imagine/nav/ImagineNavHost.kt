@@ -341,6 +341,15 @@ fun ImagineRoot() {
                         }
                         navController.navigate(Routes.GENERATE_VIDEO)
                     },
+                    // v2.3.6 H3 成果的「動起來」直接接 H3 生影
+                    onAnimateH3Image = { url, prompt ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            set(KEY_INIT_PROMPT, prompt)
+                            set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3)
+                        }
+                        navController.navigate(Routes.GENERATE_VIDEO)
+                    },
                     onEditImage = { url, prompt ->
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
                             set(KEY_INIT_MEDIA, url)

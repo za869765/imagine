@@ -113,6 +113,7 @@ fun GenerateImageScreen(
     initialPrompt: String? = null,
     onOpenH3ImageJob: (String) -> Unit = {},
     onOpenH3Job: (String) -> Unit = {},
+    onAnimateH3Image: (String, String) -> Unit = onAnimateImage,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -131,6 +132,7 @@ fun GenerateImageScreen(
             onOpenVideoJob = onOpenH3Job,
             engineSelector = selector,
             initialPrompt = initialPrompt,
+            onAnimate = onAnimateH3Image,
         )
     } else {
         GrokImageScreen(

@@ -193,6 +193,12 @@ object H3Client {
         return call<H3ErrorBody>(prefs, http, req) is Result.Ok
     }
 
+    /** v2.3.6 補上傳：只留在 APP 的成品之後自己傳進 Studio（圖≤1.9MB JPEG；影片上限約 80MB）。 */
+    suspend fun importToStudio(prefs: SecurePrefs, body: H3ImportRequest): Result<H3ErrorBody> {
+        val payload = json.encodeToString(body).toRequestBody("application/json".toMediaType())
+        return call<H3ErrorBody>(prefs, submitHttp, request(prefs, "/api/app/import")?.post(payload)?.build())
+    }
+
     suspend fun imageRun(prefs: SecurePrefs, runId: String): Result<H3ImageStatus> =
         call<H3ImageStatus>(prefs, http, request(prefs, "/api/app/images/$runId")?.get()?.build())
 

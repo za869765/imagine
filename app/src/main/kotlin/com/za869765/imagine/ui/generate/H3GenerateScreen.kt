@@ -473,8 +473,8 @@ fun H3GenerateScreen(
             ) {
                 Checkbox(checked = noKeep, onCheckedChange = { noKeep = it; prefs.h3KeepInStudio = !it })
                 Column {
-                    Text("存到手機後不留在 H3 Studio", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
-                    Text("做好、存進所有作品後，自動刪掉 Studio 那份（雲端硬碟檔移到垃圾桶，30 天內可救回）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("只留在 APP，不上 H3 Studio", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                    Text("生成時仍經過 Studio，存進手機後自動刪掉 Studio 那份（雲端硬碟檔移垃圾桶）；之後可在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             // v2.1.5 超高畫質:勾可用的 Colab GPU 範圍,伺服器照 G4→H100→A100 自動挑(排不到不開機、不扣 CU)
@@ -501,7 +501,8 @@ fun H3GenerateScreen(
             }
 
             // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
-            H3ResultsSection(prefs, onOpenImageJob = onOpenImageJob, onOpenVideoJob = onOpenJob)
+            H3ResultsSection(prefs, onOpenImageJob = onOpenImageJob, onOpenVideoJob = onOpenJob, onReusePrompt = { prompt = it },
+                onAnimate = { uri, _ -> if (sourceStrings.size < H3_MAX_IMAGES && uri !in sourceStrings) sourceStrings = sourceStrings + uri })
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(

@@ -39,6 +39,9 @@ data class H3Estimate(
 )
 
 @Serializable
+data class H3ImportRequest(val kind: String, val base64: String, val mime: String, val name: String, val prompt: String, val seconds: Int = 0)
+
+@Serializable
 data class H3JobImage(
     val base64: String,
     val mime: String = "image/jpeg",

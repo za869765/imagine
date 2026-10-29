@@ -29,6 +29,8 @@ object H3Jobs {
         // v2.3.5 keepInStudio=false：存到手機後請 Studio 刪掉；forgotten=已刪（之後不再向 Studio 查這件）
         val keepInStudio: Boolean = true,
         val forgotten: Boolean = false,
+        // v2.3.6 只留在 APP 的成品之後補上傳到 Studio 了
+        val reuploaded: Boolean = false,
     )
 
     private const val PREFS = "imagine_h3_jobs"
@@ -54,6 +56,12 @@ object H3Jobs {
     @Synchronized
     fun update(ctx: Context, runId: String, transform: (Job) -> Job) {
         write(ctx, all(ctx).map { if (it.runId == runId) transform(it) else it })
+    }
+
+    /** v2.3.6 從清單移除（手機裡已存的成品檔不動）。 */
+    @Synchronized
+    fun remove(ctx: Context, runId: String) {
+        write(ctx, all(ctx).filterNot { it.runId == runId })
     }
 
     private fun write(ctx: Context, jobs: List<Job>) {

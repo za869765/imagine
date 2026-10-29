@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +40,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -233,12 +237,17 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
     var st by remember { mutableStateOf("all") }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("H3 成品", fontSize = 22.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                Text("關閉", fontSize = 15.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onDismiss).padding(10.dp))
+                Text(
+                    "關閉", fontSize = 15.sp, color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = 4.dp).clip(RoundedCornerShape(20.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                        .clickable(onClick = onDismiss).padding(horizontal = 18.dp, vertical = 12.dp),
+                )
             }
             val nImg = jobs.count { it.kind == "image" }
             com.za869765.imagine.ui.component.SegmentedTab(
@@ -273,37 +282,77 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
                 }
             }
             if (shown.isEmpty()) Text("這個分類還沒有成品", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 items(shown, key = { it.runId }) { j -> ResultTile(j, Modifier.fillMaxWidth().aspectRatio(0.75f)) { onTap(j) } }
             }
         }
     }
 }
 
-/** 點縮圖直接全螢幕放大：上下滑看其他完成的成品（v2.3.1 改上下）；圖片可雙指縮放（放大時不翻頁）、影片直接播。 */
+/**
+ * 點縮圖直接全螢幕放大：上下滑看其他完成的成品；圖片可雙指縮放（放大時不翻頁）、影片直接播。
+ * v2.3.6 動作加多（存相簿／分享／複製・沿用提示詞／動起來／補上傳或移出 Studio／從清單移除／詳情），
+ * 全部避開螢幕圓角與手勢列：外框吃系統安全區再內縮，按鈕至少 52dp 高。
+ */
 @androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ResultViewerDialog(items: List<H3Jobs.Job>, start: Int, onDismiss: () -> Unit, onOpenJob: (H3Jobs.Job) -> Unit) {
+fun ResultViewerDialog(
+    items: List<H3Jobs.Job>,
+    start: Int,
+    onDismiss: () -> Unit,
+    onOpenJob: (H3Jobs.Job) -> Unit,
+    onReusePrompt: ((String) -> Unit)? = null,
+    onAnimate: ((String, String) -> Unit)? = null,
+    onChanged: () -> Unit = {},
+) {
     if (items.isEmpty()) return
     val ctx = LocalContext.current
+    val prefs = remember { SecurePrefs.get(ctx) }
+    val scope = rememberCoroutineScope()
     val pager = rememberPagerState(initialPage = start.coerceIn(0, items.size - 1)) { items.size }
     val scales = remember { mutableStateMapOf<Int, Float>() }
+    var busy by remember { mutableStateOf<String?>(null) }
+    var msg by remember { mutableStateOf<String?>(null) }
+    var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    var showFull by remember { mutableStateOf(false) }
+    var gone by remember { mutableStateOf(setOf<String>()) }
+    var rev by remember { mutableStateOf(0) }  // 補上傳／移出 Studio 後重讀這件的最新狀態
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                Text("✕", fontSize = 20.sp, color = Color.White, modifier = Modifier.clickable(onClick = onDismiss).padding(12.dp))
-                val cur = items[pager.currentPage]
-                Text(
-                    "${pager.currentPage + 1} / ${items.size}・" + (if (cur.kind == "image") "圖片" else "影片 ${cur.seconds} 秒"),
-                    fontSize = 14.sp,
-                    color = Color(0xFFCFCBDB),
-                )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            val base = items[pager.currentPage]
+            val cur = remember(base.runId, rev) { H3Jobs.find(ctx, base.runId) ?: base }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(4.dp)) {
+                Box(
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(Color(0xFF26262F)).clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) { Text("✕", fontSize = 18.sp, color = Color.White) }
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(
+                        "${pager.currentPage + 1} / ${items.size}・" + (if (cur.kind == "image") "圖片" else "影片 ${cur.seconds} 秒"),
+                        fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.W600,
+                    )
+                    Text(
+                        java.text.SimpleDateFormat("M/d HH:mm", java.util.Locale.TAIWAN).format(java.util.Date(cur.createdAtMs)) +
+                            (if (cur.meta.isNotBlank()) "・${cur.meta}" else "") +
+                            when { cur.reuploaded -> "・已補上傳 Studio"; cur.forgotten -> "・只在手機"; else -> "・Studio 有一份" },
+                        fontSize = 12.sp, color = Color(0xFFA9A5B8), maxLines = 1,
+                    )
+                }
             }
             VerticalPager(state = pager, userScrollEnabled = (scales[pager.currentPage] ?: 1f) <= 1.01f, modifier = Modifier.weight(1f)) { page ->
                 val j = items[page]
                 val uri = j.firstUri()
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {
+                        j.runId in gone -> Text("已從清單移除", color = Color.White)
                         uri == null -> Text("成品還在存進手機，稍候再開", color = Color.White)
                         j.kind == "image" -> com.za869765.imagine.ui.component.ZoomableImage(uri) { s -> scales[page] = s }
                         page == pager.currentPage -> H3VideoPlayer(url = uri, headers = emptyMap(), userAgent = "imagine", modifier = Modifier.fillMaxSize())
@@ -311,31 +360,113 @@ fun ResultViewerDialog(items: List<H3Jobs.Job>, start: Int, onDismiss: () -> Uni
                     }
                 }
             }
-            val cur = items[pager.currentPage]
-            Text(cur.prompt, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, color = Color(0xFFCFCBDB), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
-                listOf(
-                    "分享" to {
-                        cur.firstUri()?.let { u ->
-                            val send = Intent(Intent.ACTION_SEND).apply {
-                                type = if (cur.kind == "image") "image/*" else "video/*"
-                                putExtra(Intent.EXTRA_STREAM, Uri.parse(u))
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            ctx.startActivity(Intent.createChooser(send, "分享成品"))
+            Text(
+                cur.prompt.ifBlank { "（沒有提示詞）" } + if (!showFull && cur.prompt.length > 60) "　▾ 展開" else "",
+                fontSize = 13.sp, lineHeight = 18.sp, maxLines = if (showFull) 8 else 2, color = Color(0xFFCFCBDB),
+                modifier = Modifier.fillMaxWidth().clickable { showFull = !showFull }.padding(horizontal = 8.dp, vertical = 8.dp),
+            )
+            msg?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9FE3B0), modifier = Modifier.padding(horizontal = 8.dp)) }
+            val uri = cur.firstUri()
+            val acts = buildList<Pair<String, () -> Unit>> {
+                if (uri != null) add("存到相簿" to {
+                    busy = "存到相簿"
+                    scope.launch {
+                        val ok = cur.savedUri.orEmpty().split('\n').filter { it.isNotBlank() }
+                            .map { com.za869765.imagine.data.storage.MediaExporter.saveToGallery(ctx, it, cur.kind != "image") }.all { it }
+                        msg = if (ok) "已存到手機相簿" else "存到相簿失敗"
+                        busy = null
+                    }
+                    Unit
+                })
+                if (uri != null) add("分享" to {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = if (cur.kind == "image") "image/*" else "video/*"
+                        putExtra(Intent.EXTRA_STREAM, Uri.parse(uri))
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    ctx.startActivity(Intent.createChooser(send, "分享成品"))
+                })
+                add("複製提示詞" to {
+                    val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("prompt", cur.prompt))
+                    msg = "提示詞已複製"
+                })
+                if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { onReusePrompt(cur.prompt) })
+                if (onAnimate != null && cur.kind == "image" && uri != null) add("動起來" to { onAnimate(uri, cur.prompt) })
+                if (cur.forgotten && !cur.reuploaded && uri != null) add("補上傳 Studio" to {
+                    busy = "補上傳 Studio"
+                    scope.launch {
+                        msg = reuploadToStudio(ctx, prefs, cur)
+                        busy = null; rev++; onChanged()
+                    }
+                    Unit
+                })
+                if (!cur.forgotten) add("移出 Studio" to {
+                    confirm = "把 Studio 那份刪掉、只留在手機？\n雲端硬碟的檔會移到垃圾桶（30 天內可救回）。之後可再按「補上傳 Studio」。" to {
+                        busy = "移出 Studio"
+                        scope.launch {
+                            val ok = H3Client.forget(prefs, cur.runId)
+                            if (ok) H3Jobs.update(ctx, cur.runId) { it.copy(forgotten = true, keepInStudio = false) }
+                            msg = if (ok) "已從 Studio 移除，只留在手機" else "移除失敗（可能還沒做完或網路問題）"
+                            busy = null; rev++; onChanged()
                         }
                         Unit
-                    },
-                    "任務詳情" to { onOpenJob(cur) },
-                ).forEach { (label, act) ->
+                    }
+                })
+                add("任務詳情" to { onOpenJob(cur) })
+                add("從清單移除" to {
+                    confirm = "從最近成品移除這件？\n手機「所有作品」裡的檔案不會刪，Studio 也不受影響。" to {
+                        H3Jobs.remove(ctx, cur.runId); gone = gone + cur.runId; msg = "已從清單移除"; onChanged()
+                    }
+                })
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = 4,
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 12.dp),
+            ) {
+                acts.forEach { (label, act) ->
                     Box(
-                        modifier = Modifier.weight(1f).height(52.dp).background(Color(0xFF1C1C25), RoundedCornerShape(14.dp)).clickable(onClick = act),
+                        modifier = Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1C1C25))
+                            .clickable(enabled = busy == null && cur.runId !in gone, onClick = act),
                         contentAlignment = Alignment.Center,
-                    ) { Text(label, fontSize = 14.sp, color = Color.White) }
+                    ) { Text(if (busy == label) "處理中…" else label, fontSize = 13.sp, color = Color.White, maxLines = 1) }
                 }
             }
         }
+        confirm?.let { (text, act) ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirm = null },
+                text = { Text(text) },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { confirm = null; act() }) { Text("確定") } },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = null }) { Text("取消") } },
+            )
+        }
     }
+}
+
+/** 補上傳：圖片壓成 JPEG（長邊 1600）一張一張傳；影片整支傳（上限約 80MB）。回傳給使用者看的結果。 */
+private suspend fun reuploadToStudio(ctx: android.content.Context, prefs: SecurePrefs, j: H3Jobs.Job): String {
+    val uris = j.savedUri.orEmpty().split('\n').filter { it.isNotBlank() }
+    if (uris.isEmpty()) return "手機裡找不到這件成品"
+    var ok = 0
+    for ((i, u) in uris.withIndex()) {
+        val req = if (j.kind == "image") {
+            val im = com.za869765.imagine.data.h3.H3Images.encode(ctx, Uri.parse(u), i) ?: continue
+            com.za869765.imagine.data.h3.H3ImportRequest("image", im.base64, im.mime, "APP補上傳_" + j.prompt.take(16), j.prompt)
+        } else {
+            val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { ctx.contentResolver.openInputStream(Uri.parse(u))?.use { it.readBytes() } }.getOrNull()
+            } ?: continue
+            if (bytes.size > 80_000_000) return "影片太大（超過 80MB），沒有上傳"
+            com.za869765.imagine.data.h3.H3ImportRequest("video", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP), "video/mp4", "APP補上傳", j.prompt, j.seconds)
+        }
+        if (H3Client.importToStudio(prefs, req) is H3Client.Result.Ok) ok++
+    }
+    if (ok == 0) return "補上傳失敗，請稍後再試"
+    H3Jobs.update(ctx, j.runId) { it.copy(reuploaded = true) }
+    return if (j.kind == "image") "已補上傳 $ok 張到 Studio（作品「Imagine APP 生圖」）" else "已補上傳到 Studio（新作品「Imagine APP：${j.prompt.take(20)}」）"
 }
 
 /**
@@ -343,7 +474,13 @@ fun ResultViewerDialog(items: List<H3Jobs.Job>, start: Int, onDismiss: () -> Uni
  * 做完還沒存進手機的自動下載存進所有作品（縮圖、放大都讀本機檔）。
  */
 @Composable
-fun H3ResultsSection(prefs: SecurePrefs, onOpenImageJob: (String) -> Unit, onOpenVideoJob: (String) -> Unit) {
+fun H3ResultsSection(
+    prefs: SecurePrefs,
+    onOpenImageJob: (String) -> Unit,
+    onOpenVideoJob: (String) -> Unit,
+    onReusePrompt: ((String) -> Unit)? = null,
+    onAnimate: ((String, String) -> Unit)? = null,
+) {
     val ctx = LocalContext.current
     var jobs by remember { mutableStateOf(H3Jobs.all(ctx)) }
     var showAll by remember { mutableStateOf(false) }
@@ -389,5 +526,14 @@ fun H3ResultsSection(prefs: SecurePrefs, onOpenImageJob: (String) -> Unit, onOpe
     }
     ResultsStrip(jobs, onOpenAll = { showAll = true }, onTap = tap)
     if (showAll) ResultsGalleryDialog(jobs, onDismiss = { showAll = false }, onTap = tap)
-    viewer?.let { (list, i) -> ResultViewerDialog(list, i, onDismiss = { viewer = null }, onOpenJob = { viewer = null; showAll = false; openJob(it) }) }
+    viewer?.let { (list, i) ->
+        ResultViewerDialog(
+            list, i,
+            onDismiss = { viewer = null; jobs = H3Jobs.all(ctx) },
+            onOpenJob = { viewer = null; showAll = false; openJob(it) },
+            onReusePrompt = onReusePrompt?.let { f -> { p: String -> viewer = null; showAll = false; f(p) } },
+            onAnimate = onAnimate?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
+            onChanged = { jobs = H3Jobs.all(ctx) },
+        )
+    }
 }
