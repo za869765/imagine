@@ -626,7 +626,8 @@ fun H3ResultsSection(
                 // v2.3.5 設了「不留在 Studio」但上次刪失敗的，再試一次
                 for (j in H3Jobs.all(ctx).filter { !it.keepInStudio && !it.forgotten && !it.savedUri.isNullOrBlank() }) forgetInStudioIfAsked(app, prefs, j.runId)
                 // 有剛做完正在存的就 5 秒後再看（存好縮圖馬上出現），其餘 30 秒
-                delay(if (jobs.any { it.isDone() && it.firstUri() == null }) 5_000 else 30_000)
+                // v2.4.3 生成中的每 10 秒查一次（做好約 10 秒內就出現；原本 30 秒，看起來比實際慢）；排隊中的 30 秒
+                delay(if (jobs.any { (it.isDone() && it.firstUri() == null) }) 5_000 else if (jobs.any { it.isRunning() }) 10_000 else 30_000)
                 jobs = H3Jobs.all(ctx)
             }
         }
