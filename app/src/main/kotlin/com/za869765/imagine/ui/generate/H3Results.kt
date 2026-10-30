@@ -370,6 +370,7 @@ fun ResultViewerDialog(
     var editJob by remember { mutableStateOf<H3Jobs.Job?>(null) }
     var editText by remember { mutableStateOf("") }
     var editEst by remember { mutableStateOf<com.za869765.imagine.data.h3.H3ImageEstimate?>(null) }
+    var editRoute by remember { mutableStateOf(prefs.h3ImgRoute) }  // v2.4.6 修改時自己挑機器
     val navBottom = rememberHostNavBottom()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         // decorFitsSystemWindows=false 才讀得到手勢列／狀態列高度（同 FullscreenImageViewer），按鈕才不會掉到手勢列底下
@@ -421,7 +422,7 @@ fun ResultViewerDialog(
             msg?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9FE3B0), modifier = Modifier.padding(horizontal = 8.dp)) }
             val uri = cur.firstUri()
             val acts = buildList<Pair<String, () -> Unit>> {
-                if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editOpen = true })
+                if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute; editOpen = true })
                 if (uri != null) add("存到相簿" to {
                     busy = "存到相簿"
                     scope.launch {
@@ -497,10 +498,19 @@ fun ResultViewerDialog(
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
-                            "用這張當參考圖送 H3 生圖（$eAspect・${if (eMp == 4) "2K" else "1K"}・1 張），臉、姿勢、其他沒提到的地方照原圖。" +
-                                "機器照生圖頁的設定（${H3Format.routeShort(prefs.h3ImgRoute)}）。",
+                            "用這張當參考圖送 H3 生圖（Qwen，不是 Grok；$eAspect・${if (eMp == 4) "2K" else "1K"}・1 張），臉、姿勢、其他沒提到的地方照原圖。",
                             fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Text("用哪台機器修", fontSize = 13.sp, fontWeight = FontWeight.W600)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab").forEach { (id, name) ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = editRoute == id,
+                                    onClick = { editRoute = id; editEst = null },
+                                    label = { Text(name, fontSize = 12.sp) },
+                                )
+                            }
+                        }
                         editEst?.let { Text(it.text, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }
                     }
                 },
@@ -512,7 +522,7 @@ fun ResultViewerDialog(
                             busy = "修改"
                             if (est == null) {
                                 scope.launch {
-                                    when (val r = H3Client.imageEstimate(prefs, eMp, 1, prefs.h3ImgRoute)) {
+                                    when (val r = H3Client.imageEstimate(prefs, eMp, 1, editRoute)) {
                                         is H3Client.Result.Ok -> editEst = r.value
                                         is H3Client.Result.Err -> msg = "估算失敗：${r.message}"
                                     }
@@ -521,7 +531,7 @@ fun ResultViewerDialog(
                             } else {
                                 val pending = com.za869765.imagine.data.h3.PendingH3Image(
                                     prompt = editText.trim() + "。其餘（人物臉孔、髮型、姿勢、構圖）保持與參考圖相同。",
-                                    refs = listOf(ej.firstUri()!!), aspect = eAspect, mp = eMp, count = 1, route = prefs.h3ImgRoute,
+                                    refs = listOf(ej.firstUri()!!), aspect = eAspect, mp = eMp, count = 1, route = editRoute,
                                     allowText = false, clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est,
                                 )
                                 val app = ctx.applicationContext
