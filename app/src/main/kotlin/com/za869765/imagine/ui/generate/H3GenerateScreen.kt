@@ -467,7 +467,7 @@ fun H3GenerateScreen(
                 Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             }
             // v2.5.3 影片一律只留在 APP，不再給勾選
-            Text("成品只留在 APP：生成時會暫存於 Studio，存進手機後自動刪除（雲端硬碟檔移垃圾桶）；要上傳請在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("成品只存手機、不進雲端硬碟：生成時短暫存放在伺服器，存進手機後立刻刪除；要上傳請在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // v2.1.5 超高畫質:勾可用的 Colab GPU 範圍,伺服器照 G4→H100→A100 自動挑(排不到不開機、不扣 CU)
             if (tier == "ultra") {
                 Text("可用的 Colab GPU（照 G4 → H100 → A100 自動挑，排不到不扣 CU）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

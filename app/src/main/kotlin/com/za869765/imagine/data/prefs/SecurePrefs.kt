@@ -79,10 +79,6 @@ class SecurePrefs private constructor(ctx: Context) {
     var videoEngine: String
         get() = prefs.getString(K_VIDEO_ENGINE, "grok")!!
         set(v) = prefs.edit().putString(K_VIDEO_ENGINE, v).apply()
-    // v2.3.5 存到手機後不留在 H3 Studio（false＝存好就請 Studio 刪掉那份，雲端硬碟檔移到垃圾桶）
-    var h3KeepInStudio: Boolean
-        get() = prefs.getBoolean("h3_keep_in_studio", true)
-        set(v) = prefs.edit().putBoolean("h3_keep_in_studio", v).apply()
     var h3Quality: String
         get() = prefs.getString(K_H3_QUALITY, "normal")!!
         set(v) = prefs.edit().putString(K_H3_QUALITY, v).apply()

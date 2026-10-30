@@ -77,7 +77,7 @@ object H3ImageSubmit {
                             meta = (if (pending.sheet) "多視角 ${pending.count * 4} 個角度" else "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張" + (if (pending.transparent) "・透明背景" else "")) + "・${H3Format.routeShort(route)}",
                             estNtd = r.value.estimate?.ntd ?: est.ntd,
                             etaAt = r.value.estimate?.etaAt ?: est.etaAt,
-                            keepInStudio = prefs.h3KeepInStudio,
+                            keepInStudio = false,  // v2.5.5 存進手機後就請伺服器刪除
                             route = route,
                         ),
                     )

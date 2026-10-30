@@ -546,18 +546,8 @@ fun H3ImageScreen(
                     )
                 }
             }
-            // v2.3.5 存到手機後不留在 H3 Studio（設定記在手機，下一張單照用）
-            var noKeep by remember { mutableStateOf(!prefs.h3KeepInStudio) }
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { noKeep = !noKeep; prefs.h3KeepInStudio = !noKeep },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = noKeep, onCheckedChange = { noKeep = it; prefs.h3KeepInStudio = !it })
-                Column {
-                    Text("只留在 APP，不上 H3 Studio", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
-                    Text("生成時仍經過 Studio，存進手機後自動刪掉 Studio 那份（雲端硬碟檔移垃圾桶）；之後可在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            // v2.5.5 成品一律只留在手機，不再給勾選
+            Text("成品只存手機、不進雲端硬碟：生成時短暫存放在伺服器，存進手機後立刻刪除；要上傳請在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             ImagineCard(pad = 14) {
                 Text(
