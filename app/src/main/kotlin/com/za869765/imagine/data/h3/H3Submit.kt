@@ -90,7 +90,8 @@ object H3Submit {
             segments = pending.segments,
             beats = if (pending.segments > 1 && pending.beats.any { it.isNotBlank() }) pending.beats else null,
             subjectId = pending.subjectId,
-            keepInStudio = prefs.h3KeepInStudio,
+            // v2.5.3 影片一律不留在 Studio；只有使用者按「補上傳 Studio」才上傳
+            keepInStudio = false,
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {
@@ -108,7 +109,7 @@ object H3Submit {
                             estCu = confirmed.cu,
                             createdAtMs = System.currentTimeMillis(),
                             etaAt = confirmed.etaAt,
-                            keepInStudio = prefs.h3KeepInStudio,
+                            keepInStudio = false,
                             route = pending.route,
                         ),
                     )
