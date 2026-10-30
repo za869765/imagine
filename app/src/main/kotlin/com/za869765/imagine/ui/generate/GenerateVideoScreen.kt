@@ -25,6 +25,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -1150,10 +1155,16 @@ internal fun LibraryImagePickerSheet(
     var images by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
     var posesOpen by remember { mutableStateOf(false) }
+    var preview by remember { mutableStateOf<Int?>(null) }  // v2.4.5 點縮圖先全圖預覽，上下滑換張
+    val navBottom = rememberHostNavBottom()
 
     LaunchedEffect(Unit) {
         images = MediaHistory.loadAll(ctx).filter { !it.isVideo }
         loaded = true
+    }
+
+    preview?.let { start ->
+        LibraryImagePreviewDialog(images, start, navBottom, onDismiss = { preview = null }, onPick = { preview = null; onPick(it) })
     }
 
     ModalBottomSheet(
@@ -1198,6 +1209,12 @@ internal fun LibraryImagePickerSheet(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             } else {
+                if (images.isNotEmpty()) Text(
+                    text = "點圖看完整大圖，上下滑換張，再按「選這張」",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     modifier = Modifier
@@ -1207,7 +1224,7 @@ internal fun LibraryImagePickerSheet(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    items(items = images, key = { it.uri.toString() }) { entry ->
+                    itemsIndexed(items = images, key = { _, it -> it.uri.toString() }) { i, entry ->
                         AsyncImage(
                             model = entry.uri,
                             contentDescription = entry.displayName,
@@ -1216,11 +1233,65 @@ internal fun LibraryImagePickerSheet(
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .clickable { onPick(entry) },
+                                .clickable { preview = i },
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+// v2.4.5 素材庫選圖的全圖預覽：Fit 顯示完整圖、VerticalPager 上下滑切換、底部「選這張」
+@Composable
+private fun LibraryImagePreviewDialog(
+    images: List<MediaEntry>,
+    start: Int,
+    navBottom: androidx.compose.ui.unit.Dp,
+    onDismiss: () -> Unit,
+    onPick: (MediaEntry) -> Unit,
+) {
+    if (images.isEmpty()) return
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start.coerceIn(0, images.size - 1)) { images.size }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .windowInsetsPadding(
+                    androidx.compose.foundation.layout.WindowInsets.safeDrawing.only(
+                        androidx.compose.foundation.layout.WindowInsetsSides.Top + androidx.compose.foundation.layout.WindowInsetsSides.Horizontal,
+                    ),
+                )
+                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = navBottom),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(4.dp)) {
+                Box(
+                    modifier = Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF26262F)).clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) { Text("✕", fontSize = 18.sp, color = Color.White) }
+                Text(
+                    "${pager.currentPage + 1} / ${images.size}・上下滑換張",
+                    fontSize = 14.sp, color = Color.White,
+                    modifier = Modifier.weight(1f).padding(start = 12.dp),
+                )
+            }
+            androidx.compose.foundation.pager.VerticalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth()) { page ->
+                AsyncImage(
+                    model = images[page].uri,
+                    contentDescription = images[page].displayName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            PrimaryButton(
+                label = "選這張",
+                onClick = { onPick(images[pager.currentPage]) },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
         }
     }
 }

@@ -86,6 +86,8 @@ fun ImagineScreen(
                 }
             }
         }
-        bottomNav?.invoke()
+        // v2.4.5 鍵盤打開時也藏 BottomNav：上面 imePadding 已讓出整個鍵盤高度（含手勢列），
+        // 底部導覽再墊在下面，鍵盤上方就多出一整條導覽列高度的空白、把畫面往上擠
+        if (!WindowInsets.isImeVisible) bottomNav?.invoke()
     }
 }

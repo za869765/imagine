@@ -563,7 +563,7 @@ fun ResultViewerDialog(
  * 至少 56dp（三鍵導覽列 48dp＋餘裕）。
  */
 @Composable
-private fun rememberHostNavBottom(): androidx.compose.ui.unit.Dp {
+internal fun rememberHostNavBottom(): androidx.compose.ui.unit.Dp {
     val view = androidx.compose.ui.platform.LocalView.current
     val density = androidx.compose.ui.platform.LocalDensity.current
     return remember(view) {
