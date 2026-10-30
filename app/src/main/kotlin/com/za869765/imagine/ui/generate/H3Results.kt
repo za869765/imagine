@@ -280,8 +280,6 @@ fun ResultsStrip(jobs: List<H3Jobs.Job>, onOpenAll: () -> Unit, onTap: (H3Jobs.J
 @Composable
 fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (H3Jobs.Job) -> Unit) {
     val navBottom = rememberHostNavBottom()
-    var kind by remember { mutableStateOf("all") }
-    var st by remember { mutableStateOf("all") }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = navBottom),
@@ -296,7 +294,18 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
                         .clickable(onClick = onDismiss).padding(horizontal = 18.dp, vertical = 12.dp),
                 )
             }
-            val nImg = jobs.count { it.kind == "image" }
+            ResultsGalleryContent(jobs, onTap)
+        }
+    }
+}
+
+/** 成品篩選＋三欄縮圖格；全螢幕對話框和「最近成品」分頁共用。 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ResultsGalleryContent(jobs: List<H3Jobs.Job>, onTap: (H3Jobs.Job) -> Unit) {
+    var kind by remember { mutableStateOf("all") }
+    var st by remember { mutableStateOf("all") }
+    val nImg = jobs.count { it.kind == "image" }
             com.za869765.imagine.ui.component.SegmentedTab(
                 options = listOf(
                     com.za869765.imagine.ui.component.SegmentedOption("all", "全部 ${jobs.size}"),
@@ -333,6 +342,24 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 items(shown, key = { it.runId }) { j -> ResultTile(j, Modifier.fillMaxWidth().aspectRatio(0.75f)) { onTap(j) } }
             }
+}
+
+/** v2.5.4 底部分頁「最近成品」。 */
+@Composable
+fun H3ResultsScreen(
+    prefs: SecurePrefs,
+    onOpenImageJob: (String) -> Unit,
+    onOpenVideoJob: (String) -> Unit,
+    onSettingsClick: () -> Unit,
+    onNavSelected: (com.za869765.imagine.ui.component.NavTab) -> Unit,
+) {
+    com.za869765.imagine.ui.component.ImagineScreen(
+        appBar = { com.za869765.imagine.ui.component.ImagineTopAppBar(title = "最近成品", onSettingsClick = onSettingsClick) },
+        bottomNav = { com.za869765.imagine.ui.component.ImagineBottomNav(active = com.za869765.imagine.ui.component.NavTab.RESULTS, onTabSelected = onNavSelected) },
+        scroll = false,
+    ) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            H3ResultsSection(prefs, onOpenImageJob, onOpenVideoJob, asPage = true)
         }
     }
 }
@@ -653,6 +680,7 @@ fun H3ResultsSection(
     onReusePrompt: ((String) -> Unit)? = null,
     onAnimate: ((String, String) -> Unit)? = null,
     onGrokEdit: ((String, String) -> Unit)? = null,
+    asPage: Boolean = false,
 ) {
     val ctx = LocalContext.current
     var jobs by remember { mutableStateOf(H3Jobs.all(ctx)) }
@@ -712,7 +740,10 @@ fun H3ResultsSection(
             else -> openJob(j)
         }
     }
-    ResultsStrip(jobs, onOpenAll = { showAll = true }, onTap = tap)
+    if (asPage) {
+        if (jobs.isEmpty()) Text("還沒有成品。到「素材生成」用 H3 生圖或生影片，做好會出現在這裡。", fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else ResultsGalleryContent(jobs, tap)
+    } else ResultsStrip(jobs, onOpenAll = { showAll = true }, onTap = tap)
     if (showAll) ResultsGalleryDialog(jobs, onDismiss = { showAll = false }, onTap = tap)
     viewer?.let { (list, i) ->
         ResultViewerDialog(

@@ -81,6 +81,49 @@ fun rememberEtaPct(runId: String, createdAtMs: Long?, etaAt: Long?): Int? {
     return best[0]
 }
 
+/** v2.5.4 任務進行中的主畫面:大圓環百分比＋倒數＋各階段(目前在哪一步)。 */
+@Composable
+fun H3ProgressHero(status: String, route: String?, pct: Int?, etaText: String) {
+    val steps = buildList {
+        add("已送出" to emptyList<String>())
+        add("排隊中" to listOf("queued", "hold"))
+        if (route != "local") add("機器開機" to listOf("launching", "setup"))
+        add("生成中" to listOf("running"))
+        add("存進手機" to listOf("done"))
+    }
+    val current = steps.indexOfFirst { status in it.second }.takeIf { it >= 0 } ?: 1
+    val primary = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    com.za869765.imagine.ui.component.ImagineCard(pad = 20) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            androidx.compose.foundation.layout.Box(modifier = Modifier.size(200.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                if (pct != null) {
+                    androidx.compose.material3.CircularProgressIndicator(progress = { pct / 100f }, modifier = Modifier.size(200.dp), strokeWidth = 12.dp)
+                } else {
+                    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(200.dp), strokeWidth = 12.dp)
+                }
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Text(if (pct != null) "約 $pct%" else "計算中", fontSize = if (pct != null) 38.sp else 24.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
+                    Text(com.za869765.imagine.data.h3.H3Format.statusLabel(status), fontSize = 15.sp, color = muted)
+                }
+            }
+            if (etaText.isNotBlank()) Text(etaText, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.W600, color = primary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                steps.forEachIndexed { i, (label, _) ->
+                    androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(if (i < current) "✓" else if (i == current) "●" else "○", fontSize = 15.sp, color = if (i <= current) primary else muted, modifier = Modifier.width(20.dp))
+                        Text(label, fontSize = 15.sp, fontWeight = if (i == current) FontWeight.W700 else FontWeight.W400, color = if (i == current) MaterialTheme.colorScheme.onSurface else muted)
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** v2.4.0 Cloudflare 用量警報(Studio 的 h3-cron 每小時檢查):看板每次更新時順便帶回,機器晶片上方顯示紅字。 */
 object H3UsageAlerts {
     var alerts by androidx.compose.runtime.mutableStateOf<List<String>>(emptyList())

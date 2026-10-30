@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -230,27 +229,28 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // v2.5.4 進行中:大圓環＋倒數＋階段(百分比是估算,和任務清單同一個數字)
+            if (s != null && !s.isFinished) {
+                val eta = s.eta
+                H3ProgressHero(
+                    status = s.status,
+                    route = s.route,
+                    pct = rememberEtaPct(runId, record?.createdAtMs, eta?.etaAt ?: record?.etaAt),
+                    etaText = eta?.let { H3Format.eta(it.etaAt, it.etaMin, now = rememberNowMs()) + (if (it.ahead > 0) "・前面還有 ${it.ahead} 個" else "") }.orEmpty(),
+                )
+            }
             ImagineCard(pad = 16) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        if (s == null) "讀取中…" else H3Format.statusLabel(s.status),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.W700,
-                        color = when (s?.status) {
-                            "failed" -> MaterialTheme.colorScheme.error
-                            "done" -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurface
-                        },
-                    )
-                    // v2.5.2 整體百分比(估算,和任務清單同一個數字)
-                    val overallPct = if (s != null && !s.isFinished) rememberEtaPct(runId, record?.createdAtMs, s.eta?.etaAt ?: record?.etaAt) else null
-                    // v2.1.9 預計完成(台北時間;前面還有幾個)
-                    s?.takeIf { !it.isFinished }?.eta?.let { eta ->
+                    if (s == null || s.isFinished) {
                         Text(
-                            (overallPct?.let { "約 $it%・" } ?: "") + H3Format.eta(eta.etaAt, eta.etaMin, now = rememberNowMs()) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
-                            color = MaterialTheme.colorScheme.primary,
+                            if (s == null) "讀取中…" else H3Format.statusLabel(s.status),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.W700,
+                            color = when (s?.status) {
+                                "failed" -> MaterialTheme.colorScheme.error
+                                "done" -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurface
+                            },
                         )
                     }
                     val ev = s?.lastEvent
@@ -265,17 +265,6 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    }
-                    if (s != null && !s.isFinished) {
-                        if (overallPct != null) {
-                            LinearProgressIndicator(progress = { overallPct / 100f }, modifier = Modifier.fillMaxWidth())
-                        } else if (pct != null) {
-                            // pct 可能是 0~100 或 0~1
-                            val frac = (if (pct > 1.0) pct / 100.0 else pct).coerceIn(0.0, 1.0).toFloat()
-                            LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
-                        } else {
-                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        }
                     }
                     s?.worker?.let { w ->
                         Text(

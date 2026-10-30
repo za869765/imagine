@@ -40,12 +40,10 @@ import com.za869765.imagine.data.tutorial.TutorialData
 import com.za869765.imagine.data.tutorial.TutorialLesson
 import com.za869765.imagine.ui.component.FullscreenImageViewer
 import com.za869765.imagine.ui.component.ViewerAction
-import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.InlineVideoPlayer
-import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.PromptExample
 import com.za869765.imagine.ui.component.READY_PROMPTS
 import com.za869765.imagine.ui.component.EXTRA_PROMPTS
@@ -82,15 +80,14 @@ private fun categoryOf(ex: PromptExample): String = when {
     else -> "主題"
 }
 
-// 教學範本頁 (底部第3分頁):搜尋 + 精選範本(分類/收藏/複製/使用→生成) + 課程圖庫(圖→生成、影片範例、prompt 複製)。
+// 教學範本頁 (v2.5.4 從底部分頁移到設定):搜尋 + 精選範本(分類/收藏/複製/使用→生成) + 課程圖庫(圖→生成、影片範例、prompt 複製)。
 // onUsePrompt(prompt, usage) usage=t2i/t2v/i2v;i2v 會讓影片頁進圖生影模式。onUseImage(url, asVideo) 由 NavHost 接。
 @Composable
 fun TutorialScreen(
     onUsePrompt: (String, String) -> Unit,
     onUseImage: (String, Boolean) -> Unit,
     onUseVideo: (String, String) -> Unit,
-    onNavSelected: (NavTab) -> Unit,
-    onSettingsClick: () -> Unit,
+    onBack: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -99,8 +96,8 @@ fun TutorialScreen(
     var favorites by remember { mutableStateOf(prefs.favoriteTemplates.toSet()) }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "教學範本", onSettingsClick = onSettingsClick) },
-        bottomNav = { ImagineBottomNav(active = NavTab.TUTORIAL, onTabSelected = onNavSelected) },
+        appBar = { ImagineTopAppBar(title = "教學範本", showBack = true, onBackClick = onBack, trailing = { Box(modifier = Modifier.size(48.dp)) }) },
+        bottomNav = null,
         scroll = false,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {

@@ -298,6 +298,15 @@ fun ImagineRoot() {
                         }
                         navController.navigate(Routes.EDIT)
                     },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(Routes.H3_RESULTS) {
+                com.za869765.imagine.ui.generate.H3ResultsScreen(
+                    prefs = prefs,
+                    onOpenImageJob = { id -> navController.navigate(Routes.H3_IMAGE_JOB.replace("{runId}", id)) },
+                    onOpenVideoJob = { id -> navController.navigate(Routes.H3_JOB.replace("{runId}", id)) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                 )
@@ -606,6 +615,7 @@ fun ImagineRoot() {
                     onApiKeyClick = { navController.navigate(Routes.API_KEY_EDIT) },
                     onLibraryClick = { navController.navigate(Routes.HISTORY) },
                     onReviewClick = { navController.navigate(Routes.MATERIAL_REVIEW) },
+                    onTutorialClick = { navController.navigate(Routes.TUTORIAL) },
                     onClearedAndReset = {
                         prefs.clearAll()
                         // 清資料後回素材生成首頁 (整個 stack 清掉重來)
@@ -637,7 +647,7 @@ private fun handleTabNav(
     val target = when (tab) {
         NavTab.MATERIAL -> Routes.MATERIAL_HUB
         NavTab.LONG_VIDEO -> Routes.LONG_VIDEO
-        NavTab.TUTORIAL -> Routes.TUTORIAL
+        NavTab.RESULTS -> Routes.H3_RESULTS
         NavTab.H3 -> Routes.H3_STUDIO
     }
     // popUpTo 用 MATERIAL_HUB(BottomNav 主舞台,啟動後永遠在 stack 底);saveState/restoreState

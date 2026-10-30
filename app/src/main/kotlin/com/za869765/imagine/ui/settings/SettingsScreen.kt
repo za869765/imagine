@@ -80,6 +80,7 @@ fun SettingsScreen(
     onClearedAndReset: () -> Unit,
     onBack: () -> Unit,
     onReviewClick: () -> Unit = {},
+    onTutorialClick: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -256,6 +257,7 @@ fun SettingsScreen(
             // UI_REDESIGN_PLAN 3.5:首層只列五組入口,各進次級頁(同檔以 section 切換,不新增路由)
             if (section == null) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SettingsEntry(icon = "lightbulb", title = "教學範本", subtitle = "精選範本與 super-i 課程圖庫", onClick = onTutorialClick)
                     SettingsEntry(icon = "auto_awesome", title = "生成預設", subtitle = "圖片／影片每次進生成頁的初始參數") { section = "gen" }
                     SettingsEntry(icon = "key", title = "API 與用量", subtitle = "xAI／OpenRouter 金鑰、H3 Studio、帳單與後台") { section = "api" }
                     SettingsEntry(icon = "photo_library", title = "儲存與資料", subtitle = "素材去留審查、歷史匯入、Keys 備份") { section = "data" }
