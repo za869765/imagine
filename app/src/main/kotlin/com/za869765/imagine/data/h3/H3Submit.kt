@@ -90,6 +90,7 @@ object H3Submit {
             segments = pending.segments,
             beats = if (pending.segments > 1 && pending.beats.any { it.isNotBlank() }) pending.beats else null,
             subjectId = pending.subjectId,
+            keepInStudio = prefs.h3KeepInStudio,
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {

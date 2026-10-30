@@ -78,6 +78,8 @@ data class H3JobRequest(
     val segments: Int = 1,
     val beats: List<String>? = null,
     @SerialName("subject_id") val subjectId: String? = null,
+    // v2.5.0 勾「不留在 Studio」→ 伺服器標 app_only，Studio 專案列表不顯示
+    @SerialName("keep_in_studio") val keepInStudio: Boolean = true,
 )
 
 @Serializable
