@@ -132,6 +132,7 @@ fun H3ImageScreen(
     engineSelector: @Composable () -> Unit,
     initialPrompt: String? = null,
     onAnimate: (String, String) -> Unit = { _, _ -> },
+    onGrokEdit: ((String, String) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -568,7 +569,7 @@ fun H3ImageScreen(
             }
 
             // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
-            H3ResultsSection(prefs, onOpenImageJob = onOpenJob, onOpenVideoJob = onOpenVideoJob, onReusePrompt = { prompt = it }, onAnimate = onAnimate)
+            H3ResultsSection(prefs, onOpenImageJob = onOpenJob, onOpenVideoJob = onOpenVideoJob, onReusePrompt = { prompt = it }, onAnimate = onAnimate, onGrokEdit = onGrokEdit)
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(

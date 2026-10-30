@@ -414,6 +414,14 @@ fun ImagineRoot() {
                     onOpenH3Job = { runId -> navController.navigate(Routes.h3Job(runId)) },
                     onOpenH3ImageJob = { runId -> navController.navigate(Routes.h3ImageJob(runId)) },
                     initialEngine = initEngine,
+                    onEditImage = { url, prompt ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            set(KEY_INIT_PROMPT, prompt)
+                            set(KEY_INIT_EDIT_MODE, "image")
+                        }
+                        navController.navigate(Routes.EDIT)
+                    },
                 )
             }
 

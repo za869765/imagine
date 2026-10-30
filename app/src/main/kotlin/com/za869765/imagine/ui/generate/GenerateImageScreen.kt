@@ -133,6 +133,7 @@ fun GenerateImageScreen(
             engineSelector = selector,
             initialPrompt = initialPrompt,
             onAnimate = onAnimateH3Image,
+            onGrokEdit = onEditImage,
         )
     } else {
         GrokImageScreen(

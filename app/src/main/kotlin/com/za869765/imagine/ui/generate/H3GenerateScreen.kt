@@ -89,6 +89,7 @@ fun H3GenerateScreen(
     engineSelector: @Composable () -> Unit,
     initialImageUri: Uri? = null,
     initialPrompt: String? = null,
+    onGrokEdit: ((String, String) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -502,7 +503,8 @@ fun H3GenerateScreen(
 
             // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
             H3ResultsSection(prefs, onOpenImageJob = onOpenImageJob, onOpenVideoJob = onOpenJob, onReusePrompt = { prompt = it },
-                onAnimate = { uri, _ -> if (sourceStrings.size < H3_MAX_IMAGES && uri !in sourceStrings) sourceStrings = sourceStrings + uri })
+                onAnimate = { uri, _ -> if (sourceStrings.size < H3_MAX_IMAGES && uri !in sourceStrings) sourceStrings = sourceStrings + uri },
+                onGrokEdit = onGrokEdit)
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(

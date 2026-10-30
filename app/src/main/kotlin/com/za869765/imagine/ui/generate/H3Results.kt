@@ -352,6 +352,7 @@ fun ResultViewerDialog(
     onOpenJob: (H3Jobs.Job) -> Unit,
     onReusePrompt: ((String) -> Unit)? = null,
     onAnimate: ((String, String) -> Unit)? = null,
+    onGrokEdit: ((String, String) -> Unit)? = null,
     onChanged: () -> Unit = {},
 ) {
     if (items.isEmpty()) return
@@ -371,6 +372,11 @@ fun ResultViewerDialog(
     var editText by remember { mutableStateOf("") }
     var editEst by remember { mutableStateOf<com.za869765.imagine.data.h3.H3ImageEstimate?>(null) }
     var editRoute by remember { mutableStateOf(prefs.h3ImgRoute) }  // v2.4.6 修改時自己挑機器
+    // v2.4.7 能選的都給選：引擎（H3／Grok）、比例、畫質、張數；開視窗時帶原圖的比例畫質
+    var editGrok by remember { mutableStateOf(false) }
+    var editAspect by remember { mutableStateOf("9:16") }
+    var editMp by remember { mutableStateOf(1) }
+    var editCount by remember { mutableStateOf(1) }
     val navBottom = rememberHostNavBottom()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         // decorFitsSystemWindows=false 才讀得到手勢列／狀態列高度（同 FullscreenImageViewer），按鈕才不會掉到手勢列底下
@@ -422,7 +428,8 @@ fun ResultViewerDialog(
             msg?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9FE3B0), modifier = Modifier.padding(horizontal = 8.dp)) }
             val uri = cur.firstUri()
             val acts = buildList<Pair<String, () -> Unit>> {
-                if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute; editOpen = true })
+                if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute
+                    editGrok = false; aspectMpOf(cur, prefs).let { (a, m) -> editAspect = a; editMp = m }; editCount = 1; editOpen = true })
                 if (uri != null) add("存到相簿" to {
                     busy = "存到相簿"
                     scope.launch {
@@ -484,7 +491,6 @@ fun ResultViewerDialog(
         }
         val ej = editJob
         if (editOpen && ej != null) {
-            val (eAspect, eMp) = aspectMpOf(ej, prefs)
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { if (busy == null) editOpen = false },
                 title = { Text("修改這張圖") },
@@ -497,32 +503,49 @@ fun ResultViewerDialog(
                             minLines = 3,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        Text(
-                            "用這張當參考圖送 H3 生圖（Qwen，不是 Grok；$eAspect・${if (eMp == 4) "2K" else "1K"}・1 張），臉、姿勢、其他沒提到的地方照原圖。",
-                            fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text("用哪台機器修", fontSize = 13.sp, fontWeight = FontWeight.W600)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab").forEach { (id, name) ->
-                                androidx.compose.material3.FilterChip(
-                                    selected = editRoute == id,
-                                    onClick = { editRoute = id; editEst = null },
-                                    label = { Text(name, fontSize = 12.sp) },
-                                )
+                        @Composable
+                        fun chips(title: String, opts: List<Pair<String, String>>, sel: String, pick: (String) -> Unit) {
+                            Text(title, fontSize = 13.sp, fontWeight = FontWeight.W600)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                opts.forEach { (id, name) ->
+                                    androidx.compose.material3.FilterChip(selected = sel == id, onClick = { pick(id); editEst = null }, label = { Text(name, fontSize = 12.sp) })
+                                }
                             }
                         }
-                        editEst?.let { Text(it.text, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }
+                        chips("用什麼修", listOfNotNull("h3" to "H3（Qwen）", if (onGrokEdit != null) "grok" to "Grok" else null),
+                            if (editGrok) "grok" else "h3") { editGrok = it == "grok" }
+                        if (editGrok) {
+                            Text(
+                                "按「到 Grok 修圖」會帶這張圖和你寫的內容到 Grok 修圖頁，在那邊選參數再送出（花 Grok 額度）。",
+                                fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Text(
+                                "用這張當參考圖送 H3 生圖（${H3Format.imageSize(editAspect, editMp)}），臉、姿勢、其他沒提到的地方照原圖。",
+                                fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            chips("用哪台機器修", listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab"), editRoute) { editRoute = it }
+                            chips("比例", listOf("9:16", "16:9", "1:1", "3:4", "4:3").map { it to it }, editAspect) { editAspect = it }
+                            chips("畫質", listOf("1" to "1K", "4" to "2K"), editMp.toString()) { editMp = it.toInt() }
+                            chips("張數", (1..4).map { "$it" to "$it 張" }, editCount.toString()) { editCount = it.toInt() }
+                        }
+                        if (!editGrok) editEst?.let { Text(it.text, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }
                     }
                 },
                 confirmButton = {
                     androidx.compose.material3.TextButton(
-                        enabled = editText.isNotBlank() && busy == null,
+                        enabled = (editGrok || editText.isNotBlank()) && busy == null,
                         onClick = {
                             val est = editEst
+                            if (editGrok) {
+                                editOpen = false
+                                onGrokEdit?.invoke(ej.firstUri()!!, editText.trim())
+                                return@TextButton
+                            }
                             busy = "修改"
                             if (est == null) {
                                 scope.launch {
-                                    when (val r = H3Client.imageEstimate(prefs, eMp, 1, editRoute)) {
+                                    when (val r = H3Client.imageEstimate(prefs, editMp, editCount, editRoute)) {
                                         is H3Client.Result.Ok -> editEst = r.value
                                         is H3Client.Result.Err -> msg = "估算失敗：${r.message}"
                                     }
@@ -531,7 +554,7 @@ fun ResultViewerDialog(
                             } else {
                                 val pending = com.za869765.imagine.data.h3.PendingH3Image(
                                     prompt = editText.trim() + "。其餘（人物臉孔、髮型、姿勢、構圖）保持與參考圖相同。",
-                                    refs = listOf(ej.firstUri()!!), aspect = eAspect, mp = eMp, count = 1, route = editRoute,
+                                    refs = listOf(ej.firstUri()!!), aspect = editAspect, mp = editMp, count = editCount, route = editRoute,
                                     allowText = false, clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est,
                                 )
                                 val app = ctx.applicationContext
@@ -552,7 +575,7 @@ fun ResultViewerDialog(
                                 }
                             }
                         },
-                    ) { Text(if (busy == "修改") "處理中…" else if (editEst == null) "估算" else "開始修改") }
+                    ) { Text(if (editGrok) "到 Grok 修圖" else if (busy == "修改") "處理中…" else if (editEst == null) "估算" else "開始修改") }
                 },
                 dismissButton = { androidx.compose.material3.TextButton(enabled = busy == null, onClick = { editOpen = false }) { Text("取消") } },
             )
@@ -629,6 +652,7 @@ fun H3ResultsSection(
     onOpenVideoJob: (String) -> Unit,
     onReusePrompt: ((String) -> Unit)? = null,
     onAnimate: ((String, String) -> Unit)? = null,
+    onGrokEdit: ((String, String) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     var jobs by remember { mutableStateOf(H3Jobs.all(ctx)) }
@@ -697,6 +721,7 @@ fun H3ResultsSection(
             onOpenJob = { viewer = null; showAll = false; openJob(it) },
             onReusePrompt = onReusePrompt?.let { f -> { p: String -> viewer = null; showAll = false; f(p) } },
             onAnimate = onAnimate?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
+            onGrokEdit = onGrokEdit?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
             onChanged = { jobs = H3Jobs.all(ctx) },
         )
     }
