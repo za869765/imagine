@@ -109,12 +109,9 @@ object H3Format {
         return "${w * k}×${h * k}"
     }
 
-    /** 餘額超過這麼久沒更新就當「未知」。v2.4.8 30 分→24 小時（對齊伺服器；Colab 餘額現在每 6 小時才自動查，30 分會每單都卡更新）。 */
-    const val BALANCE_MAX_AGE_MS = 24L * 60 * 60 * 1000
-
     /**
      * 確認視窗的阻擋原因;null = 可以送出。
-     * 規則:估算必須 > 0;餘額未知或超過一天沒更新不能送;預估超過餘額不能送。
+     * 規則:估算必須 > 0;餘額未知不能送（過期不擋）;預估超過餘額不能送。
      */
     fun blockReason(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): String? = when {
         // v2.1.4 GPUtw:扣台幣,只擋超過 GPUtw 餘額
@@ -122,15 +119,14 @@ object H3Format {
         e.route == "gputw" -> if (e.ntdBalance != null && e.ntd > e.ntdBalance) "預估 NT$${ntd(e.ntd)} 超過 GPUtw 餘額 NT$${ntd(e.ntdBalance)}" else null
         e.cu <= 0.0 -> "估算結果異常（CU ≤ 0），不能送出"
         e.balance == null -> "目前 CU 餘額未知，無法確認是否足夠 — 請先按下方「更新餘額」"
-        e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS ->
-            "CU 餘額已超過一天沒更新（${ago(e.balanceUpdatedAt, nowMs)}），視為未知 — 請先按下方「更新餘額」"
+        // v2.4.9 使用者決定：餘額過期不擋，用最後知道的餘額（只有完全不知道才擋）
         e.cu > e.balance -> "預估 ${cu(e.cu)} CU 超過目前餘額 ${cu(e.balance)} CU，無法送出"
         else -> null
     }
 
     /** 這個阻擋原因能靠「更新餘額」解決嗎? */
     fun balanceStale(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): Boolean =
-        e.route != "gputw" && e.balance == null || e.balanceUpdatedAt == null || nowMs - e.balanceUpdatedAt > BALANCE_MAX_AGE_MS
+        e.route != "gputw" && e.balance == null
 
     /** 送出前重新估算:CU 或 GPU 開機狀態變了就要重新確認。 */
     fun estimateChanged(old: H3Estimate, fresh: H3Estimate): Boolean =
