@@ -149,7 +149,7 @@ object H3Client {
 
     /** ⚠️ 會消耗 Colab CU — 只能在使用者於確認視窗勾選並按「確認開跑」後呼叫。 */
     suspend fun submit(prefs: SecurePrefs, body: H3JobRequest): Result<H3JobCreated> {
-        require(body.confirm && (body.estCu > 0 || (body.route == "gputw" && body.estNtd > 0)) && body.clientRequestId.isNotBlank()) { "H3 送出前必須經過確認" }
+        require(body.confirm && (body.estCu > 0 || (body.route == "gputw" && body.estNtd > 0) || body.route == "local") && body.clientRequestId.isNotBlank()) { "H3 送出前必須經過確認" }
         val payload = json.encodeToString(body).toRequestBody("application/json".toMediaType())
         return call<H3JobCreated>(prefs, submitHttp, request(prefs, "/api/app/jobs")?.post(payload)?.build())
     }
