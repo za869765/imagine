@@ -42,7 +42,6 @@ import com.za869765.imagine.data.h3.H3ImageStatus
 import com.za869765.imagine.data.h3.H3ImageSubmit
 import com.za869765.imagine.data.h3.H3Jobs
 import com.za869765.imagine.data.h3.H3Submit
-import com.za869765.imagine.data.h3.PendingH3Image
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
@@ -132,7 +131,7 @@ fun H3ImageJobScreen(
     var confirmCancel by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
     val prompt = record?.prompt.orEmpty()
-    // v2.5.6 同一組先前做好的圖（和這張並排）；確認視窗顯示費用後才送出
+    // v2.5.6 同一組先前做好的圖（和這張並排）
     val earlierUris = remember(runId) {
         H3Jobs.all(ctx)
             .filter { !record?.groupId.isNullOrBlank() && it.groupId == record?.groupId && it.runId != runId }
@@ -140,34 +139,29 @@ fun H3ImageJobScreen(
             .flatMap { it.savedUri.orEmpty().split('\n').filter { u -> u.isNotBlank() } }
     }
     val allUris = earlierUris + savedUris
-    var repeatPending by remember { mutableStateOf<PendingH3Image?>(null) }
     var repeating by remember { mutableStateOf(false) }
 
-    fun estimateRepeat() {
+    // v2.5.7 再生成一次：同提示詞、同條件直接送出，不選機器、不確認（使用者決定）。還在做就留在這頁，做完才跳到新的一張並排
+    fun regenerate(stayHere: Boolean) {
         val rec = record ?: return
         val spec = rec.repeat ?: return
         repeating = true
-        scope.launch {
-            when (val r = H3Client.imageEstimate(prefs, spec.mp, spec.count, spec.route)) {
-                is H3Client.Result.Ok -> repeatPending = spec.copy(
-                    clientRequestId = java.util.UUID.randomUUID().toString(),
-                    groupId = rec.groupId.ifBlank { runId },
-                    estimate = r.value,
-                )
-                is H3Client.Result.Err -> Toast.makeText(ctx, "估算失敗：${r.message}", Toast.LENGTH_LONG).show()
-            }
-            repeating = false
-        }
-    }
-
-    fun submitRepeat(p: PendingH3Image) {
-        repeatPending = null
-        repeating = true
         ImagineApp.appScope.launch(Dispatchers.Main) {
+            val est = H3Client.imageEstimate(prefs, spec.mp, spec.count, spec.route)
+            if (est is H3Client.Result.Err) {
+                repeating = false
+                AppNotice.show("送出失敗：${est.message}")
+                return@launch
+            }
+            val p = spec.copy(
+                clientRequestId = java.util.UUID.randomUUID().toString(),
+                groupId = rec.groupId.ifBlank { runId },
+                estimate = (est as H3Client.Result.Ok).value,
+            )
             val outcome = H3ImageSubmit.run(ctx.applicationContext, prefs, p) {}
             repeating = false
             when (outcome) {
-                is H3Submit.Outcome.Created -> onOpenRepeat(outcome.runId)
+                is H3Submit.Outcome.Created -> if (stayHere) AppNotice.show("已再送出 1 張，可從「最近 H3 生圖」查看") else onOpenRepeat(outcome.runId)
                 is H3Submit.Outcome.Uncertain -> AppNotice.show("可能已送出，請先看最近生圖（${outcome.message}）")
                 is H3Submit.Outcome.Conflict -> AppNotice.show(outcome.message)
                 is H3Submit.Outcome.Rejected -> AppNotice.show("送出失敗：${outcome.message}")
@@ -240,27 +234,6 @@ fun H3ImageJobScreen(
         )
     }
 
-    repeatPending?.let { p ->
-        val est = p.estimate
-        AlertDialog(
-            onDismissRequest = { repeatPending = null },
-            title = { Text("用相同設定再做 1 張？") },
-            text = {
-                Text(
-                    "提示詞、參考圖和尺寸都相同，結果會是新的一張。\n" +
-                        "機器：${H3Format.routeShort(est?.route)}・約 ${H3Format.minutes(est?.minutes ?: 0.0)} 分\n" +
-                        "費用：" + when {
-                            (est?.ntd ?: 0.0) > 0 -> "NT$${H3Format.ntd(est?.ntd ?: 0.0)}"
-                            (est?.cu ?: 0.0) > 0 -> "${H3Format.cu(est?.cu ?: 0.0)} CU"
-                            else -> "免費"
-                        },
-                )
-            },
-            confirmButton = { TextActionButton(label = "確認送出", onClick = { submitRepeat(p) }) },
-            dismissButton = { TextActionButton(label = "不要", onClick = { repeatPending = null }) },
-        )
-    }
-
     viewerIndex?.let { idx ->
         FullscreenImageViewer(
             urls = allUris,
@@ -290,15 +263,28 @@ fun H3ImageJobScreen(
             )
         },
         bottomNav = null,
-        bottomAction = if (s != null && !s.isFinished) {
+        bottomAction = if (s != null && (!s.isFinished || record?.repeat != null)) {
             {
-                OutlinedActionButton(
-                    label = if (cancelling) "取消中…" else "取消任務",
-                    icon = "close",
-                    enabled = !cancelling,
-                    onClick = { confirmCancel = true },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!s.isFinished) {
+                        OutlinedActionButton(
+                            label = if (cancelling) "取消中…" else "取消任務",
+                            icon = "close",
+                            enabled = !cancelling,
+                            onClick = { confirmCancel = true },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (record?.repeat != null) {
+                        OutlinedActionButton(
+                            label = if (repeating) "送出中…" else "再生成一次",
+                            icon = "refresh",
+                            enabled = !repeating,
+                            onClick = { regenerate(stayHere = !s.isFinished) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
             }
         } else null,
     ) {
@@ -465,15 +451,6 @@ fun H3ImageJobScreen(
                                     },
                                 ),
                             )
-                            if (record?.repeat != null && savedUris.isNotEmpty()) {
-                                OutlinedActionButton(
-                                    label = if (repeating) "處理中…" else "繼續做相同",
-                                    icon = "add",
-                                    enabled = !repeating,
-                                    onClick = { estimateRepeat() },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
                         }
                     }
                 }
