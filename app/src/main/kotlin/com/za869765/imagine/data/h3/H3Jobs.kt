@@ -33,6 +33,9 @@ object H3Jobs {
         val reuploaded: Boolean = false,
         // v2.4.2 派給哪台機器（local／gputw_image／gputw／cloud；輪詢時跟伺服器更新）
         val route: String = "",
+        // v2.5.6「繼續做相同」：repeat=這張的設定（只存手機）；groupId=同一組並排顯示
+        val repeat: PendingH3Image? = null,
+        val groupId: String = "",
     )
 
     private const val PREFS = "imagine_h3_jobs"

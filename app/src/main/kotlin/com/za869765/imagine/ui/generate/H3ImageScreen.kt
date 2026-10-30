@@ -153,7 +153,7 @@ fun H3ImageScreen(
 
     var aspect by rememberSaveable { mutableStateOf(prefs.h3ImgAspect) }
     var mp by rememberSaveable { mutableStateOf(prefs.h3ImgMp) }
-    var count by rememberSaveable { mutableStateOf(prefs.h3ImgCount.coerceIn(1, 4)) }
+    var count by rememberSaveable { mutableStateOf(1) }  // v2.5.6 一般圖固定 1 張（要更多按成品的「繼續做相同」）；只有多視角用來選角度數
     var route by rememberSaveable { mutableStateOf(prefs.h3ImgRoute) }
     var allowText by rememberSaveable { mutableStateOf(false) }
     // v2.1.3 製作方式:txt 文生圖 / ref 參考圖生圖 / alpha 透明背景 / sheet 多視角角色圖
@@ -162,7 +162,7 @@ fun H3ImageScreen(
     val isSheet = mode == "sheet"
     val sendRefs = if (mode == "txt") emptyList() else if (isSheet) refStrings.take(1) else refStrings
     val sendMp = if (isSheet) 4 else mp
-    val sendCount = if (isSheet) count.coerceIn(1, 2) else count
+    val sendCount = if (isSheet) count.coerceIn(1, 2) else 1
     // 預估時間:參數一變就向伺服器問一次(不花錢),依生成紀錄平均
     var preview by remember { mutableStateOf<H3ImageEstimate?>(null) }
     LaunchedEffect(mode, mp, count, route) {
@@ -497,14 +497,6 @@ fun H3ImageScreen(
                     options = listOf("1", "4"),
                     onSelect = { mp = if (it == "4") 4 else 1; prefs.h3ImgMp = mp },
                     displayName = { if (it == "4") "2K（${H3Format.imageSize(aspect, 4)}，費時 4 倍）" else "1K（${H3Format.imageSize(aspect, 1)}）" },
-                    modifier = Modifier.weight(1f),
-                )
-                ParamPicker(
-                    label = "張數",
-                    value = count.toString(),
-                    options = (1..4).map { it.toString() },
-                    onSelect = { count = it.toIntOrNull() ?: 1; prefs.h3ImgCount = count },
-                    displayName = { "$it 張" },
                     modifier = Modifier.weight(1f),
                 )
             }

@@ -109,9 +109,6 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3ImgMp: Int
         get() = prefs.getInt(K_H3_IMG_MP, 1)
         set(v) = prefs.edit().putInt(K_H3_IMG_MP, v).apply()
-    var h3ImgCount: Int
-        get() = prefs.getInt(K_H3_IMG_COUNT, 1)
-        set(v) = prefs.edit().putInt(K_H3_IMG_COUNT, v).apply()
     var h3ImgRoute: String
         get() = prefs.getString(K_H3_IMG_ROUTE, "auto")!!
         set(v) = prefs.edit().putString(K_H3_IMG_ROUTE, v).apply()
@@ -232,7 +229,6 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_IMAGE_ENGINE = "image_engine"
         private const val K_H3_IMG_ASPECT = "h3_img_aspect"
         private const val K_H3_IMG_MP = "h3_img_mp"
-        private const val K_H3_IMG_COUNT = "h3_img_count"
         private const val K_H3_IMG_ROUTE = "h3_img_route"
 
         @Volatile private var instance: SecurePrefs? = null

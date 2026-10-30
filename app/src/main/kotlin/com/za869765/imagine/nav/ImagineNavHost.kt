@@ -448,6 +448,11 @@ fun ImagineRoot() {
                 com.za869765.imagine.ui.generate.H3ImageJobScreen(
                     runId = runId,
                     onBack = { navController.popBackStack() },
+                    onOpenRepeat = { id ->
+                        navController.navigate(Routes.h3ImageJob(id)) {
+                            popUpTo(Routes.H3_IMAGE_JOB) { inclusive = true }
+                        }
+                    },
                     onAnimate = { url, prompt ->
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
                             set(KEY_INIT_MEDIA, url)

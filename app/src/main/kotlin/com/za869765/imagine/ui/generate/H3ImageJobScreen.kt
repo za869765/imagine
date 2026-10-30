@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,7 +39,10 @@ import com.za869765.imagine.data.h3.H3Client
 import com.za869765.imagine.data.h3.H3Format
 import com.za869765.imagine.data.h3.H3ImageOut
 import com.za869765.imagine.data.h3.H3ImageStatus
+import com.za869765.imagine.data.h3.H3ImageSubmit
 import com.za869765.imagine.data.h3.H3Jobs
+import com.za869765.imagine.data.h3.H3Submit
+import com.za869765.imagine.data.h3.PendingH3Image
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
@@ -107,7 +112,12 @@ internal suspend fun forgetInStudioIfAsked(ctx: android.content.Context, prefs: 
  * 完成後把成品下載進所有作品(標 [H3])並顯示,「儲存到相簿」「分享」「圖片動起來」同 Grok 成品做法。
  */
 @Composable
-fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, String) -> Unit = { _, _ -> }) {
+fun H3ImageJobScreen(
+    runId: String,
+    onBack: () -> Unit,
+    onOpenRepeat: (String) -> Unit = {},
+    onAnimate: (String, String) -> Unit = { _, _ -> },
+) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
@@ -122,6 +132,50 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
     var confirmCancel by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
     val prompt = record?.prompt.orEmpty()
+    // v2.5.6 同一組先前做好的圖（和這張並排）；確認視窗顯示費用後才送出
+    val earlierUris = remember(runId) {
+        H3Jobs.all(ctx)
+            .filter { !record?.groupId.isNullOrBlank() && it.groupId == record?.groupId && it.runId != runId }
+            .sortedBy { it.createdAtMs }
+            .flatMap { it.savedUri.orEmpty().split('\n').filter { u -> u.isNotBlank() } }
+    }
+    val allUris = earlierUris + savedUris
+    var repeatPending by remember { mutableStateOf<PendingH3Image?>(null) }
+    var repeating by remember { mutableStateOf(false) }
+
+    fun estimateRepeat() {
+        val rec = record ?: return
+        val spec = rec.repeat ?: return
+        repeating = true
+        scope.launch {
+            when (val r = H3Client.imageEstimate(prefs, spec.mp, spec.count, spec.route)) {
+                is H3Client.Result.Ok -> repeatPending = spec.copy(
+                    clientRequestId = java.util.UUID.randomUUID().toString(),
+                    groupId = rec.groupId.ifBlank { runId },
+                    estimate = r.value,
+                )
+                is H3Client.Result.Err -> Toast.makeText(ctx, "估算失敗：${r.message}", Toast.LENGTH_LONG).show()
+            }
+            repeating = false
+        }
+    }
+
+    fun submitRepeat(p: PendingH3Image) {
+        repeatPending = null
+        repeating = true
+        ImagineApp.appScope.launch(Dispatchers.Main) {
+            val outcome = H3ImageSubmit.run(ctx.applicationContext, prefs, p) {}
+            repeating = false
+            when (outcome) {
+                is H3Submit.Outcome.Created -> onOpenRepeat(outcome.runId)
+                is H3Submit.Outcome.Uncertain -> AppNotice.show("可能已送出，請先看最近生圖（${outcome.message}）")
+                is H3Submit.Outcome.Conflict -> AppNotice.show(outcome.message)
+                is H3Submit.Outcome.Rejected -> AppNotice.show("送出失敗：${outcome.message}")
+                is H3Submit.Outcome.LocalError -> AppNotice.show(outcome.message)
+                else -> AppNotice.show("估算已變動，請重新估算")
+            }
+        }
+    }
 
     suspend fun saveAll(images: List<H3ImageOut>): List<String> {
         if (savedUris.isNotEmpty()) return savedUris
@@ -186,9 +240,30 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
         )
     }
 
+    repeatPending?.let { p ->
+        val est = p.estimate
+        AlertDialog(
+            onDismissRequest = { repeatPending = null },
+            title = { Text("用相同設定再做 1 張？") },
+            text = {
+                Text(
+                    "提示詞、參考圖和尺寸都相同，結果會是新的一張。\n" +
+                        "機器：${H3Format.routeShort(est?.route)}・約 ${H3Format.minutes(est?.minutes ?: 0.0)} 分\n" +
+                        "費用：" + when {
+                            (est?.ntd ?: 0.0) > 0 -> "NT$${H3Format.ntd(est?.ntd ?: 0.0)}"
+                            (est?.cu ?: 0.0) > 0 -> "${H3Format.cu(est?.cu ?: 0.0)} CU"
+                            else -> "免費"
+                        },
+                )
+            },
+            confirmButton = { TextActionButton(label = "確認送出", onClick = { submitRepeat(p) }) },
+            dismissButton = { TextActionButton(label = "不要", onClick = { repeatPending = null }) },
+        )
+    }
+
     viewerIndex?.let { idx ->
         FullscreenImageViewer(
-            urls = savedUris,
+            urls = allUris,
             startIndex = idx,
             onDismiss = { viewerIndex = null },
             actions = listOf(
@@ -233,6 +308,28 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // v2.5.6 同一組的圖兩欄並排(這張做好就接在最後)
+            if (earlierUris.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    allUris.withIndex().chunked(2).forEach { rowItems ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            rowItems.forEach { (i, uri) ->
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = prompt,
+                                    contentScale = ContentScale.FillWidth,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                        .clickable { viewerIndex = i },
+                                )
+                            }
+                            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
             // v2.5.4 進行中:大圓環＋倒數＋階段(百分比是估算,和任務清單同一個數字)
             if (s != null && !s.isFinished) {
                 val eta = s.eta
@@ -314,7 +411,7 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                                 modifier = Modifier.padding(14.dp),
                             )
                         }
-                        savedUris.forEachIndexed { i, uri ->
+                        if (earlierUris.isEmpty()) savedUris.forEachIndexed { i, uri ->
                             AsyncImage(
                                 model = uri,
                                 contentDescription = prompt,
@@ -368,6 +465,15 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                                     },
                                 ),
                             )
+                            if (record?.repeat != null && savedUris.isNotEmpty()) {
+                                OutlinedActionButton(
+                                    label = if (repeating) "處理中…" else "繼續做相同",
+                                    icon = "add",
+                                    enabled = !repeating,
+                                    onClick = { estimateRepeat() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         }
                     }
                 }

@@ -8,6 +8,7 @@ import com.za869765.imagine.data.prefs.SecurePrefs
  * v2.0.7 估算當下凍結的 H3 生圖參數(確認視窗看到什麼就送什麼)。
  * clientRequestId:每次「新估算」產生一次;重送同一筆沿用同一個 → 伺服器去重,不會重複建單。
  */
+@kotlinx.serialization.Serializable
 data class PendingH3Image(
     val prompt: String,
     val refs: List<String>,
@@ -20,6 +21,7 @@ data class PendingH3Image(
     val sheet: Boolean = false,
     val clientRequestId: String,
     val estimate: H3ImageEstimate?,
+    val groupId: String? = null,
 )
 
 /**
@@ -79,6 +81,8 @@ object H3ImageSubmit {
                             etaAt = r.value.estimate?.etaAt ?: est.etaAt,
                             keepInStudio = false,  // v2.5.5 存進手機後就請伺服器刪除
                             route = route,
+                            repeat = pending.copy(estimate = null),
+                            groupId = pending.groupId ?: runId,
                         ),
                     )
                     if (route == "gputw_image") H3MachineWatch.start(ctx) // v2.1.2 通知列倒數關機
