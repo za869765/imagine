@@ -18,14 +18,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.exp
 
 // 影片背景任務的輔助文字(硬約束:兩句必須保留)
 const val GENERATING_HINT_BACKGROUND =
     "可切背景／鎖屏，完成會發通知；請勿從「最近應用程式」滑掉 Imagine，否則背景工作會中斷"
 
 /**
- * GeneratingCard — 生成中狀態卡(UI_REDESIGN_PLAN 2.1):只顯示真實階段 + 已等待時間 + 不定進度條。
- * 不再依秒數估算百分比(舊卡封頂 97% 會長時間停在同一數值)。
+ * v2.5.2 依秒數估算百分比:預估時間內走到 90%,超過後越走越慢逼近 99%,
+ * 不會像舊卡封頂 97% 那樣卡死在同一數值。xAI／OpenRouter 不回真實進度,所以標「約」。
+ */
+private fun estimatedPct(elapsedSec: Int, estSec: Int): Int {
+    val t = elapsedSec.toDouble() / estSec
+    val pct = if (t <= 1.0) 90 * t else 99 - 9 * exp(1 - t)
+    return pct.toInt().coerceIn(1, 99)
+}
+
+/**
+ * GeneratingCard — 生成中狀態卡(UI_REDESIGN_PLAN 2.1):真實階段 + 已等待時間 + 進度條。
+ * 給 estSec 時加顯示估算百分比、進度條跟著走;沒給維持不定進度條。
  * stage:「已送出」「等待結果」「下載中」等,由 caller 依 Worker progress 映射。
  */
 @Composable
@@ -34,7 +45,9 @@ fun GeneratingCard(
     elapsedSec: Int,
     modifier: Modifier = Modifier,
     hint: String? = null,
+    estSec: Int? = null,
 ) {
+    val pct = estSec?.let { estimatedPct(elapsedSec, it) }
     ImagineCard(pad = 20, modifier = modifier) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -62,7 +75,17 @@ fun GeneratingCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
+            if (pct != null) {
+                Text(
+                    text = "約 $pct%",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                LinearProgressIndicator(progress = { pct / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
+            } else {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
+            }
             if (!hint.isNullOrBlank()) {
                 Text(
                     text = hint,

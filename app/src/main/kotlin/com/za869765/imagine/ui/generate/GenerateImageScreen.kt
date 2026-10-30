@@ -620,7 +620,7 @@ private fun GrokImageScreen(
                 }
 
                 if (loading) {
-                    GeneratingCard(stage = "生成中", elapsedSec = elapsed)
+                    GeneratingCard(stage = "生成中", elapsedSec = elapsed, estSec = 30)
                 }
 
                 pendingRiskTerm?.let { term ->

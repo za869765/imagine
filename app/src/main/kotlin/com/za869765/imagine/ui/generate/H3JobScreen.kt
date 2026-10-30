@@ -242,10 +242,12 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                             else -> MaterialTheme.colorScheme.onSurface
                         },
                     )
+                    // v2.5.2 整體百分比(估算,和任務清單同一個數字)
+                    val overallPct = if (s != null && !s.isFinished) rememberEtaPct(runId, record?.createdAtMs, s.eta?.etaAt ?: record?.etaAt) else null
                     // v2.1.9 預計完成(台北時間;前面還有幾個)
                     s?.takeIf { !it.isFinished }?.eta?.let { eta ->
                         Text(
-                            H3Format.eta(eta.etaAt, eta.etaMin, now = rememberNowMs()) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
+                            (overallPct?.let { "約 $it%・" } ?: "") + H3Format.eta(eta.etaAt, eta.etaMin, now = rememberNowMs()) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = MaterialTheme.colorScheme.primary,
@@ -265,7 +267,9 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                         )
                     }
                     if (s != null && !s.isFinished) {
-                        if (pct != null) {
+                        if (overallPct != null) {
+                            LinearProgressIndicator(progress = { overallPct / 100f }, modifier = Modifier.fillMaxWidth())
+                        } else if (pct != null) {
                             // pct 可能是 0~100 或 0~1
                             val frac = (if (pct > 1.0) pct / 100.0 else pct).coerceIn(0.0, 1.0).toFloat()
                             LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())

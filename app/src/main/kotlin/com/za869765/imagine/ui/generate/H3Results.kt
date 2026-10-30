@@ -247,7 +247,7 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
                     when {
                         job.isDone() -> if (saveState[job.runId] == "failed") "存檔失敗\n點一下重試" else "完成・存檔中…"
                         job.isFailed() -> H3Format.statusLabel(job.status)
-                        else -> H3Format.statusLabel(job.status) + "\n" + (job.etaAt?.let { H3Format.eta(it, now = rememberNowMs(), sep = "\n") } ?: "預計時間計算中")
+                        else -> H3Format.statusLabel(job.status) + (rememberEtaPct(job.runId, job.createdAtMs, job.etaAt)?.let { "・約 $it%" } ?: "") + "\n" + (job.etaAt?.let { H3Format.eta(it, now = rememberNowMs(), sep = "\n") } ?: "預計時間計算中")
                     },
                     fontSize = 12.sp,
                     lineHeight = 16.sp,

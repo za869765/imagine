@@ -36,6 +36,12 @@ object H3Format {
         return "預計 ${clock(etaAt)} 完成${sep}剩 $cd"
     }
 
+    /** v2.5.2 整體進度估算:送出到預計完成走了幾成(含排隊),1～99;沒做完不顯示 100,時間未知回 null。 */
+    fun etaPct(createdAtMs: Long?, etaAt: Long?, now: Long = System.currentTimeMillis()): Int? {
+        if (createdAtMs == null || createdAtMs <= 0 || etaAt == null || etaAt <= createdAtMs) return null
+        return ((now - createdAtMs) * 100 / (etaAt - createdAtMs)).coerceIn(1L, 99L).toInt()
+    }
+
     fun ntd(v: Double): String = String.format(Locale.US, "%.1f", v)
 
     fun minutes(v: Double): String = String.format(Locale.US, "%.1f", v)

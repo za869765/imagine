@@ -465,6 +465,7 @@ fun EditPane(
                 },
                 elapsedSec = elapsed,
                 hint = if (mode == EditMode.ImageEdit) null else GENERATING_HINT_BACKGROUND,
+                estSec = if (mode == EditMode.ImageEdit) 30 else 120,
             )
         }
         // 空白 prompt 也可送 — 用 initialPrompt 兜底

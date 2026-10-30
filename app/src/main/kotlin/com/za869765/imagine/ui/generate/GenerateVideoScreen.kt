@@ -962,11 +962,12 @@ private fun GrokVideoScreen(
                 }
 
                 if (generating) {
-                    // 真實階段 + 已等待時間(不再估算百分比,UI_REDESIGN_PLAN 2.1);背景提示兩句保留
+                    // 真實階段 + 已等待時間 + 估算百分比(v2.5.2);背景提示兩句保留
                     GeneratingCard(
                         stage = (if (isCombineExtend) "續集" else "影片") + VideoPollWorker.stageLabel(stage),
                         elapsedSec = elapsed,
                         hint = GENERATING_HINT_BACKGROUND,
+                        estSec = (30 + effDuration * 8).coerceIn(30, 180),
                     )
                 }
 

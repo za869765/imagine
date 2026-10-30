@@ -72,6 +72,15 @@ fun rememberNowMs(): Long {
     return t
 }
 
+/** v2.5.2 任務整體百分比(估算):預計完成時間被伺服器往後調時維持原值,不倒退。 */
+@Composable
+fun rememberEtaPct(runId: String, createdAtMs: Long?, etaAt: Long?): Int? {
+    val raw = com.za869765.imagine.data.h3.H3Format.etaPct(createdAtMs, etaAt, rememberNowMs()) ?: return null
+    val best = androidx.compose.runtime.remember(runId) { intArrayOf(0) }
+    if (raw > best[0]) best[0] = raw
+    return best[0]
+}
+
 /** v2.4.0 Cloudflare 用量警報(Studio 的 h3-cron 每小時檢查):看板每次更新時順便帶回,機器晶片上方顯示紅字。 */
 object H3UsageAlerts {
     var alerts by androidx.compose.runtime.mutableStateOf<List<String>>(emptyList())
@@ -187,7 +196,7 @@ fun RecentJobGroups(jobs: List<com.za869765.imagine.data.h3.H3Jobs.Job>, detail:
                         Text(detail(job), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
                         if (g.title == "生成中" || g.title == "排隊中") {
                             Text(
-                                if (job.etaAt != null) com.za869765.imagine.data.h3.H3Format.eta(job.etaAt, now = rememberNowMs()) else "預計完成時間計算中…",
+                                if (job.etaAt != null) (rememberEtaPct(job.runId, job.createdAtMs, job.etaAt)?.let { "約 $it%・" } ?: "") + com.za869765.imagine.data.h3.H3Format.eta(job.etaAt, now = rememberNowMs()) else "預計完成時間計算中…",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.W600,
                                 color = g.color,

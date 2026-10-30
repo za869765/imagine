@@ -246,10 +246,12 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                             else -> MaterialTheme.colorScheme.onSurface
                         },
                     )
+                    // v2.5.2 整體百分比(估算,和任務清單同一個數字)
+                    val overallPct = if (s != null && !s.isFinished) rememberEtaPct(runId, record?.createdAtMs, s.eta?.etaAt ?: record?.etaAt) else null
                     // v2.1.9 預計完成(台北時間;前面還有幾個)
                     s?.takeIf { !it.isFinished }?.eta?.let { eta ->
                         Text(
-                            H3Format.eta(eta.etaAt, eta.etaMin, now = rememberNowMs()) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
+                            (overallPct?.let { "約 $it%・" } ?: "") + H3Format.eta(eta.etaAt, eta.etaMin, now = rememberNowMs()) + (if (eta.ahead > 0) "・前面還有 ${eta.ahead} 個" else ""),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = MaterialTheme.colorScheme.primary,
@@ -259,7 +261,11 @@ fun H3ImageJobScreen(runId: String, onBack: () -> Unit, onAnimate: (String, Stri
                         Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
                     if (s != null && !s.isFinished) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        if (overallPct != null) {
+                            LinearProgressIndicator(progress = { overallPct / 100f }, modifier = Modifier.fillMaxWidth())
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
                     }
                     Text(
                         "機器：${H3Format.routeShort(s?.route)}" + (record?.let { "・${it.meta}" } ?: ""),
