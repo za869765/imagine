@@ -340,31 +340,7 @@ private fun ResultsGalleryContent(jobs: List<H3Jobs.Job>, onTap: (H3Jobs.Job) ->
             if (shown.isEmpty()) Text("這個分類還沒有成品", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
-                // v2.6.4 同種子兩件以上自動成一組（有種子紀錄的才算），其餘依時間排在組與組之間
-                val blocks = buildList<Pair<Long?, List<H3Jobs.Job>>> {
-                    shown.groupBy { it.seed?.toString() ?: it.runId }.values.forEach { g ->
-                        val last = lastOrNull()
-                        when {
-                            g.size > 1 -> add(g.first().seed to g)
-                            last != null && last.first == null -> set(lastIndex, null to last.second + g)
-                            else -> add(null to g)
-                        }
-                    }
-                }
-                blocks.forEachIndexed { i, (seed, group) ->
-                    if (seed != null || i > 0) {
-                        item(key = "header_$i", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                            Text(
-                                if (seed != null) "種子 $seed・${group.size} 件" else "其他",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.W600,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                        }
-                    }
-                    items(group, key = { it.runId }) { j -> ResultTile(j, Modifier.fillMaxWidth().aspectRatio(0.75f)) { onTap(j) } }
-                }
+                items(shown, key = { it.runId }) { j -> ResultTile(j, Modifier.fillMaxWidth().aspectRatio(0.75f)) { onTap(j) } }
             }
 }
 
@@ -476,6 +452,26 @@ fun ResultViewerDialog(
                 fontSize = 13.sp, lineHeight = 18.sp, maxLines = if (showFull) 8 else 2, color = Color(0xFFCFCBDB),
                 modifier = Modifier.fillMaxWidth().clickable { showFull = !showFull }.padding(horizontal = 8.dp, vertical = 8.dp),
             )
+            // v2.6.5 同種子的其他成品縮圖，點一下跳過去（清單順序仍是新到舊；沒有種子紀錄就不顯示）
+            val sameSeed = cur.seed?.let { seed -> items.withIndex().filter { (i, j) -> j.seed == seed && i != pager.currentPage && j.firstUri() != null } }.orEmpty()
+            if (sameSeed.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("同種子", fontSize = 12.sp, color = Color(0xFFA9A5B8))
+                    sameSeed.forEach { (i, j) ->
+                        AsyncImage(
+                            model = j.firstUri(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1C1C25))
+                                .clickable { scope.launch { pager.scrollToPage(i) } },
+                        )
+                    }
+                }
+            }
             msg?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9FE3B0), modifier = Modifier.padding(horizontal = 8.dp)) }
             val uri = cur.firstUri()
             val acts = buildList<Pair<String, () -> Unit>> {
