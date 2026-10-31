@@ -300,7 +300,15 @@ fun H3GenerateScreen(
 
             // v2.0.4 AI 導演台:網頁版流程=一句需求→3 方案→分鏡微調→確認 CU 才開跑
             // v2.0.5 改切到 App 內「H3 Studio」分頁(內嵌網頁),不再開外部瀏覽器
-            ImagineCard(pad = 14, onClick = { onNavSelected(NavTab.H3) }) {
+            // v2.7.3 不常用,收進「其他工具」,展開才看到
+            var showDirector by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+            Text(
+                if (showDirector) "其他工具 ▴" else "其他工具 ▾",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { showDirector = !showDirector }.padding(vertical = 6.dp),
+            )
+            if (showDirector) ImagineCard(pad = 14, onClick = { onNavSelected(NavTab.H3) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("🎬 AI 導演台（多段短片）", fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
