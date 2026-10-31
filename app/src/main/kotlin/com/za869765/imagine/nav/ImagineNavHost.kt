@@ -460,6 +460,11 @@ fun ImagineRoot() {
                 com.za869765.imagine.ui.generate.H3JobScreen(
                     runId = runId,
                     onBack = { navController.popBackStack() },
+                    onOpenRepeat = { id ->
+                        navController.navigate(Routes.H3_JOB.replace("{runId}", id)) {
+                            popUpTo(Routes.H3_JOB) { inclusive = true }
+                        }
+                    },
                 )
             }
 

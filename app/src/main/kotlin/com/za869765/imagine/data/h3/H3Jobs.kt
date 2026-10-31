@@ -43,6 +43,8 @@ object H3Jobs {
         // v2.7.5 影片「調整後再生成」要帶回的參考圖與角色（只存手機）
         val sources: List<String> = emptyList(),
         val subjectId: String? = null,
+        // v2.8.0 影片「再生成一次」的完整設定（只存手機）
+        val repeatVideo: PendingH3? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"

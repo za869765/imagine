@@ -1,6 +1,7 @@
 package com.za869765.imagine.ui.generate
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -122,7 +123,7 @@ const val H3_PROMPT_TAG = "[H3] "
  * 完成後串流播放(帶權杖)並自動存進所有作品(標 [H3]),「下載」= 存到手機相簿(同 Grok 成品做法)。
  */
 @Composable
-fun H3JobScreen(runId: String, onBack: () -> Unit) {
+fun H3JobScreen(runId: String, onBack: () -> Unit, onOpenRepeat: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val scope = rememberCoroutineScope()
@@ -134,6 +135,36 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
     var confirmCancel by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
     val prompt = record?.prompt.orEmpty()
+    var repeating by remember { mutableStateOf(false) }
+    var pickingSeed by remember { mutableStateOf(false) }
+    var alwaysRandom by remember { mutableStateOf(prefs.h3RegenAlwaysRandom) }
+
+    // v2.8.0 再生成一次：同提示詞、同素材、同機器直接送出（和生圖一致，不再確認）；還在做就留在這頁
+    fun regenerate(stayHere: Boolean, sameSeed: Long? = null) {
+        val base = record?.repeatVideo ?: return
+        val spec = base.copy(seed = sameSeed)
+        repeating = true
+        ImagineApp.appScope.launch(Dispatchers.Main) {
+            val est = H3Client.estimate(prefs, spec.seconds, spec.quality, spec.route, spec.segments)
+            if (est is H3Client.Result.Err) {
+                repeating = false
+                AppNotice.show("送出失敗：${est.message}")
+                return@launch
+            }
+            val p = spec.copy(clientRequestId = java.util.UUID.randomUUID().toString(), estimate = (est as H3Client.Result.Ok).value)
+            val outcome = H3Submit.run(ctx.applicationContext, prefs, p) {}
+            repeating = false
+            when (outcome) {
+                is H3Submit.Outcome.Created -> if (stayHere) AppNotice.show("已再送出 1 支，可從最近成品查看") else onOpenRepeat(outcome.runId)
+                is H3Submit.Outcome.Blocked -> AppNotice.show(outcome.message)
+                is H3Submit.Outcome.Uncertain -> AppNotice.show("可能已送出，請先看最近成品（${outcome.message}）")
+                is H3Submit.Outcome.Conflict -> AppNotice.show(outcome.message)
+                is H3Submit.Outcome.Rejected -> AppNotice.show("送出失敗：${outcome.message}")
+                is H3Submit.Outcome.LocalError -> AppNotice.show(outcome.message)
+                is H3Submit.Outcome.EstimateChanged -> AppNotice.show("估算已變動，請再按一次")
+            }
+        }
+    }
 
     // 成品存進所有作品:走 app 層 scope + 全域互斥(自動存檔與「下載/分享」同時觸發也只會下載一次)
     suspend fun saveToHistory(videoPath: String): String? {
@@ -201,6 +232,15 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
     }
 
     val s = status
+    if (pickingSeed) {
+        val stayHere = s?.isFinished != true
+        H3RegenerateSeedDialog(
+            prompt = prompt,
+            onRandom = { pickingSeed = false; regenerate(stayHere = stayHere) },
+            onSeed = { seed -> pickingSeed = false; regenerate(stayHere = stayHere, sameSeed = seed) },
+            onDismiss = { pickingSeed = false },
+        )
+    }
     ImagineScreen(
         appBar = {
             ImagineTopAppBar(
@@ -211,15 +251,39 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
             )
         },
         bottomNav = null,
-        bottomAction = if (s != null && !s.isFinished) {
+        bottomAction = if (s != null && (!s.isFinished || record?.repeatVideo != null)) {
             {
-                OutlinedActionButton(
-                    label = if (cancelling) "取消中…" else "取消任務",
-                    icon = "close",
-                    enabled = !cancelling,
-                    onClick = { confirmCancel = true },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Column {
+                    if (record?.repeatVideo != null) {
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { alwaysRandom = !alwaysRandom; prefs.h3RegenAlwaysRandom = alwaysRandom },
+                        ) {
+                            androidx.compose.material3.Checkbox(checked = alwaysRandom, onCheckedChange = { alwaysRandom = it; prefs.h3RegenAlwaysRandom = it })
+                            Text("一律隨機種子（按再生成一次直接送出）", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!s.isFinished) {
+                            OutlinedActionButton(
+                                label = if (cancelling) "取消中…" else "取消任務",
+                                icon = "close",
+                                enabled = !cancelling,
+                                onClick = { confirmCancel = true },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        if (record?.repeatVideo != null) {
+                            OutlinedActionButton(
+                                label = if (repeating) "送出中…" else "再生成一次",
+                                icon = "refresh",
+                                enabled = !repeating,
+                                onClick = { if (alwaysRandom) regenerate(stayHere = !s.isFinished) else pickingSeed = true },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
             }
         } else null,
     ) {

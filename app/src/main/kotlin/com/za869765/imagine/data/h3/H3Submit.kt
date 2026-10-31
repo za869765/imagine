@@ -8,6 +8,7 @@ import com.za869765.imagine.data.prefs.SecurePrefs
  * 估算當下凍結的送出參數(確認視窗看到什麼就送什麼)。
  * clientRequestId:每次「新估算」產生一次;重送同一筆已確認的送出沿用同一個 → 伺服器去重,不會重複扣 CU。
  */
+@kotlinx.serialization.Serializable
 data class PendingH3(
     val prompt: String,
     val sources: List<String>,
@@ -115,6 +116,7 @@ object H3Submit {
                             route = pending.route,
                             sources = pending.sources,
                             subjectId = pending.subjectId,
+                            repeatVideo = pending.copy(estimate = null),
                         ),
                     )
                     Outcome.Created(runId, r.value.duplicate)
