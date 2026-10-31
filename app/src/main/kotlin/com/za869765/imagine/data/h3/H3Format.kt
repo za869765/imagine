@@ -12,12 +12,12 @@ object H3Format {
     fun tierQuality(t: String): String = when (t) { "low" -> "fast"; else -> "normal" }
     fun tierName(t: String): String = when (t) {
         "ultra" -> "超高畫質・bf16（Colab A100）"
-        "low" -> "低畫質・Q4 草稿（筆電，免費）"
+        "low" -> "低畫質・Q5 草稿（筆電，免費）"
         else -> "高畫質・int8（GPUtw 5090，建議）"
     }
     fun tierDesc(t: String): String = when (t) {
         "ultra" -> "官方 bf16 20 步・畫質基準・每 5 秒約 10 分・扣 CU"
-        "low" -> "Q4 GGUF＋Acc 8 步、544×928・每 5 秒約 10 分・最長 8 秒・筆電要開著"
+        "low" -> "Q5 GGUF＋Acc 8 步、544×928・每 5 秒約 10 分・最長 8 秒・筆電要開著"
         else -> "int8 未剪枝混合版 20 步＋Sol-Attn・每 5 秒約 2.8 分・扣台幣・經濟實用"
     }
 

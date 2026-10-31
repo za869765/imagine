@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
@@ -13,24 +13,17 @@ android {
         applicationId = "com.za869765.imagine"
         minSdk = 26
         targetSdk = 35
-        // 版次顯示整合為 1.X.X(各 1 位十進位數字,如累計 141 → "1.4.1");滿 9 進位:1.4.9→1.5.0→…1.9.9→2.0.0。
-        // versionCode 仍各自單調 +1(Android 規定,與顯示版次脫鉤)。
-        versionCode = 262
-        versionName = "2.7.6"
+        // ?活憿舐內?游???1.X.X(??1 雿??脖??詨?,憒敞閮?141 ??"1.4.1");皛?9 ?脖?:1.4.9??.5.0??.9.9??.0.0??        // versionCode 隞??芸隤?+1(Android 閬?,?＊蝷箇?甈∟????        versionCode = 263
+        versionName = "2.7.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 
     signingConfigs {
-        // 純自用 — 用 repo 內 commit 的固定 keystore，所有 CI build 簽名一致。
-        // 之前用 Android SDK 預設 debug.keystore，但 CI runner 每次跑新建 random
-        // debug key → v1.0.24 跟 v1.0.26 簽名不符 → Android 拒裝「應用程式套件
-        // 與現有套件衝突」。
-        // ⚠️ v1.0.29 起 repo 已 public — keystore 跟密碼也跟著公開。理論上有人能拿這把
-        // key 偽造同簽名 APK，但純自用 sideload + APK 只從 GitHub release 拿 → 風險可接受。
-        // 若要 rotate keystore：所有現有裝置需「先卸載再裝新版」，否則「套件衝突」拒裝。
-        create("imagine") {
+        // 蝝??????repo ??commit ?摰?keystore嚗???CI build 蝪賢?銝?氬?        // 銋???Android SDK ?身 debug.keystore嚗? CI runner 瘥活頝撱?random
+        // debug key ??v1.0.24 頝?v1.0.26 蝪賢?銝泵 ??Android ?????函?撘?隞?        // ???隞嗉?蝒?        // ?? v1.0.29 韏?repo 撌?public ??keystore 頝?蝣潔?頝??祇???隢??犖?賣??
+        // key ?賡?蝪賢? APK嚗?蝝??sideload + APK ?芸? GitHub release ????憸券?舀??        // ?亥? rotate keystore嚗????蝵桅????貉????啁????血???隞嗉?蝒?鋆?        create("imagine") {
             storeFile = file("imagine.keystore")
             storePassword = "imagine123"
             keyAlias = "imagine"
@@ -43,11 +36,9 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
-            // v1.0.44: debug 也綁同一把 imagine.keystore — 不然 CI 每次跑用隨機
-            // debug.keystore 簽，升 debug APK 必踩「套件衝突」→ 被迫 uninstall →
-            // 歷史資料全清。debug 跟 release 因為 applicationIdSuffix 不同
-            // 仍是兩個 app 並存，不互覆蓋，沒副作用。
-            signingConfig = signingConfigs.getByName("imagine")
+            // v1.0.44: debug 銋?????imagine.keystore ??銝 CI 瘥活頝?冽?
+            // debug.keystore 蝪踝???debug APK 敹萱??隞嗉?蝒? 鋡怨翰 uninstall ??            // 甇瑕鞈??冽??ebug 頝?release ? applicationIdSuffix 銝?
+            // 隞?拙?app 銝血?嚗?鈭???瘝雿??            signingConfig = signingConfigs.getByName("imagine")
         }
         release {
             isMinifyEnabled = true
@@ -66,9 +57,7 @@ android {
     }
 
     lint {
-        // 純自用 — release build 不為 lint fatal error 中斷 (例如 deprecated API、
-        // tooling 暫時無法分析的 case)。lint report 仍會產出供檢視。
-        checkReleaseBuilds = false
+        // 蝝????release build 銝 lint fatal error 銝剜 (靘? deprecated API??        // tooling ?急??⊥?????case)?int report 隞??Ｗ靘炎閬?        checkReleaseBuilds = false
         abortOnError = false
     }
 
@@ -139,8 +128,8 @@ dependencies {
     // Media
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
-    implementation(libs.coil.video) // v2.3.0 成品縮圖：影片抓畫格
-    implementation(libs.coil.svg)   // v1.8.1: OpenRouter 向量模型(Recraft)回 SVG 也能預覽(ServiceLoader 自動註冊)
+    implementation(libs.coil.video) // v2.3.0 ??蝮桀?嚗蔣???急
+    implementation(libs.coil.svg)   // v1.8.1: OpenRouter ??璅∪?(Recraft)??SVG 銋?汗(ServiceLoader ?芸?閮餃?)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 
