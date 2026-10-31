@@ -38,6 +38,8 @@ object H3Jobs {
         val groupId: String = "",
         // v2.5.9 這件實際用的種子（完成後由伺服器回傳，只存手機）
         val seed: Long? = null,
+        // v2.6.8 結束時間（伺服器最後事件的時間；舊任務沒有就 null）
+        val finishedAtMs: Long? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"
@@ -50,6 +52,11 @@ object H3Jobs {
     fun all(ctx: Context): List<Job> =
         runCatching { H3Client.json.decodeFromString<List<Job>>(prefs(ctx).getString(KEY, null) ?: "[]") }
             .getOrDefault(emptyList())
+            .sortedByDescending { it.createdAtMs }  // v2.6.8 一律新到舊
+
+    /** v2.6.8 第一次看到任務結束時記下結束時間，之後不再變動。 */
+    fun finishedAt(j: Job, status: String, eventTs: Long?): Long? =
+        j.finishedAtMs ?: if (status in listOf("done", "failed", "cancelled")) eventTs ?: System.currentTimeMillis() else null
 
     fun find(ctx: Context, runId: String): Job? = all(ctx).firstOrNull { it.runId == runId }
 
@@ -82,10 +89,11 @@ object H3Jobs {
         prefs(ctx).edit().putString(KEY_SEEDS, list.joinToString(",")).apply()
     }
 
-    /** v2.6.1「再生成一次」的種子選項：記住的在前，再來是用過的；uri＝這個種子最新一件成品（清單已沒有就 null）。 */
-    fun seedChoices(ctx: Context): List<Pair<Long, String?>> {
-        val jobs = all(ctx).filter { it.seed != null }
-        return (savedSeeds(ctx) + jobs.mapNotNull { it.seed }).distinct().map { seed ->
+    /** v2.6.8「再生成一次」的種子選項：只列同提示詞用過的（記住的在前）；uri＝這個種子最新一件成品。 */
+    fun seedChoices(ctx: Context, prompt: String): List<Pair<Long, String?>> {
+        val jobs = all(ctx).filter { it.seed != null && it.prompt.trim() == prompt.trim() }
+        val used = jobs.mapNotNull { it.seed }
+        return (savedSeeds(ctx).filter { it in used } + used).distinct().map { seed ->
             seed to jobs.firstOrNull { it.seed == seed && !it.savedUri.isNullOrBlank() }?.savedUri?.lineSequence()?.firstOrNull { it.isNotBlank() }
         }
     }

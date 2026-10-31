@@ -157,7 +157,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                     is H3Client.Result.Ok -> {
                         status = r.value
                         pollError = null
-                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status, etaAt = r.value.eta?.etaAt ?: it.etaAt, seed = r.value.seed ?: it.seed) }
+                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status, etaAt = r.value.eta?.etaAt ?: it.etaAt, seed = r.value.seed ?: it.seed, finishedAtMs = H3Jobs.finishedAt(it, r.value.status, r.value.lastEvent?.ts)) }
                         if (r.value.isFinished) {
                             pollStopped = true
                             val v = r.value.videoUrl

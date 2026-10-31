@@ -95,9 +95,9 @@ private fun SeedChips(title: String, seeds: List<Long>, onPick: (String) -> Unit
 
 /** v2.6.1「再生成一次」：選隨機或記憶的種子，旁邊附該種子的成品預覽，選了就直接送出。 */
 @Composable
-fun H3RegenerateSeedDialog(onRandom: () -> Unit, onSeed: (Long) -> Unit, onDismiss: () -> Unit) {
+fun H3RegenerateSeedDialog(prompt: String, onRandom: () -> Unit, onSeed: (Long) -> Unit, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
-    val choices = remember { H3Jobs.seedChoices(ctx) }
+    val choices = remember(prompt) { H3Jobs.seedChoices(ctx, prompt) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("再生成一次") },
@@ -114,6 +114,9 @@ fun H3RegenerateSeedDialog(onRandom: () -> Unit, onSeed: (Long) -> Unit, onDismi
                             .clickable(onClick = onRandom)
                             .padding(horizontal = 8.dp, vertical = 12.dp),
                     )
+                }
+                if (choices.isEmpty()) {
+                    item { Text("這個提示詞還沒有記憶種子", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp)) }
                 }
                 items(choices) { (seed, uri) ->
                     Row(

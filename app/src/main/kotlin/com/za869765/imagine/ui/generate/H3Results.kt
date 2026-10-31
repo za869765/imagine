@@ -117,6 +117,15 @@ private suspend fun saveJobOutputs(app: android.content.Context, prefs: SecurePr
 }
 
 private fun H3Jobs.Job.firstUri(): String? = savedUri?.split('\n')?.firstOrNull { it.isNotBlank() }
+/** v2.6.8 生成開始～結束（跨日才再寫一次日期；還沒結束或舊任務只寫開始）。 */
+private fun H3Jobs.Job.timeRange(): String {
+    val day = java.text.SimpleDateFormat("M/d", java.util.Locale.TAIWAN)
+    val full = java.text.SimpleDateFormat("M/d HH:mm", java.util.Locale.TAIWAN)
+    val clock = java.text.SimpleDateFormat("HH:mm", java.util.Locale.TAIWAN)
+    val start = java.util.Date(createdAtMs)
+    val end = finishedAtMs?.let { java.util.Date(it) } ?: return full.format(start)
+    return full.format(start) + "–" + (if (day.format(start) == day.format(end)) clock else full).format(end)
+}
 private fun H3Jobs.Job.statusColor(): Color = when {
     isDone() -> GREEN
     isFailed() -> RED
@@ -240,6 +249,10 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
                     modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(Color(0x99000000), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             }
+            Text(
+                job.timeRange(), fontSize = 10.sp, color = Color.White, maxLines = 2, lineHeight = 13.sp,
+                modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(horizontal = 4.dp, vertical = 1.dp),
+            )
         } else {
             Column(modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)) {
                 Text((if (job.kind == "image") "圖片" else "影片") + (job.machine()?.let { "・$it" } ?: ""), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -427,7 +440,7 @@ fun ResultViewerDialog(
                         fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.W600,
                     )
                     Text(
-                        java.text.SimpleDateFormat("M/d HH:mm", java.util.Locale.TAIWAN).format(java.util.Date(cur.createdAtMs)) +
+                        cur.timeRange() +
                             (if (cur.meta.isNotBlank()) "・${cur.meta}" else "") +
                             when { cur.reuploaded -> "・已補上傳 Studio"; cur.forgotten -> "・只在手機"; else -> "・Studio 有一份" },
                         fontSize = 12.sp, color = Color(0xFFA9A5B8), maxLines = 1,
@@ -731,13 +744,13 @@ fun H3ResultsSection(
                     val j = H3Jobs.find(ctx, id) ?: continue
                     if (j.kind == "image") {
                         val r = (H3Client.imageRun(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
-                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route, seed = r.seed ?: it.seed) }
+                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route, seed = r.seed ?: it.seed, finishedAtMs = H3Jobs.finishedAt(it, r.status, r.lastEvent?.ts)) }
                         if (r.status == "done" && r.images.isNotEmpty() && j.firstUri() == null && saveState[id] == null) {
                             ImagineApp.appScope.launch { saveJobOutputs(app, prefs, id) }
                         }
                     } else {
                         val r = (H3Client.job(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
-                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route, seed = r.seed ?: it.seed) }
+                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route, seed = r.seed ?: it.seed, finishedAtMs = H3Jobs.finishedAt(it, r.status, r.lastEvent?.ts)) }
                         if (r.status == "done" && j.firstUri() == null && saveState[id] == null) {
                             ImagineApp.appScope.launch { saveJobOutputs(app, prefs, id) }
                         }

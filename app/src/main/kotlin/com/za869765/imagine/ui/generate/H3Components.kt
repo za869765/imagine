@@ -275,12 +275,12 @@ fun RecentJobsPoller(prefs: com.za869765.imagine.data.prefs.SecurePrefs, jobs: L
         owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             while (true) {
                 for ((id, kind) in pending) {
-                    val (st, eta) = if (kind == "image") {
-                        (com.za869765.imagine.data.h3.H3Client.imageRun(prefs, id) as? com.za869765.imagine.data.h3.H3Client.Result.Ok)?.value?.let { it.status to it.eta } ?: (null to null)
+                    val (st, eta, ts) = if (kind == "image") {
+                        (com.za869765.imagine.data.h3.H3Client.imageRun(prefs, id) as? com.za869765.imagine.data.h3.H3Client.Result.Ok)?.value?.let { Triple(it.status, it.eta, it.lastEvent?.ts) } ?: Triple(null, null, null)
                     } else {
-                        (com.za869765.imagine.data.h3.H3Client.job(prefs, id) as? com.za869765.imagine.data.h3.H3Client.Result.Ok)?.value?.let { it.status to it.eta } ?: (null to null)
+                        (com.za869765.imagine.data.h3.H3Client.job(prefs, id) as? com.za869765.imagine.data.h3.H3Client.Result.Ok)?.value?.let { Triple(it.status, it.eta, it.lastEvent?.ts) } ?: Triple(null, null, null)
                     }
-                    if (st != null) com.za869765.imagine.data.h3.H3Jobs.update(ctx, id) { it.copy(status = st, etaAt = eta?.etaAt ?: it.etaAt) }
+                    if (st != null) com.za869765.imagine.data.h3.H3Jobs.update(ctx, id) { it.copy(status = st, etaAt = eta?.etaAt ?: it.etaAt, finishedAtMs = com.za869765.imagine.data.h3.H3Jobs.finishedAt(it, st, ts)) }
                 }
                 onChanged()
                 kotlinx.coroutines.delay(30_000)
