@@ -389,7 +389,6 @@ fun ResultViewerDialog(
     items: List<H3Jobs.Job>,
     start: Int,
     onDismiss: () -> Unit,
-    onOpenJob: (H3Jobs.Job) -> Unit,
     onReusePrompt: ((String) -> Unit)? = null,
     onAnimate: ((String, String) -> Unit)? = null,
     onGrokEdit: ((String, String) -> Unit)? = null,
@@ -494,17 +493,6 @@ fun ResultViewerDialog(
                     editGrok = false; aspectMpOf(cur, prefs).let { (a, m) -> editAspect = a; editMp = m }; editCount = 1; editOpen = true })
                 // v2.7.0 存到相簿、補上傳 Studio 合併成「上傳」：點開選一種，按確定才執行
                 if (uri != null) add("上傳" to { uploadJob = cur; uploadPick = null })
-                // v2.6.7 這格只管種子；沒有種子紀錄就寫明，不再換成複製提示詞
-                val copySeed = cur.seed
-                add((if (copySeed != null) "複製種子" else "無記憶種子") to {
-                    if (copySeed != null) {
-                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        cm.setPrimaryClip(android.content.ClipData.newPlainText("seed", copySeed.toString()))
-                        msg = "種子已複製"
-                    } else {
-                        msg = "這件沒有種子紀錄"
-                    }
-                })
                 if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { onReusePrompt(cur.prompt) })
                 if (onAnimate != null && cur.kind == "image" && uri != null) add("動起來" to { onAnimate(uri, cur.prompt) })
                 if (!cur.forgotten) add("移出 Studio" to {
@@ -519,7 +507,6 @@ fun ResultViewerDialog(
                         Unit
                     }
                 })
-                add("任務詳情" to { onOpenJob(cur) })
                 add("從清單移除" to {
                     confirm = "從最近成品移除這件？\n手機「所有作品」裡的檔案不會刪，Studio 也不受影響。" to {
                         H3Jobs.remove(ctx, cur.runId); gone = gone + cur.runId; msg = "已從清單移除"; onChanged()
@@ -820,7 +807,6 @@ fun H3ResultsSection(
         ResultViewerDialog(
             list, i,
             onDismiss = { viewer = null; jobs = H3Jobs.all(ctx) },
-            onOpenJob = { viewer = null; showAll = false; openJob(it) },
             onReusePrompt = onReusePrompt?.let { f -> { p: String -> viewer = null; showAll = false; f(p) } },
             onAnimate = onAnimate?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
             onGrokEdit = onGrokEdit?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
