@@ -1158,6 +1158,7 @@ internal fun LibraryImagePickerSheet(
     var images by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
     var posesOpen by remember { mutableStateOf(false) }
+    var clothingOpen by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf<Int?>(null) }  // v2.4.5 點縮圖先全圖預覽，上下滑換張
     val navBottom = rememberHostNavBottom()
 
@@ -1184,6 +1185,10 @@ internal fun LibraryImagePickerSheet(
                 com.za869765.imagine.ui.component.PosePickerContent(onPicked = onPickPose, onBack = { posesOpen = false })
                 return@Column
             }
+            if (clothingOpen && onPickPose != null) {
+                com.za869765.imagine.ui.component.ClothingPickerContent(onPicked = onPickPose, onBack = { clothingOpen = false })
+                return@Column
+            }
             SectionHeader("從素材庫選圖")
             // 手機相簿入口：app 生成圖在 filesDir/media(PhotoPicker 看不到)走下方縮圖；
             // 要選手機相簿/外部圖則點此關閉 sheet 後叫系統 PhotoPicker。
@@ -1199,6 +1204,14 @@ internal fun LibraryImagePickerSheet(
                 label = "姿勢庫（人偶姿勢參考）",
                 icon = "image",
                 onClick = { posesOpen = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            )
+            if (onPickPose != null) OutlinedActionButton(
+                label = "服裝參考（春夏秋冬・派對）",
+                icon = "image",
+                onClick = { clothingOpen = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
