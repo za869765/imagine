@@ -489,16 +489,15 @@ fun ResultViewerDialog(
                         Unit
                     }
                 })
-                // v2.6.0 有種子就複製種子；舊作品沒有種子紀錄才維持複製提示詞
+                // v2.6.7 這格只管種子；沒有種子紀錄就寫明，不再換成複製提示詞
                 val copySeed = cur.seed
-                add((if (copySeed != null) "複製種子" else "複製提示詞") to {
-                    val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                add((if (copySeed != null) "複製種子" else "無記憶種子") to {
                     if (copySeed != null) {
+                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                         cm.setPrimaryClip(android.content.ClipData.newPlainText("seed", copySeed.toString()))
                         msg = "種子已複製"
                     } else {
-                        cm.setPrimaryClip(android.content.ClipData.newPlainText("prompt", cur.prompt))
-                        msg = "提示詞已複製"
+                        msg = "這件沒有種子紀錄"
                     }
                 })
                 if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { onReusePrompt(cur.prompt) })
