@@ -69,7 +69,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val H3_MAX_IMAGES = 9
-private const val H3_SOURCES_DRAFT = "h3_video_sources"
+internal const val H3_SOURCES_DRAFT = "h3_video_sources"
+internal const val H3_ADJUST_SUBJECT = "h3_video_adjust_subject"
 
 /**
  * v2.0.0 H3 Studio 生影(MiniMax H3 on Colab A100)。
@@ -120,7 +121,10 @@ fun H3GenerateScreen(
     var segCount by rememberSaveable { mutableStateOf(1) }
     var beats by rememberSaveable { mutableStateOf(List(4) { "" }) }
     var subjects by remember { mutableStateOf<List<com.za869765.imagine.data.h3.H3Subject>>(emptyList()) }
-    var subjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    // v2.7.5「調整後再生成」帶回角色：讀一次就清掉，不影響之後的新任務
+    var subjectId by rememberSaveable {
+        mutableStateOf(DraftStore.load(ctx, H3_ADJUST_SUBJECT).also { DraftStore.save(ctx, H3_ADJUST_SUBJECT, "") })
+    }
     LaunchedEffect(Unit) {
         if (prefs.isH3TokenSet) (H3Client.subjects(prefs) as? H3Client.Result.Ok)?.value?.let { subjects = it.subjects }
     }

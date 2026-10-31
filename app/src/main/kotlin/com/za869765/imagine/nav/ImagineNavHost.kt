@@ -303,6 +303,33 @@ fun ImagineRoot() {
                     onOpenVideoJob = { id -> navController.navigate(Routes.H3_JOB.replace("{runId}", id)) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
+                    // v2.7.5 調整後再生成：帶提示詞與參考圖進生圖／生影頁
+                    onAdjust = { job ->
+                        if (job.kind == "image") {
+                            prefs.imageEngine = com.za869765.imagine.ui.generate.ENGINE_H3
+                            val refs = job.repeat?.refs.orEmpty()
+                            com.za869765.imagine.data.prefs.DraftStore.saveList(ctx, "h3_image_refs", refs)
+                            com.za869765.imagine.data.prefs.DraftStore.save(ctx, "h3_image_mode", if (refs.isEmpty()) "txt" else "ref")
+                            com.za869765.imagine.data.prefs.DraftStore.save(ctx, com.za869765.imagine.data.prefs.DraftStore.IMAGE_PROMPT, job.prompt)
+                            navController.navigate(Routes.GENERATE_IMAGE)
+                        } else {
+                            com.za869765.imagine.data.prefs.DraftStore.saveList(ctx, com.za869765.imagine.ui.generate.H3_SOURCES_DRAFT, job.sources)
+                            com.za869765.imagine.data.prefs.DraftStore.save(ctx, com.za869765.imagine.ui.generate.H3_ADJUST_SUBJECT, job.subjectId.orEmpty())
+                            navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                set(KEY_INIT_PROMPT, job.prompt)
+                                set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3)
+                            }
+                            navController.navigate(Routes.GENERATE_VIDEO)
+                        }
+                    },
+                    onAnimate = { url, prompt ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set(KEY_INIT_MEDIA, url)
+                            set(KEY_INIT_PROMPT, prompt)
+                            set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3)
+                        }
+                        navController.navigate(Routes.GENERATE_VIDEO)
+                    },
                 )
             }
 

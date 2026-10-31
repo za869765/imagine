@@ -40,6 +40,9 @@ object H3Jobs {
         val seed: Long? = null,
         // v2.6.8 結束時間（伺服器最後事件的時間；舊任務沒有就 null）
         val finishedAtMs: Long? = null,
+        // v2.7.5 影片「調整後再生成」要帶回的參考圖與角色（只存手機）
+        val sources: List<String> = emptyList(),
+        val subjectId: String? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"

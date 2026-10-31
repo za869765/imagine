@@ -219,6 +219,8 @@ fun H3ImageScreen(
         }
     }
 
+    LaunchedEffect(route) { if (route == "local" && mp == 4) { mp = 1; prefs.h3ImgMp = 1 } }
+
     // retry != null:重新估算同一筆(沿用 client_request_id;換機器也走這裡);null:依目前畫面參數開新的一筆(新 id)
     fun startEstimate(retry: PendingH3Image? = null) {
         if (estimating) return
@@ -496,7 +498,7 @@ fun H3ImageScreen(
                 ParamPicker(
                     label = "畫質",
                     value = mp.toString(),
-                    options = listOf("1", "4"),
+                    options = if (route == "local") listOf("1") else listOf("1", "4"),  // v2.7.5 筆電最高 1K，不給選 2K
                     onSelect = { mp = if (it == "4") 4 else 1; prefs.h3ImgMp = mp },
                     displayName = { if (it == "4") "2K（${H3Format.imageSize(aspect, 4)}，費時 4 倍）" else "1K（${H3Format.imageSize(aspect, 1)}）" },
                     modifier = Modifier.weight(1f),
@@ -742,6 +744,8 @@ private fun H3ImageConfirmSheet(
                     (if (pending.refs.isNotEmpty()) "・參考 ${pending.refs.size} 張" else "") +
                     (if (pending.allowText) "・允許文字" else "・無文字"),
             )
+            // 選「自動」卻派到筆電時，實話實說
+            if (pending.mp == 4 && e.route == "local") ConfirmLine("注意", "這張派到筆電，實際只會輸出 1K；要 2K 請改選製圖機或 Colab", strong = true)
             if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin, now = rememberNowMs()) + "（含前面排隊）", strong = true)
             ConfirmLine("餘額", balanceLine)
 

@@ -113,6 +113,8 @@ object H3Submit {
                             etaAt = confirmed.etaAt,
                             keepInStudio = false,
                             route = pending.route,
+                            sources = pending.sources,
+                            subjectId = pending.subjectId,
                         ),
                     )
                     Outcome.Created(runId, r.value.duplicate)

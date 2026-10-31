@@ -365,6 +365,8 @@ fun H3ResultsScreen(
     onOpenVideoJob: (String) -> Unit,
     onSettingsClick: () -> Unit,
     onNavSelected: (com.za869765.imagine.ui.component.NavTab) -> Unit,
+    onAdjust: ((H3Jobs.Job) -> Unit)? = null,
+    onAnimate: ((String, String) -> Unit)? = null,
 ) {
     com.za869765.imagine.ui.component.ImagineScreen(
         appBar = { com.za869765.imagine.ui.component.ImagineTopAppBar(title = "最近成品", onSettingsClick = onSettingsClick) },
@@ -372,7 +374,7 @@ fun H3ResultsScreen(
         scroll = false,
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            H3ResultsSection(prefs, onOpenImageJob, onOpenVideoJob, asPage = true)
+            H3ResultsSection(prefs, onOpenImageJob, onOpenVideoJob, onAnimate = onAnimate, asPage = true, onAdjust = onAdjust)
         }
     }
 }
@@ -389,6 +391,7 @@ fun ResultViewerDialog(
     items: List<H3Jobs.Job>,
     start: Int,
     onDismiss: () -> Unit,
+    onAdjust: ((H3Jobs.Job) -> Unit)? = null,
     onReusePrompt: ((String) -> Unit)? = null,
     onAnimate: ((String, String) -> Unit)? = null,
     onGrokEdit: ((String, String) -> Unit)? = null,
@@ -502,6 +505,8 @@ fun ResultViewerDialog(
                 // v2.7.0 存到相簿、補上傳 Studio 合併成「上傳」：點開選一種，按確定才執行
                 if (uri != null) add("上傳" to { uploadJob = cur; uploadPick = null })
                 if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { cur.seed?.let { reuseH3Seed(prefs, it) }; onReusePrompt(cur.prompt) })
+                // v2.7.5 最近成品分頁：帶提示詞、種子、參考圖回生成頁，調整後再送
+                if (onAdjust != null) add("調整後再生成" to { cur.seed?.let { reuseH3Seed(prefs, it) }; onAdjust(cur) })
                 if (onAnimate != null && cur.kind == "image" && uri != null) add("圖生影" to { onAnimate(uri, cur.prompt) })
                 if (!cur.forgotten) add("移出 Studio" to {
                     confirm = "把 Studio 那份刪掉、只留在手機？\n雲端硬碟的檔會移到垃圾桶（30 天內可救回）。之後可再按「補上傳 Studio」。" to {
@@ -592,9 +597,9 @@ fun ResultViewerDialog(
                                     )
                                 }
                             }
-                            chips("用哪台機器修", listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab"), editRoute) { editRoute = it }
+                            chips("用哪台機器修", listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab"), editRoute) { editRoute = it; if (it == "local") editMp = 1 }
                             chips("比例", listOf("9:16", "16:9", "1:1", "3:4", "4:3").map { it to it }, editAspect) { editAspect = it }
-                            chips("畫質", listOf("1" to "1K", "4" to "2K"), editMp.toString()) { editMp = it.toInt() }
+                            chips("畫質", if (editRoute == "local") listOf("1" to "1K（筆電最高）") else listOf("1" to "1K", "4" to "2K"), editMp.toString()) { editMp = it.toInt() }
                             chips("張數", (1..4).map { "$it" to "$it 張" }, editCount.toString()) { editCount = it.toInt() }
                         }
                         if (!editGrok) editEst?.let { Text(it.text, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }
@@ -765,6 +770,7 @@ fun H3ResultsSection(
     onAnimate: ((String, String) -> Unit)? = null,
     onGrokEdit: ((String, String) -> Unit)? = null,
     asPage: Boolean = false,
+    onAdjust: ((H3Jobs.Job) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     var jobs by remember { mutableStateOf(H3Jobs.all(ctx)) }
@@ -833,6 +839,7 @@ fun H3ResultsSection(
         ResultViewerDialog(
             list, i,
             onDismiss = { viewer = null; jobs = H3Jobs.all(ctx) },
+            onAdjust = onAdjust?.let { go -> { j -> viewer = null; go(j) } },
             onReusePrompt = onReusePrompt?.let { f -> { p: String -> viewer = null; showAll = false; f(p) } },
             onAnimate = onAnimate?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
             onGrokEdit = onGrokEdit?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
