@@ -340,7 +340,31 @@ private fun ResultsGalleryContent(jobs: List<H3Jobs.Job>, onTap: (H3Jobs.Job) ->
             if (shown.isEmpty()) Text("這個分類還沒有成品", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
-                items(shown, key = { it.runId }) { j -> ResultTile(j, Modifier.fillMaxWidth().aspectRatio(0.75f)) { onTap(j) } }
+                // v2.6.4 同種子兩件以上自動成一組（有種子紀錄的才算），其餘依時間排在組與組之間
+                val blocks = buildList<Pair<Long?, List<H3Jobs.Job>>> {
+                    shown.groupBy { it.seed?.toString() ?: it.runId }.values.forEach { g ->
+                        val last = lastOrNull()
+                        when {
+                            g.size > 1 -> add(g.first().seed to g)
+                            last != null && last.first == null -> set(lastIndex, null to last.second + g)
+                            else -> add(null to g)
+                        }
+                    }
+                }
+                blocks.forEachIndexed { i, (seed, group) ->
+                    if (seed != null || i > 0) {
+                        item(key = "header_$i", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            Text(
+                                if (seed != null) "種子 $seed・${group.size} 件" else "其他",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W600,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
+                    }
+                    items(group, key = { it.runId }) { j -> ResultTile(j, Modifier.fillMaxWidth().aspectRatio(0.75f)) { onTap(j) } }
+                }
             }
 }
 
@@ -708,13 +732,13 @@ fun H3ResultsSection(
                     val j = H3Jobs.find(ctx, id) ?: continue
                     if (j.kind == "image") {
                         val r = (H3Client.imageRun(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
-                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route) }
+                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route, seed = r.seed ?: it.seed) }
                         if (r.status == "done" && r.images.isNotEmpty() && j.firstUri() == null && saveState[id] == null) {
                             ImagineApp.appScope.launch { saveJobOutputs(app, prefs, id) }
                         }
                     } else {
                         val r = (H3Client.job(prefs, id) as? H3Client.Result.Ok)?.value ?: continue
-                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route) }
+                        H3Jobs.update(ctx, id) { it.copy(status = r.status, etaAt = r.eta?.etaAt ?: it.etaAt, route = r.route ?: it.route, seed = r.seed ?: it.seed) }
                         if (r.status == "done" && j.firstUri() == null && saveState[id] == null) {
                             ImagineApp.appScope.launch { saveJobOutputs(app, prefs, id) }
                         }

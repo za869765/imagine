@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 
 /**
- * 最近送出的 H3 任務(存 prefs JSON,最多 30 筆)。離開任務頁後可從 H3 生成頁「最近 H3 任務」回來看進度;
+ * 最近送出的 H3 任務(存 prefs JSON,最多 100 筆)。離開任務頁後可從 H3 生成頁「最近 H3 任務」回來看進度;
  * savedUri 記錄成品已存進所有作品(避免重複下載)。
  */
 object H3Jobs {
@@ -43,7 +43,7 @@ object H3Jobs {
     private const val PREFS = "imagine_h3_jobs"
     private const val KEY = "jobs"
     private const val KEY_SEEDS = "saved_seeds"
-    private const val MAX = 30
+    private const val MAX = 100
 
     private fun prefs(ctx: Context) = ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
