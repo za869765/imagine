@@ -192,6 +192,7 @@ fun H3GenerateScreen(
             subjectName = subjects.firstOrNull { it.id == subjectId }?.name,
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
+            seed = prefs.h3SeedToSend,
         )
         estimating = true
         scope.launch {
@@ -444,6 +445,8 @@ fun H3GenerateScreen(
                     modifier = Modifier.weight(1f),
                 )
             }
+
+            H3SeedPicker(prefs)
 
             // v2.1.8 長片每段內容:空白的段落由導演大腦從上面的描述拆;第 2 段起自動接續上一段結尾(畫面＋聲音)
             if (segCount > 1) {

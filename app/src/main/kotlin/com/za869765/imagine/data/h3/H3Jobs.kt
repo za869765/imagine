@@ -36,10 +36,13 @@ object H3Jobs {
         // v2.5.6「繼續做相同」：repeat=這張的設定（只存手機）；groupId=同一組並排顯示
         val repeat: PendingH3Image? = null,
         val groupId: String = "",
+        // v2.5.9 這件實際用的種子（完成後由伺服器回傳，只存手機）
+        val seed: Long? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"
     private const val KEY = "jobs"
+    private const val KEY_SEEDS = "saved_seeds"
     private const val MAX = 30
 
     private fun prefs(ctx: Context) = ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -67,6 +70,16 @@ object H3Jobs {
     @Synchronized
     fun remove(ctx: Context, runId: String) {
         write(ctx, all(ctx).filterNot { it.runId == runId })
+    }
+
+    // v2.5.9 記住的種子（不隨任務清單的 30 筆上限消失）：最新在前，最多 30 個
+    fun savedSeeds(ctx: Context): List<Long> =
+        prefs(ctx).getString(KEY_SEEDS, "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
+
+    @Synchronized
+    fun saveSeed(ctx: Context, seed: Long) {
+        val list = (listOf(seed) + savedSeeds(ctx).filterNot { it == seed }).take(30)
+        prefs(ctx).edit().putString(KEY_SEEDS, list.joinToString(",")).apply()
     }
 
     private fun write(ctx: Context, jobs: List<Job>) {

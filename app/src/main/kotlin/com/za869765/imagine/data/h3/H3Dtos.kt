@@ -80,6 +80,8 @@ data class H3JobRequest(
     @SerialName("subject_id") val subjectId: String? = null,
     // v2.5.0 勾「不留在 Studio」→ 伺服器標 app_only，Studio 專案列表不顯示
     @SerialName("keep_in_studio") val keepInStudio: Boolean = true,
+    // v2.5.9 固定種子(null=隨機);長片每段依序 +1
+    val seed: Long? = null,
 )
 
 @Serializable
@@ -126,6 +128,7 @@ data class H3JobStatus(
     val route: String? = null,
     /** v2.4.4 長片機器端沒串成完整版時，各段影片網址（依段落順序），APP 自己接 */
     @SerialName("segment_urls") val segmentUrls: List<String>? = null,
+    val seed: Long? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 
@@ -218,6 +221,7 @@ data class H3ImageRequest(
     val route: String,
     val confirm: Boolean,
     @SerialName("client_request_id") val clientRequestId: String,
+    val seed: Long? = null,
 )
 
 @Serializable
@@ -247,6 +251,7 @@ data class H3ImageStatus(
     @SerialName("last_event") val lastEvent: H3Event? = null,
     val images: List<H3ImageOut> = emptyList(),
     val eta: H3Eta? = null,
+    val seed: Long? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 }

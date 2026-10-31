@@ -109,6 +109,15 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3ImgMp: Int
         get() = prefs.getInt(K_H3_IMG_MP, 1)
         set(v) = prefs.edit().putInt(K_H3_IMG_MP, v).apply()
+    // v2.5.9 固定種子：開關和數字都記住；關閉或沒填數字時 h3SeedToSend=null（隨機）
+    var h3SeedFixed: Boolean
+        get() = prefs.getBoolean("h3_seed_fixed", false)
+        set(v) = prefs.edit().putBoolean("h3_seed_fixed", v).apply()
+    var h3SeedValue: String
+        get() = prefs.getString("h3_seed_value", "")!!
+        set(v) = prefs.edit().putString("h3_seed_value", v).apply()
+    val h3SeedToSend: Long?
+        get() = if (h3SeedFixed) h3SeedValue.toLongOrNull() else null
     var h3ImgRoute: String
         get() = prefs.getString(K_H3_IMG_ROUTE, "auto")!!
         set(v) = prefs.edit().putString(K_H3_IMG_ROUTE, v).apply()

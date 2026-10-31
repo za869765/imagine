@@ -22,6 +22,7 @@ data class PendingH3Image(
     val clientRequestId: String,
     val estimate: H3ImageEstimate?,
     val groupId: String? = null,
+    val seed: Long? = null,
 )
 
 /**
@@ -58,6 +59,7 @@ object H3ImageSubmit {
             route = pending.route,
             confirm = true,
             clientRequestId = pending.clientRequestId,
+            seed = pending.seed,
         )
         return when (val r = H3Client.submitImage(prefs, req)) {
             is H3Client.Result.Ok -> {

@@ -24,6 +24,7 @@ data class PendingH3(
     val subjectName: String? = null,
     val clientRequestId: String,
     val estimate: H3Estimate?,
+    val seed: Long? = null,
 )
 
 /**
@@ -92,6 +93,7 @@ object H3Submit {
             subjectId = pending.subjectId,
             // v2.5.3 影片一律不留在 Studio；只有使用者按「補上傳 Studio」才上傳
             keepInStudio = false,
+            seed = pending.seed,
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {

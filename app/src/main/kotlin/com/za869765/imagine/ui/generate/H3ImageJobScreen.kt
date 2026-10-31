@@ -142,9 +142,11 @@ fun H3ImageJobScreen(
     var repeating by remember { mutableStateOf(false) }
 
     // v2.5.7 再生成一次：同提示詞、同條件直接送出，不選機器、不確認（使用者決定）。還在做就留在這頁，做完才跳到新的一張並排
-    fun regenerate(stayHere: Boolean) {
+    // v2.5.9 sameSeed=true：用這張的種子和機器重現；否則換新隨機種子
+    fun regenerate(stayHere: Boolean, sameSeed: Long? = null) {
         val rec = record ?: return
-        val spec = rec.repeat ?: return
+        val base = rec.repeat ?: return
+        val spec = if (sameSeed != null) base.copy(seed = sameSeed, route = rec.route.ifBlank { base.route }) else base.copy(seed = null)
         repeating = true
         ImagineApp.appScope.launch(Dispatchers.Main) {
             val est = H3Client.imageEstimate(prefs, spec.mp, spec.count, spec.route)
@@ -192,7 +194,7 @@ fun H3ImageJobScreen(
                     is H3Client.Result.Ok -> {
                         status = r.value
                         pollError = null
-                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status, etaAt = r.value.eta?.etaAt ?: it.etaAt) }
+                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status, etaAt = r.value.eta?.etaAt ?: it.etaAt, seed = r.value.seed ?: it.seed) }
                         if (r.value.isFinished) {
                             pollStopped = true
                             if (r.value.status == "done" && r.value.images.isNotEmpty() && savedUris.isEmpty()) {
@@ -417,6 +419,17 @@ fun H3ImageJobScreen(
                                 SelectionContainer {
                                     Text(prompt, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                                 }
+                            }
+                            val usedSeed = s.seed ?: record?.seed
+                            H3SeedRow(usedSeed, prefs)
+                            if (usedSeed != null && record?.repeat != null) {
+                                OutlinedActionButton(
+                                    label = if (repeating) "送出中…" else "用這個種子重做",
+                                    icon = "refresh",
+                                    enabled = !repeating,
+                                    onClick = { regenerate(stayHere = false, sameSeed = usedSeed) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
                             }
                             Text(
                                 when {

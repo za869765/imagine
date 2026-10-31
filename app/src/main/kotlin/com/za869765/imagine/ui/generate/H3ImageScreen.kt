@@ -247,6 +247,7 @@ fun H3ImageScreen(
             sheet = isSheet,
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
+            seed = prefs.h3SeedToSend,
         )
         estimating = true
         scope.launch {
@@ -500,6 +501,8 @@ fun H3ImageScreen(
                     modifier = Modifier.weight(1f),
                 )
             }
+
+            H3SeedPicker(prefs)
 
             // v2.1.3 預估時間(依生成紀錄平均;未滿 20 張標樣本不足)
             preview?.let { pv ->

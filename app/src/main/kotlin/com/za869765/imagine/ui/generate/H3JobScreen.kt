@@ -157,7 +157,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                     is H3Client.Result.Ok -> {
                         status = r.value
                         pollError = null
-                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status, etaAt = r.value.eta?.etaAt ?: it.etaAt) }
+                        H3Jobs.update(ctx, runId) { it.copy(status = r.value.status, etaAt = r.value.eta?.etaAt ?: it.etaAt, seed = r.value.seed ?: it.seed) }
                         if (r.value.isFinished) {
                             pollStopped = true
                             val v = r.value.videoUrl
@@ -330,6 +330,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                                     Text(prompt, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
+                            H3SeedRow(s?.seed ?: record?.seed, prefs)
                             Text(
                                 when {
                                     saving -> "正在存到所有作品…"
