@@ -557,7 +557,7 @@ fun H3ImageScreen(
             }
 
             // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
-            H3ResultsSection(prefs, onOpenImageJob = onOpenJob, onOpenVideoJob = onOpenVideoJob, onReusePrompt = { prompt = it }, onAnimate = onAnimate, onGrokEdit = onGrokEdit)
+            H3ResultsSection(prefs, onOpenImageJob = onOpenJob, onOpenVideoJob = onOpenVideoJob, onReusePrompt = { prompt = it }, onAnimate = onAnimate, onGrokEdit = onGrokEdit, defaultKind = "img")
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(

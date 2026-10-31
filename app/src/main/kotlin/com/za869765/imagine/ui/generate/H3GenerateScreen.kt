@@ -509,7 +509,7 @@ fun H3GenerateScreen(
             // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
             H3ResultsSection(prefs, onOpenImageJob = onOpenImageJob, onOpenVideoJob = onOpenJob, onReusePrompt = { prompt = it },
                 onAnimate = { uri, _ -> if (sourceStrings.size < H3_MAX_IMAGES && uri !in sourceStrings) sourceStrings = sourceStrings + uri },
-                onGrokEdit = onGrokEdit)
+                onGrokEdit = onGrokEdit, defaultKind = "vid")
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(

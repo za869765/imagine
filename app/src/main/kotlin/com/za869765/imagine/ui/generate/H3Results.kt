@@ -274,7 +274,7 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
 
 /** 生成頁底部：最近成品一排縮圖（圖片＋影片），右邊「全部」開成品頁。 */
 @Composable
-fun ResultsStrip(jobs: List<H3Jobs.Job>, onOpenAll: () -> Unit, onTap: (H3Jobs.Job) -> Unit) {
+fun ResultsStrip(jobs: List<H3Jobs.Job>, onOpenAll: () -> Unit, onTap: (H3Jobs.Job) -> Unit, defaultKind: String = "all") {
     if (jobs.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
         androidx.compose.material3.HorizontalDivider(thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -283,7 +283,8 @@ fun ResultsStrip(jobs: List<H3Jobs.Job>, onOpenAll: () -> Unit, onTap: (H3Jobs.J
             Text("全部 ${jobs.size} ▸", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onOpenAll).padding(8.dp))
         }
         Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            jobs.take(10).forEach { j -> ResultTile(j, Modifier.width(96.dp).height(128.dp)) { onTap(j) } }
+            // v2.7.6 生圖頁先列圖、生影頁先列影；按「全部」可切換
+            jobs.filter { defaultKind == "all" || (defaultKind == "img") == (it.kind == "image") }.take(10).forEach { j -> ResultTile(j, Modifier.width(96.dp).height(128.dp)) { onTap(j) } }
         }
     }
 }
@@ -291,7 +292,7 @@ fun ResultsStrip(jobs: List<H3Jobs.Job>, onOpenAll: () -> Unit, onTap: (H3Jobs.J
 /** 成品頁：全部／圖片／影片＋狀態篩選，三欄縮圖格。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (H3Jobs.Job) -> Unit) {
+fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (H3Jobs.Job) -> Unit, defaultKind: String = "all") {
     val navBottom = rememberHostNavBottom()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(
@@ -307,7 +308,7 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
                         .clickable(onClick = onDismiss).padding(horizontal = 18.dp, vertical = 12.dp),
                 )
             }
-            ResultsGalleryContent(jobs, onTap)
+            ResultsGalleryContent(jobs, onTap, defaultKind)
         }
     }
 }
@@ -315,8 +316,8 @@ fun ResultsGalleryDialog(jobs: List<H3Jobs.Job>, onDismiss: () -> Unit, onTap: (
 /** 成品篩選＋三欄縮圖格；全螢幕對話框和「最近成品」分頁共用。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResultsGalleryContent(jobs: List<H3Jobs.Job>, onTap: (H3Jobs.Job) -> Unit) {
-    var kind by remember { mutableStateOf("all") }
+private fun ResultsGalleryContent(jobs: List<H3Jobs.Job>, onTap: (H3Jobs.Job) -> Unit, defaultKind: String = "all") {
+    var kind by remember { mutableStateOf(defaultKind) }
     var st by remember { mutableStateOf("all") }
     val nImg = jobs.count { it.kind == "image" }
             com.za869765.imagine.ui.component.SegmentedTab(
@@ -771,6 +772,7 @@ fun H3ResultsSection(
     onGrokEdit: ((String, String) -> Unit)? = null,
     asPage: Boolean = false,
     onAdjust: ((H3Jobs.Job) -> Unit)? = null,
+    defaultKind: String = "all",
 ) {
     val ctx = LocalContext.current
     var jobs by remember { mutableStateOf(H3Jobs.all(ctx)) }
@@ -833,8 +835,8 @@ fun H3ResultsSection(
     if (asPage) {
         if (jobs.isEmpty()) Text("還沒有成品。到「素材生成」用 H3 生圖或生影片，做好會出現在這裡。", fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else ResultsGalleryContent(jobs, tap)
-    } else ResultsStrip(jobs, onOpenAll = { showAll = true }, onTap = tap)
-    if (showAll) ResultsGalleryDialog(jobs, onDismiss = { showAll = false }, onTap = tap)
+    } else ResultsStrip(jobs, onOpenAll = { showAll = true }, onTap = tap, defaultKind = defaultKind)
+    if (showAll) ResultsGalleryDialog(jobs, onDismiss = { showAll = false }, onTap = tap, defaultKind = defaultKind)
     viewer?.let { (list, i) ->
         ResultViewerDialog(
             list, i,
