@@ -71,6 +71,7 @@ import kotlinx.coroutines.withContext
 private const val H3_MAX_IMAGES = 9
 internal const val H3_SOURCES_DRAFT = "h3_video_sources"
 internal const val H3_ADJUST_SUBJECT = "h3_video_adjust_subject"
+internal const val H3_EXTEND_BASE = "h3_video_extend_base"
 
 /**
  * v2.0.0 H3 Studio 生影(MiniMax H3 on Colab A100)。
@@ -127,6 +128,10 @@ fun H3GenerateScreen(
     }
     LaunchedEffect(Unit) {
         if (prefs.isH3TokenSet) (H3Client.subjects(prefs) as? H3Client.Result.Ok)?.value?.let { subjects = it.subjects }
+    }
+    // v2.8.0 往後續做：原片 uri，讀一次就清掉草稿
+    var extendBase by rememberSaveable {
+        mutableStateOf(DraftStore.load(ctx, H3_EXTEND_BASE).also { DraftStore.save(ctx, H3_EXTEND_BASE, "") })
     }
     // v2.1.9 機器看板＋素材小卡(預設收起)
     val board = rememberMachineBoard(prefs)
@@ -185,13 +190,15 @@ fun H3GenerateScreen(
             sources = sourceStrings,
             seconds = if (tier == "low") seconds.coerceAtMost(8) else seconds,
             quality = H3Format.tierQuality(tier),
-            mode = mode,
+            // 續做用最後一格當首幀；筆電沒裝首幀模型，改當參考圖
+            mode = if (extendBase != null && subjectId == null && tier != "low") "first" else if (extendBase != null) "ref" else mode,
             aspect = aspect,
             route = H3Format.tierRoute(tier),
             blink = blink,
             gpus = colabGpus,
-            segments = segCount,
-            beats = beats.take(segCount),
+            segments = if (extendBase != null) 1 else segCount,
+            beats = if (extendBase != null) emptyList() else beats.take(segCount),
+            extendBase = extendBase,
             subjectId = subjectId,
             subjectName = subjects.firstOrNull { it.id == subjectId }?.name,
             clientRequestId = java.util.UUID.randomUUID().toString(),
@@ -213,6 +220,7 @@ fun H3GenerateScreen(
         when (outcome) {
             is H3Submit.Outcome.Created -> {
                 pendingConfirm = null
+                extendBase = null
                 if (uncertainPending?.clientRequestId == pending.clientRequestId) uncertainPending = null
                 Toast.makeText(
                     ctx,
@@ -299,6 +307,17 @@ fun H3GenerateScreen(
             )
             engineSelector()
 
+            if (extendBase != null) {
+                ImagineCard(pad = 14) {
+                    Column {
+                        Text("往後續做：已用原片最後一格當參考，寫下接下來的內容；做好會自動接在原片後面。", fontSize = 13.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "不續做了", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { extendBase = null }.padding(top = 6.dp),
+                        )
+                    }
+                }
+            }
             // v2.1.9 下單前先看哪台空著:筆電(低畫質)、影片機(高畫質)、Colab(超高畫質)
             MachineChips(board, listOf("gputw", "local", "cloud"), highlight = H3Format.tierRoute(tier))
 
@@ -509,7 +528,8 @@ fun H3GenerateScreen(
             // v2.3.0 成品集中看：圖片＋影片縮圖、分類、點擊放大
             H3ResultsSection(prefs, onOpenImageJob = onOpenImageJob, onOpenVideoJob = onOpenJob, onReusePrompt = { prompt = it },
                 onAnimate = { uri, _ -> if (sourceStrings.size < H3_MAX_IMAGES && uri !in sourceStrings) sourceStrings = sourceStrings + uri },
-                onGrokEdit = onGrokEdit, defaultKind = "vid")
+                onGrokEdit = onGrokEdit, defaultKind = "vid",
+                onExtend = { job, frame -> extendBase = job.firstSavedUri(); sourceStrings = listOf(frame); subjectId = job.subjectId; prompt = "" })
 
             if (showLibraryPicker) {
                 LibraryImagePickerSheet(

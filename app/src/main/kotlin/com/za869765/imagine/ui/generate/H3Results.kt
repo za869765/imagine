@@ -117,6 +117,25 @@ private suspend fun saveJobOutputs(app: android.content.Context, prefs: SecurePr
 }
 
 private fun H3Jobs.Job.firstUri(): String? = savedUri?.split('\n')?.firstOrNull { it.isNotBlank() }
+internal fun H3Jobs.Job.firstSavedUri(): String? = firstUri()
+
+/** v2.8.0 往後續做：把影片最後一格存成本機圖，回傳 uri 字串；讀不到回 null。 */
+internal suspend fun lastFrameOf(ctx: android.content.Context, videoUri: String): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    runCatching {
+        val r = android.media.MediaMetadataRetriever()
+        try {
+            r.setDataSource(ctx, Uri.parse(videoUri))
+            val ms = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            val bmp = r.getFrameAtTime((ms - 50).coerceAtLeast(0) * 1000, android.media.MediaMetadataRetriever.OPTION_CLOSEST) ?: return@runCatching null
+            val dir = java.io.File(ctx.filesDir, "h3_frames").apply { mkdirs() }
+            val out = java.io.File(dir, "last_${System.currentTimeMillis()}.jpg")
+            out.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it) }
+            Uri.fromFile(out).toString()
+        } finally {
+            r.release()
+        }
+    }.getOrNull()
+}
 /** v2.6.8 生成開始～結束（跨日才再寫一次日期；還沒結束或舊任務只寫開始）。 */
 private fun H3Jobs.Job.timeRange(): String {
     val day = java.text.SimpleDateFormat("M/d", java.util.Locale.TAIWAN)
@@ -368,6 +387,7 @@ fun H3ResultsScreen(
     onNavSelected: (com.za869765.imagine.ui.component.NavTab) -> Unit,
     onAdjust: ((H3Jobs.Job) -> Unit)? = null,
     onAnimate: ((String, String) -> Unit)? = null,
+    onExtend: ((H3Jobs.Job, String) -> Unit)? = null,
 ) {
     com.za869765.imagine.ui.component.ImagineScreen(
         appBar = { com.za869765.imagine.ui.component.ImagineTopAppBar(title = "最近成品", onSettingsClick = onSettingsClick) },
@@ -375,7 +395,7 @@ fun H3ResultsScreen(
         scroll = false,
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            H3ResultsSection(prefs, onOpenImageJob, onOpenVideoJob, onAnimate = onAnimate, asPage = true, onAdjust = onAdjust)
+            H3ResultsSection(prefs, onOpenImageJob, onOpenVideoJob, onAnimate = onAnimate, asPage = true, onAdjust = onAdjust, onExtend = onExtend)
         }
     }
 }
@@ -393,6 +413,7 @@ fun ResultViewerDialog(
     start: Int,
     onDismiss: () -> Unit,
     onAdjust: ((H3Jobs.Job) -> Unit)? = null,
+    onExtend: ((H3Jobs.Job, String) -> Unit)? = null,
     onReusePrompt: ((String) -> Unit)? = null,
     onAnimate: ((String, String) -> Unit)? = null,
     onGrokEdit: ((String, String) -> Unit)? = null,
@@ -508,6 +529,15 @@ fun ResultViewerDialog(
                 if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { cur.seed?.let { reuseH3Seed(prefs, it) }; onReusePrompt(cur.prompt) })
                 // v2.7.5 最近成品分頁：帶提示詞、種子、參考圖回生成頁，調整後再送
                 if (onAdjust != null) add("調整後再生成" to { cur.seed?.let { reuseH3Seed(prefs, it) }; onAdjust(cur) })
+                if (onExtend != null && cur.kind != "image" && uri != null) add("往後續做" to {
+                    busy = "往後續做"
+                    scope.launch {
+                        val frame = lastFrameOf(ctx.applicationContext, uri)
+                        busy = null
+                        if (frame != null) onExtend(cur, frame) else msg = "讀不到影片最後一格，無法續做"
+                    }
+                    Unit
+                })
                 if (onAnimate != null && cur.kind == "image" && uri != null) add("圖生影" to { onAnimate(uri, cur.prompt) })
                 if (!cur.forgotten) add("移出 Studio" to {
                     confirm = "把 Studio 那份刪掉、只留在手機？\n雲端硬碟的檔會移到垃圾桶（30 天內可救回）。之後可再按「補上傳 Studio」。" to {
@@ -773,6 +803,7 @@ fun H3ResultsSection(
     asPage: Boolean = false,
     onAdjust: ((H3Jobs.Job) -> Unit)? = null,
     defaultKind: String = "all",
+    onExtend: ((H3Jobs.Job, String) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     var jobs by remember { mutableStateOf(H3Jobs.all(ctx)) }
@@ -842,6 +873,7 @@ fun H3ResultsSection(
             list, i,
             onDismiss = { viewer = null; jobs = H3Jobs.all(ctx) },
             onAdjust = onAdjust?.let { go -> { j -> viewer = null; go(j) } },
+            onExtend = onExtend?.let { go -> { j, f -> viewer = null; showAll = false; go(j, f) } },
             onReusePrompt = onReusePrompt?.let { f -> { p: String -> viewer = null; showAll = false; f(p) } },
             onAnimate = onAnimate?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },
             onGrokEdit = onGrokEdit?.let { f -> { u: String, p: String -> viewer = null; showAll = false; f(u, p) } },

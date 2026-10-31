@@ -26,6 +26,8 @@ data class PendingH3(
     val clientRequestId: String,
     val estimate: H3Estimate?,
     val seed: Long? = null,
+    // v2.8.0 往後續做：原片本機 uri，新片做好後接在它後面
+    val extendBase: String? = null,
 )
 
 /**
@@ -116,7 +118,8 @@ object H3Submit {
                             route = pending.route,
                             sources = pending.sources,
                             subjectId = pending.subjectId,
-                            repeatVideo = pending.copy(estimate = null),
+                            repeatVideo = pending.copy(estimate = null, extendBase = null),
+                            extendBase = pending.extendBase,
                         ),
                     )
                     Outcome.Created(runId, r.value.duplicate)

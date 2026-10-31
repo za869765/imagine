@@ -330,6 +330,15 @@ fun ImagineRoot() {
                         }
                         navController.navigate(Routes.GENERATE_VIDEO)
                     },
+                    // v2.8.0 往後續做：最後一格當來源圖，進生影頁寫接下來的內容
+                    onExtend = { job, frame ->
+                        com.za869765.imagine.data.prefs.DraftStore.save(ctx, com.za869765.imagine.ui.generate.H3_EXTEND_BASE, job.savedUri.orEmpty().lineSequence().firstOrNull { it.isNotBlank() }.orEmpty())
+                        com.za869765.imagine.data.prefs.DraftStore.save(ctx, com.za869765.imagine.ui.generate.H3_ADJUST_SUBJECT, job.subjectId.orEmpty())
+                        com.za869765.imagine.data.prefs.DraftStore.save(ctx, com.za869765.imagine.data.prefs.DraftStore.VIDEO_PROMPT, "")
+                        com.za869765.imagine.data.prefs.DraftStore.saveList(ctx, com.za869765.imagine.ui.generate.H3_SOURCES_DRAFT, listOf(frame))
+                        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3)
+                        navController.navigate(Routes.GENERATE_VIDEO)
+                    },
                 )
             }
 

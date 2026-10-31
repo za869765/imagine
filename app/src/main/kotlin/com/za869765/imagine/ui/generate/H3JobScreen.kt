@@ -32,6 +32,7 @@ import com.za869765.imagine.data.h3.H3Client
 import com.za869765.imagine.data.h3.H3Format
 import com.za869765.imagine.data.h3.H3JobStatus
 import com.za869765.imagine.data.h3.H3Jobs
+import com.za869765.imagine.data.h3.H3Submit
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.MediaExporter
 import com.za869765.imagine.data.storage.MediaSaver
@@ -69,9 +70,13 @@ internal suspend fun saveH3ToHistory(
     prompt: String,
 ): String? = h3SaveMutex.withLock {
     (h3SavedByRun[runId] ?: H3Jobs.find(ctx, runId)?.savedUri)?.let { return@withLock it }
-    val uri = H3Client.download(prefs, videoPath) { stream ->
-        MediaSaver.saveVideo(ctx, stream, H3_PROMPT_TAG + prompt.ifBlank { "H3 Studio 影片" })
-    }
+    val tag = H3_PROMPT_TAG + prompt.ifBlank { "H3 Studio 影片" }
+    val part = H3Client.download(prefs, videoPath) { stream -> MediaSaver.saveVideo(ctx, stream, tag) }
+    // v2.8.0 往後續做：新片接在原片後面；接不起來就保留新片本身，不讓成品消失
+    val base = H3Jobs.find(ctx, runId)?.extendBase
+    val uri = if (part != null && !base.isNullOrBlank()) {
+        runCatching { com.za869765.imagine.data.video.VideoMerger.merge(ctx, listOf(android.net.Uri.parse(base), android.net.Uri.parse(part)), tag) }.getOrNull() ?: part
+    } else part
     if (uri != null) {
         h3SavedByRun[runId] = uri
         H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }

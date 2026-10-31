@@ -45,6 +45,8 @@ object H3Jobs {
         val subjectId: String? = null,
         // v2.8.0 影片「再生成一次」的完整設定（只存手機）
         val repeatVideo: PendingH3? = null,
+        // v2.8.0 往後續做：原片本機 uri（存檔時接在前面）
+        val extendBase: String? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"
