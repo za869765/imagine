@@ -10,6 +10,11 @@ on:
 permissions:
   contents: write   # softprops/action-gh-release 需要 release write
 
+# 連續推送時取消較舊的編譯，避免晚完成的舊版蓋掉最新版 release
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build release APK

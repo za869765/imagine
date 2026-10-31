@@ -38,12 +38,21 @@ import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
 
+private var h3SeedRev by mutableStateOf(0)
+
+/** v2.7.2「沿用提示詞」連種子一起帶入：切到固定並填入，開著的種子選項也會更新。 */
+fun reuseH3Seed(prefs: SecurePrefs, seed: Long) {
+    prefs.h3SeedValue = seed.toString()
+    prefs.h3SeedFixed = true
+    h3SeedRev++
+}
+
 /** v2.5.9 種子：隨機／固定。選擇和數字都會記住；v2.7.0 固定時從「種子庫」看預覽圖挑選，也可直接輸入數字。 */
 @Composable
 fun H3SeedPicker(prefs: SecurePrefs) {
     val ctx = LocalContext.current
-    var fixed by remember { mutableStateOf(prefs.h3SeedFixed) }
-    var value by remember { mutableStateOf(prefs.h3SeedValue) }
+    var fixed by remember(h3SeedRev) { mutableStateOf(prefs.h3SeedFixed) }
+    var value by remember(h3SeedRev) { mutableStateOf(prefs.h3SeedValue) }
     fun pickSeed(v: String) { value = v; prefs.h3SeedValue = v }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

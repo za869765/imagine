@@ -418,6 +418,14 @@ fun ResultViewerDialog(
     var editAspect by remember { mutableStateOf("9:16") }
     var editMp by remember { mutableStateOf(1) }
     var editCount by remember { mutableStateOf(1) }
+    var editRefs by remember { mutableStateOf(emptyList<String>()) }
+    val pickEditRef = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { picked ->
+        if (picked != null && editRefs.size < 9) {
+            runCatching { ctx.contentResolver.takePersistableUriPermission(picked, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            editRefs = editRefs + picked.toString()
+            editEst = null
+        }
+    }
     val navBottom = rememberHostNavBottom()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         // decorFitsSystemWindows=false 才讀得到手勢列／狀態列高度（同 FullscreenImageViewer），按鈕才不會掉到手勢列底下
@@ -489,12 +497,12 @@ fun ResultViewerDialog(
             msg?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9FE3B0), modifier = Modifier.padding(horizontal = 8.dp)) }
             val uri = cur.firstUri()
             val acts = buildList<Pair<String, () -> Unit>> {
-                if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute
+                if (cur.kind == "image" && uri != null) add("圖改圖" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute; editRefs = emptyList()
                     editGrok = false; aspectMpOf(cur, prefs).let { (a, m) -> editAspect = a; editMp = m }; editCount = 1; editOpen = true })
                 // v2.7.0 存到相簿、補上傳 Studio 合併成「上傳」：點開選一種，按確定才執行
                 if (uri != null) add("上傳" to { uploadJob = cur; uploadPick = null })
-                if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { onReusePrompt(cur.prompt) })
-                if (onAnimate != null && cur.kind == "image" && uri != null) add("動起來" to { onAnimate(uri, cur.prompt) })
+                if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { cur.seed?.let { reuseH3Seed(prefs, it) }; onReusePrompt(cur.prompt) })
+                if (onAnimate != null && cur.kind == "image" && uri != null) add("圖生影" to { onAnimate(uri, cur.prompt) })
                 if (!cur.forgotten) add("移出 Studio" to {
                     confirm = "把 Studio 那份刪掉、只留在手機？\n雲端硬碟的檔會移到垃圾桶（30 天內可救回）。之後可再按「補上傳 Studio」。" to {
                         busy = "移出 Studio"
@@ -536,7 +544,7 @@ fun ResultViewerDialog(
         if (editOpen && ej != null) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { if (busy == null) editOpen = false },
-                title = { Text("修改這張圖") },
+                title = { Text("圖改圖") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         androidx.compose.material3.OutlinedTextField(
@@ -567,6 +575,23 @@ fun ResultViewerDialog(
                                 "用這張當參考圖送 H3 生圖（${H3Format.imageSize(editAspect, editMp)}），臉、姿勢、其他沒提到的地方照原圖。",
                                 fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            // v2.7.2 可再從手機加參考圖（最多 9 張，加上原圖共 10 張），點縮圖移除
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                androidx.compose.material3.TextButton(
+                                    enabled = editRefs.size < 9 && busy == null,
+                                    onClick = { pickEditRef.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                                ) { Text("＋上傳參考圖 ${editRefs.size}/9") }
+                                editRefs.forEach { r ->
+                                    AsyncImage(
+                                        model = r, contentDescription = "移除這張參考圖", contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).clickable { editRefs = editRefs - r; editEst = null },
+                                    )
+                                }
+                            }
                             chips("用哪台機器修", listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab"), editRoute) { editRoute = it }
                             chips("比例", listOf("9:16", "16:9", "1:1", "3:4", "4:3").map { it to it }, editAspect) { editAspect = it }
                             chips("畫質", listOf("1" to "1K", "4" to "2K"), editMp.toString()) { editMp = it.toInt() }
@@ -585,7 +610,7 @@ fun ResultViewerDialog(
                                 onGrokEdit?.invoke(ej.firstUri()!!, editText.trim())
                                 return@TextButton
                             }
-                            busy = "修改"
+                            busy = "圖改圖"
                             if (est == null) {
                                 scope.launch {
                                     when (val r = H3Client.imageEstimate(prefs, editMp, editCount, editRoute)) {
@@ -597,8 +622,9 @@ fun ResultViewerDialog(
                             } else {
                                 val pending = com.za869765.imagine.data.h3.PendingH3Image(
                                     prompt = editText.trim() + "。其餘（人物臉孔、髮型、姿勢、構圖）保持與參考圖相同。",
-                                    refs = listOf(ej.firstUri()!!), aspect = editAspect, mp = editMp, count = editCount, route = editRoute,
-                                    allowText = false, clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est,
+                                    refs = listOf(ej.firstUri()!!) + editRefs, aspect = editAspect, mp = editMp, count = editCount, route = editRoute,
+                                    allowText = Regex("對話泡泡|對話框|對白|台詞|字幕|標題|寫著|顯示文字|加上文字|speech bubble|caption", RegexOption.IGNORE_CASE).containsMatchIn(editText),
+                                    clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est,
                                 )
                                 val app = ctx.applicationContext
                                 ImagineApp.appScope.launch {
@@ -606,19 +632,19 @@ fun ResultViewerDialog(
                                         .getOrElse { com.za869765.imagine.data.h3.H3Submit.Outcome.Uncertain(it.message ?: "未預期錯誤") }
                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                         msg = when (out) {
-                                            is com.za869765.imagine.data.h3.H3Submit.Outcome.Created -> "已送出修改，做好會出現在最近成品"
+                                            is com.za869765.imagine.data.h3.H3Submit.Outcome.Created -> "已送出圖改圖，做好會出現在最近成品"
                                             is com.za869765.imagine.data.h3.H3Submit.Outcome.Conflict -> "沒送出：${out.message}"
                                             is com.za869765.imagine.data.h3.H3Submit.Outcome.Rejected -> "沒送出：${out.message}"
                                             is com.za869765.imagine.data.h3.H3Submit.Outcome.Uncertain -> "不確定有沒有送出：${out.message}（看最近成品）"
                                             is com.za869765.imagine.data.h3.H3Submit.Outcome.LocalError -> "沒送出：${out.message}"
-                                            else -> "預估變了，請再按一次修改"
+                                            else -> "預估變了，請再按一次開始"
                                         }
                                         busy = null; editOpen = false; onChanged()
                                     }
                                 }
                             }
                         },
-                    ) { Text(if (editGrok) "到 Grok 修圖" else if (busy == "修改") "處理中…" else if (editEst == null) "估算" else "開始修改") }
+                    ) { Text(if (editGrok) "到 Grok 修圖" else if (busy == "圖改圖") "處理中…" else if (editEst == null) "估算" else "開始圖改圖") }
                 },
                 dismissButton = { androidx.compose.material3.TextButton(enabled = busy == null, onClick = { editOpen = false }) { Text("取消") } },
             )
