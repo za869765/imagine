@@ -25,6 +25,17 @@ data class PendingH3Image(
     val seed: Long? = null,
 )
 
+private val SPEECH_LINE = Regex("(?:說|講|喊|問|答|表示|叫|唸|念|道|嘆|台詞|對白)(?:著|道)?\\s*[:：,，]?\\s*[「『“\"]([^」』”\"]{1,60})[」』”\"]")
+
+/** v2.8.2 提示詞裡「說／講／喊…」後面引號內的台詞(只在手機本地比對)。 */
+fun h3SpeechLines(prompt: String): List<String> =
+    SPEECH_LINE.findAll(prompt).map { it.groupValues[1].trim() }.filter { it.isNotEmpty() }.distinct().toList()
+
+/** v2.8.2 寫實照片模型不會自己畫出台詞(實測 2 張都沒有),送出時才補明確指令;畫面與紀錄仍是原提示詞。 */
+private fun withSpeechBubbles(prompt: String, lines: List<String>): String =
+    prompt + lines.joinToString("") { " Draw a white comic speech bubble next to the head of the speaker containing exactly the Traditional Chinese text \"$it\" in large clear black letters." } +
+        " Do not draw quotation marks. The spoken text appears only inside the speech bubbles, nowhere else. Do not add any other text that was not requested."
+
 /**
  * 送出 H3 生圖(會開機器／花錢)。呼叫端必須已取得使用者勾選確認,且要在 app 層 scope 執行。
  * 順序:壓縮參考圖 → POST(不自動重試)→ 記入最近任務。機器由伺服器當下決定,回應帶實際派工結果。
@@ -47,13 +58,14 @@ object H3ImageSubmit {
         }
 
         onProgress("送出中…")
+        val speech = if (pending.sheet) emptyList() else h3SpeechLines(pending.prompt)
         val req = H3ImageRequest(
-            prompt = pending.prompt,
+            prompt = if (speech.isEmpty()) pending.prompt else withSpeechBubbles(pending.prompt, speech),
             aspect = pending.aspect,
             mp = pending.mp,
             count = pending.count,
             refImages = refs,
-            allowText = pending.allowText,
+            allowText = pending.allowText || speech.isNotEmpty(),
             transparent = pending.transparent,
             sheet = pending.sheet,
             route = pending.route,
