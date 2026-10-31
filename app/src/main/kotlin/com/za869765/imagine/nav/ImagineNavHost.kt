@@ -142,12 +142,9 @@ fun ImagineRoot() {
                     onPickImage = { navController.navigate(Routes.GENERATE_IMAGE) },
                     onPickVideo = { navController.navigate(Routes.GENERATE_VIDEO) },
                     onOpenLibrary = { navController.navigate(Routes.MATERIAL_LIBRARY) },
-                    onOpenReview = { navController.navigate(Routes.MATERIAL_REVIEW) },
                     onOpenGrok = { navController.navigate(Routes.GROK_CHAT) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
-                    // UI_REDESIGN_PLAN 3.1:最近成果 → 作品詳情;所有作品 → 歷史清單
-                    onOpenPose = { navController.navigate(Routes.POSE_LIBRARY) },
                 )
             }
 
@@ -211,6 +208,8 @@ fun ImagineRoot() {
                     onBack = { navController.popBackStack() },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onOpenHistory = { navController.navigate(Routes.HISTORY) },
+                    onOpenReview = { navController.navigate(Routes.MATERIAL_REVIEW) },
+                    onOpenPose = { navController.navigate(Routes.POSE_LIBRARY) },
                     // 沿用 KEY_INIT_MEDIA:false → 編輯/圖生圖(EDIT image),true → 圖生影(GENERATE_VIDEO)。
                     onUseImage = { url, asVideo ->
                         navController.currentBackStackEntry?.savedStateHandle?.apply {

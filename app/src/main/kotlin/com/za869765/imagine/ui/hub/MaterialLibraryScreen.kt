@@ -64,6 +64,7 @@ import com.za869765.imagine.ui.component.ImagineIcon
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.MediaAction
+import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.UndoBar
 import com.za869765.imagine.ui.component.viewer
 import com.za869765.imagine.ui.component.ImagineIconButton
@@ -81,6 +82,9 @@ fun MaterialLibraryScreen(
     onSettingsClick: () -> Unit = {},
     // UI_REDESIGN_PLAN 3.2:素材庫 ↔ 所有作品 互相前往
     onOpenHistory: () -> Unit = {},
+    // v2.6.3 去留審查、姿勢參考庫從首頁併進素材庫
+    onOpenReview: () -> Unit = {},
+    onOpenPose: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -179,6 +183,15 @@ fun MaterialLibraryScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedActionButton(label = "去留審查", icon = "thumb_up", onClick = onOpenReview, modifier = Modifier.weight(1f))
+                OutlinedActionButton(label = "姿勢參考庫", icon = "photo_library", onClick = onOpenPose, modifier = Modifier.weight(1f))
+            }
             // 分類改成可橫滑的計數膠囊(角色 12 / 環境 8 …),取代等寬分段控制
             Row(
                 modifier = Modifier
