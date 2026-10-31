@@ -2,7 +2,6 @@ package com.za869765.imagine.ui.generate
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -35,11 +33,12 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.za869765.imagine.data.h3.H3Jobs
 import com.za869765.imagine.data.prefs.SecurePrefs
+import com.za869765.imagine.ui.component.OutlinedActionButton
 import com.za869765.imagine.ui.component.SegmentedOption
 import com.za869765.imagine.ui.component.SegmentedTab
 import com.za869765.imagine.ui.component.TextActionButton
 
-/** v2.5.9 種子：隨機／固定。選擇和數字都會記住；固定時可點「記住的」或「最近用過」的種子重用。 */
+/** v2.5.9 種子：隨機／固定。選擇和數字都會記住；v2.7.0 固定時從「種子庫」看預覽圖挑選，也可直接輸入數字。 */
 @Composable
 fun H3SeedPicker(prefs: SecurePrefs) {
     val ctx = LocalContext.current
@@ -66,30 +65,52 @@ fun H3SeedPicker(prefs: SecurePrefs) {
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
-            val saved = remember { H3Jobs.savedSeeds(ctx) }
-            val recent = remember { H3Jobs.all(ctx).mapNotNull { it.seed }.distinct().filterNot { it in saved }.take(10) }
-            SeedChips("記住的", saved) { pickSeed(it) }
-            SeedChips("最近用過", recent) { pickSeed(it) }
+            // v2.7.0 不再列數字：開種子庫看成品預覽再選
+            var libraryOpen by remember { mutableStateOf(false) }
+            OutlinedActionButton(label = "選取種子庫", icon = "photo_library", onClick = { libraryOpen = true }, modifier = Modifier.fillMaxWidth())
+            if (libraryOpen) {
+                val choices = remember { H3Jobs.seedChoices(ctx) }
+                AlertDialog(
+                    onDismissRequest = { libraryOpen = false },
+                    title = { Text("種子庫") },
+                    text = {
+                        LazyColumn(modifier = Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (choices.isEmpty()) {
+                                item { Text("還沒有記憶種子，生成完成後會自動存進來", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            }
+                            items(choices) { (seed, uri) ->
+                                SeedRow(seed, uri) { pickSeed(seed.toString()); libraryOpen = false }
+                            }
+                        }
+                    },
+                    confirmButton = { TextActionButton(label = "關閉", onClick = { libraryOpen = false }) },
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun SeedChips(title: String, seeds: List<Long>, onPick: (String) -> Unit) {
-    if (seeds.isEmpty()) return
-    Text(title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        seeds.forEach { s ->
-            Text(
-                s.toString(),
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { onPick(s.toString()) }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            )
-        }
+private fun SeedRow(seed: Long, uri: String?, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AsyncImage(
+            model = uri,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        )
+        Text(seed.toString(), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -118,28 +139,7 @@ fun H3RegenerateSeedDialog(prompt: String, onRandom: () -> Unit, onSeed: (Long) 
                 if (choices.isEmpty()) {
                     item { Text("這個提示詞還沒有記憶種子", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp)) }
                 }
-                items(choices) { (seed, uri) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { onSeed(seed) }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                        )
-                        Text(seed.toString(), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
+                items(choices) { (seed, uri) -> SeedRow(seed, uri) { onSeed(seed) } }
             }
         },
         confirmButton = { TextActionButton(label = "關閉", onClick = onDismiss) },

@@ -404,6 +404,8 @@ fun ResultViewerDialog(
     var busy by remember { mutableStateOf<String?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    var uploadJob by remember { mutableStateOf<H3Jobs.Job?>(null) }
+    var uploadPick by remember { mutableStateOf<String?>(null) }
     var showFull by remember { mutableStateOf(false) }
     var gone by remember { mutableStateOf(setOf<String>()) }
     var rev by remember { mutableStateOf(0) }  // 補上傳／移出 Studio 後重讀這件的最新狀態
@@ -490,18 +492,8 @@ fun ResultViewerDialog(
             val acts = buildList<Pair<String, () -> Unit>> {
                 if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute
                     editGrok = false; aspectMpOf(cur, prefs).let { (a, m) -> editAspect = a; editMp = m }; editCount = 1; editOpen = true })
-                if (uri != null) add("存到相簿" to {
-                    confirm = "把這件存到手機相簿？" to {
-                        busy = "存到相簿"
-                        scope.launch {
-                            val ok = cur.savedUri.orEmpty().split('\n').filter { it.isNotBlank() }
-                                .map { com.za869765.imagine.data.storage.MediaExporter.saveToGallery(ctx, it, cur.kind != "image") }.all { it }
-                            msg = if (ok) "已存到手機相簿" else "存到相簿失敗"
-                            busy = null
-                        }
-                        Unit
-                    }
-                })
+                // v2.7.0 存到相簿、補上傳 Studio 合併成「上傳」：點開選一種，按確定才執行
+                if (uri != null) add("上傳" to { uploadJob = cur; uploadPick = null })
                 // v2.6.7 這格只管種子；沒有種子紀錄就寫明，不再換成複製提示詞
                 val copySeed = cur.seed
                 add((if (copySeed != null) "複製種子" else "無記憶種子") to {
@@ -515,16 +507,6 @@ fun ResultViewerDialog(
                 })
                 if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { onReusePrompt(cur.prompt) })
                 if (onAnimate != null && cur.kind == "image" && uri != null) add("動起來" to { onAnimate(uri, cur.prompt) })
-                if (cur.forgotten && !cur.reuploaded && uri != null) add("補上傳 Studio" to {
-                    confirm = "把這件補上傳到 Studio？\n成品會離開手機、傳到雲端。" to {
-                        busy = "補上傳 Studio"
-                        scope.launch {
-                            msg = reuploadToStudio(ctx, prefs, cur)
-                            busy = null; rev++; onChanged()
-                        }
-                        Unit
-                    }
-                })
                 if (!cur.forgotten) add("移出 Studio" to {
                     confirm = "把 Studio 那份刪掉、只留在手機？\n雲端硬碟的檔會移到垃圾桶（30 天內可救回）。之後可再按「補上傳 Studio」。" to {
                         busy = "移出 Studio"
@@ -652,6 +634,48 @@ fun ResultViewerDialog(
                     ) { Text(if (editGrok) "到 Grok 修圖" else if (busy == "修改") "處理中…" else if (editEst == null) "估算" else "開始修改") }
                 },
                 dismissButton = { androidx.compose.material3.TextButton(enabled = busy == null, onClick = { editOpen = false }) { Text("取消") } },
+            )
+        }
+        uploadJob?.let { uj ->
+            val canStudio = uj.forgotten && !uj.reuploaded
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { uploadJob = null },
+                title = { Text("上傳") },
+                text = {
+                    Column {
+                        listOf(
+                            Triple("gallery", "存到手機相簿", true),
+                            Triple("studio", when { uj.reuploaded -> "補上傳 Studio（已上傳過）"; !uj.forgotten -> "補上傳 Studio（Studio 已有一份）"; else -> "補上傳 Studio（會傳到雲端）" }, canStudio),
+                        ).forEach { (id, label, enabled) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().clickable(enabled = enabled) { uploadPick = id },
+                            ) {
+                                androidx.compose.material3.RadioButton(selected = uploadPick == id, enabled = enabled, onClick = { uploadPick = id })
+                                Text(label, fontSize = 14.sp, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(enabled = uploadPick != null, onClick = {
+                        val pick = uploadPick
+                        uploadJob = null
+                        busy = "上傳"
+                        scope.launch {
+                            if (pick == "gallery") {
+                                val ok = uj.savedUri.orEmpty().split('\n').filter { it.isNotBlank() }
+                                    .map { com.za869765.imagine.data.storage.MediaExporter.saveToGallery(ctx, it, uj.kind != "image") }.all { it }
+                                msg = if (ok) "已存到手機相簿" else "存到相簿失敗"
+                            } else {
+                                msg = reuploadToStudio(ctx, prefs, uj)
+                                rev++; onChanged()
+                            }
+                            busy = null
+                        }
+                    }) { Text("確定") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { uploadJob = null }) { Text("取消") } },
             )
         }
         confirm?.let { (text, act) ->

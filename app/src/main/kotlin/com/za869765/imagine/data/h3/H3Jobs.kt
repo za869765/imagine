@@ -94,11 +94,11 @@ object H3Jobs {
         prefs(ctx).edit().putString(KEY_SEEDS, list.joinToString(",")).apply()
     }
 
-    /** v2.6.8「再生成一次」的種子選項：只列同提示詞用過的（記住的在前）；uri＝這個種子最新一件成品。 */
-    fun seedChoices(ctx: Context, prompt: String): List<Pair<Long, String?>> {
-        val jobs = all(ctx).filter { it.seed != null && it.prompt.trim() == prompt.trim() }
+    /** v2.6.8「再生成一次」只列同提示詞用過的種子；v2.7.0 prompt=null＝種子庫全部（生成頁選種子用）。uri＝這個種子最新一件成品。 */
+    fun seedChoices(ctx: Context, prompt: String? = null): List<Pair<Long, String?>> {
+        val jobs = all(ctx).filter { it.seed != null && (prompt == null || it.prompt.trim() == prompt.trim()) }
         val used = jobs.mapNotNull { it.seed }
-        return (savedSeeds(ctx).filter { it in used } + used).distinct().map { seed ->
+        return ((if (prompt == null) savedSeeds(ctx) else savedSeeds(ctx).filter { it in used }) + used).distinct().map { seed ->
             seed to jobs.firstOrNull { it.seed == seed && !it.savedUri.isNullOrBlank() }?.savedUri?.lineSequence()?.firstOrNull { it.isNotBlank() }
         }
     }
