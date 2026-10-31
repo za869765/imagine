@@ -431,7 +431,7 @@ fun H3ImageJobScreen(
                                 }
                             }
                             val usedSeed = s.seed ?: record?.seed
-                            H3SeedRow(usedSeed, prefs)
+                            H3SeedRow(usedSeed)
                             if (usedSeed != null && record?.repeat != null) {
                                 OutlinedActionButton(
                                     label = if (repeating) "送出中…" else "用這個種子重做",

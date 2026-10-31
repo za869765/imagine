@@ -330,7 +330,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit) {
                                     Text(prompt, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
-                            H3SeedRow(s?.seed ?: record?.seed, prefs)
+                            H3SeedRow(s?.seed ?: record?.seed)
                             Text(
                                 when {
                                     saving -> "正在存到所有作品…"

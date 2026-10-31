@@ -70,7 +70,12 @@ object H3Jobs {
 
     @Synchronized
     fun update(ctx: Context, runId: String, transform: (Job) -> Job) {
-        write(ctx, all(ctx).map { if (it.runId == runId) transform(it) else it })
+        val before = all(ctx)
+        val after = before.map { if (it.runId == runId) transform(it) else it }
+        write(ctx, after)
+        // v2.6.9 第一次拿到種子就自動記憶
+        val seed = after.firstOrNull { it.runId == runId }?.seed
+        if (seed != null && before.firstOrNull { it.runId == runId }?.seed != seed) saveSeed(ctx, seed)
     }
 
     /** v2.3.6 從清單移除（手機裡已存的成品檔不動）。 */
@@ -79,13 +84,13 @@ object H3Jobs {
         write(ctx, all(ctx).filterNot { it.runId == runId })
     }
 
-    // v2.5.9 記住的種子（不隨任務清單的 30 筆上限消失）：最新在前，最多 30 個
+    // v2.5.9 記住的種子（不隨任務清單的上限消失）：最新在前；v2.6.9 改自動記憶，最多 100 個
     fun savedSeeds(ctx: Context): List<Long> =
         prefs(ctx).getString(KEY_SEEDS, "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
 
     @Synchronized
     fun saveSeed(ctx: Context, seed: Long) {
-        val list = (listOf(seed) + savedSeeds(ctx).filterNot { it == seed }).take(30)
+        val list = (listOf(seed) + savedSeeds(ctx).filterNot { it == seed }).take(100)
         prefs(ctx).edit().putString(KEY_SEEDS, list.joinToString(",")).apply()
     }
 

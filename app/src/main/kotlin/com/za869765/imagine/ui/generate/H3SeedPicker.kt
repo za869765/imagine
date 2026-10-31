@@ -146,24 +146,9 @@ fun H3RegenerateSeedDialog(prompt: String, onRandom: () -> Unit, onSeed: (Long) 
     )
 }
 
-/** 成品頁的種子列：顯示實際種子，可記住並設為下次的固定種子。 */
+/** 成品頁的種子列：只顯示實際種子；v2.6.9 種子已自動記憶，不必手動按，也不會改動下次的隨機／固定設定。 */
 @Composable
-fun H3SeedRow(seed: Long?, prefs: SecurePrefs) {
+fun H3SeedRow(seed: Long?) {
     if (seed == null) return
-    val ctx = LocalContext.current
-    var saved by remember(seed) { mutableStateOf(seed in H3Jobs.savedSeeds(ctx)) }
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("種子 $seed", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-        Text(
-            if (saved) "已記住，下次固定用它" else "記住並固定用它",
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clickable {
-                H3Jobs.saveSeed(ctx, seed)
-                prefs.h3SeedValue = seed.toString()
-                prefs.h3SeedFixed = true
-                saved = true
-            },
-        )
-    }
+    Text("種子 $seed（已自動記憶）", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
 }
