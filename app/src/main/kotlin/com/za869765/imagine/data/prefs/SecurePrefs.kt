@@ -110,6 +110,10 @@ class SecurePrefs private constructor(ctx: Context) {
         get() = prefs.getInt(K_H3_IMG_MP, 1)
         set(v) = prefs.edit().putInt(K_H3_IMG_MP, v).apply()
     // v2.5.9 固定種子：開關和數字都記住；關閉或沒填數字時 h3SeedToSend=null（隨機）
+    // v2.7.4「再生成一次」勾「一律隨機種子」就直接送出，不跳選種子視窗
+    var h3RegenAlwaysRandom: Boolean
+        get() = prefs.getBoolean("h3_regen_always_random", false)
+        set(v) = prefs.edit().putBoolean("h3_regen_always_random", v).apply()
     var h3SeedFixed: Boolean
         get() = prefs.getBoolean("h3_seed_fixed", false)
         set(v) = prefs.edit().putBoolean("h3_seed_fixed", v).apply()

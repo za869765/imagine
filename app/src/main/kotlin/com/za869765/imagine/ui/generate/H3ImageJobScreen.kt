@@ -141,6 +141,7 @@ fun H3ImageJobScreen(
     val allUris = earlierUris + savedUris
     var repeating by remember { mutableStateOf(false) }
     var pickingSeed by remember { mutableStateOf(false) }
+    var alwaysRandom by remember { mutableStateOf(prefs.h3RegenAlwaysRandom) }
 
     // v2.5.7 再生成一次：同提示詞、同條件直接送出，不選機器、不確認（使用者決定）。還在做就留在這頁，做完才跳到新的一張並排
     // v2.5.9 sameSeed：用指定種子和這張的機器重現；沒給就換新隨機種子。v2.6.1 按鈕先選隨機或記憶的種子，選完直接送出
@@ -277,24 +278,35 @@ fun H3ImageJobScreen(
         bottomNav = null,
         bottomAction = if (s != null && (!s.isFinished || record?.repeat != null)) {
             {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!s.isFinished) {
-                        OutlinedActionButton(
-                            label = if (cancelling) "取消中…" else "取消任務",
-                            icon = "close",
-                            enabled = !cancelling,
-                            onClick = { confirmCancel = true },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                Column {
                     if (record?.repeat != null) {
-                        OutlinedActionButton(
-                            label = if (repeating) "送出中…" else "再生成一次",
-                            icon = "refresh",
-                            enabled = !repeating,
-                            onClick = { pickingSeed = true },
-                            modifier = Modifier.weight(1f),
-                        )
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { alwaysRandom = !alwaysRandom; prefs.h3RegenAlwaysRandom = alwaysRandom },
+                        ) {
+                            androidx.compose.material3.Checkbox(checked = alwaysRandom, onCheckedChange = { alwaysRandom = it; prefs.h3RegenAlwaysRandom = it })
+                            Text("一律隨機種子（按再生成一次直接送出）", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!s.isFinished) {
+                            OutlinedActionButton(
+                                label = if (cancelling) "取消中…" else "取消任務",
+                                icon = "close",
+                                enabled = !cancelling,
+                                onClick = { confirmCancel = true },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        if (record?.repeat != null) {
+                            OutlinedActionButton(
+                                label = if (repeating) "送出中…" else "再生成一次",
+                                icon = "refresh",
+                                enabled = !repeating,
+                                onClick = { if (alwaysRandom) regenerate(stayHere = !s.isFinished) else pickingSeed = true },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }
