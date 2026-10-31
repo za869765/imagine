@@ -82,6 +82,14 @@ object H3Jobs {
         prefs(ctx).edit().putString(KEY_SEEDS, list.joinToString(",")).apply()
     }
 
+    /** v2.6.1「再生成一次」的種子選項：記住的在前，再來是用過的；uri＝這個種子最新一件成品（清單已沒有就 null）。 */
+    fun seedChoices(ctx: Context): List<Pair<Long, String?>> {
+        val jobs = all(ctx).filter { it.seed != null }
+        return (savedSeeds(ctx) + jobs.mapNotNull { it.seed }).distinct().map { seed ->
+            seed to jobs.firstOrNull { it.seed == seed && !it.savedUri.isNullOrBlank() }?.savedUri?.lineSequence()?.firstOrNull { it.isNotBlank() }
+        }
+    }
+
     private fun write(ctx: Context, jobs: List<Job>) {
         prefs(ctx).edit().putString(KEY, H3Client.json.encodeToString(jobs)).apply()
     }

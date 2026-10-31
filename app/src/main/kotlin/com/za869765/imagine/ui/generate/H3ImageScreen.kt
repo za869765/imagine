@@ -242,7 +242,8 @@ fun H3ImageScreen(
             mp = sendMp,
             count = sendCount,
             route = route,
-            allowText = allowText,
+            // v2.6.1 提示詞要對話泡泡／字幕時不能再被自動加上「無文字」（只在手機本地比對）
+            allowText = allowText || Regex("對話泡泡|對話框|對白|台詞|字幕|標題|寫著|顯示文字|加上文字|speech bubble|caption", RegexOption.IGNORE_CASE).containsMatchIn(prompt),
             transparent = mode == "alpha",
             sheet = isSheet,
             clientRequestId = java.util.UUID.randomUUID().toString(),
