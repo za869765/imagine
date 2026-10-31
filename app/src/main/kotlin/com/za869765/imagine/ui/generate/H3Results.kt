@@ -458,14 +458,16 @@ fun ResultViewerDialog(
                 if (cur.kind == "image" && uri != null) add("修改" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute
                     editGrok = false; aspectMpOf(cur, prefs).let { (a, m) -> editAspect = a; editMp = m }; editCount = 1; editOpen = true })
                 if (uri != null) add("存到相簿" to {
-                    busy = "存到相簿"
-                    scope.launch {
-                        val ok = cur.savedUri.orEmpty().split('\n').filter { it.isNotBlank() }
-                            .map { com.za869765.imagine.data.storage.MediaExporter.saveToGallery(ctx, it, cur.kind != "image") }.all { it }
-                        msg = if (ok) "已存到手機相簿" else "存到相簿失敗"
-                        busy = null
+                    confirm = "把這件存到手機相簿？" to {
+                        busy = "存到相簿"
+                        scope.launch {
+                            val ok = cur.savedUri.orEmpty().split('\n').filter { it.isNotBlank() }
+                                .map { com.za869765.imagine.data.storage.MediaExporter.saveToGallery(ctx, it, cur.kind != "image") }.all { it }
+                            msg = if (ok) "已存到手機相簿" else "存到相簿失敗"
+                            busy = null
+                        }
+                        Unit
                     }
-                    Unit
                 })
                 // v2.6.0 有種子就複製種子；舊作品沒有種子紀錄才維持複製提示詞
                 val copySeed = cur.seed
@@ -482,12 +484,14 @@ fun ResultViewerDialog(
                 if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { onReusePrompt(cur.prompt) })
                 if (onAnimate != null && cur.kind == "image" && uri != null) add("動起來" to { onAnimate(uri, cur.prompt) })
                 if (cur.forgotten && !cur.reuploaded && uri != null) add("補上傳 Studio" to {
-                    busy = "補上傳 Studio"
-                    scope.launch {
-                        msg = reuploadToStudio(ctx, prefs, cur)
-                        busy = null; rev++; onChanged()
+                    confirm = "把這件補上傳到 Studio？\n成品會離開手機、傳到雲端。" to {
+                        busy = "補上傳 Studio"
+                        scope.launch {
+                            msg = reuploadToStudio(ctx, prefs, cur)
+                            busy = null; rev++; onChanged()
+                        }
+                        Unit
                     }
-                    Unit
                 })
                 if (!cur.forgotten) add("移出 Studio" to {
                     confirm = "把 Studio 那份刪掉、只留在手機？\n雲端硬碟的檔會移到垃圾桶（30 天內可救回）。之後可再按「補上傳 Studio」。" to {
