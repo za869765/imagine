@@ -532,18 +532,22 @@ fun ResultViewerDialog(
                     }
                 })
             }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // v2.6.6 固定每排 3 格，格子一樣大；不足 3 格的排用空位補齊，不拉寬
+            Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                maxItemsInEachRow = 4,
                 modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 20.dp),
             ) {
-                acts.forEach { (label, act) ->
-                    Box(
-                        modifier = Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1C1C25))
-                            .clickable(enabled = busy == null && cur.runId !in gone, onClick = act),
-                        contentAlignment = Alignment.Center,
-                    ) { Text(if (busy == label) "處理中…" else label, fontSize = 13.sp, color = Color.White, maxLines = 1) }
+                acts.chunked(3).forEach { rowActs ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        rowActs.forEach { (label, act) ->
+                            Box(
+                                modifier = Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1C1C25))
+                                    .clickable(enabled = busy == null && cur.runId !in gone, onClick = act),
+                                contentAlignment = Alignment.Center,
+                            ) { Text(if (busy == label) "處理中…" else label, fontSize = 13.sp, color = Color.White, maxLines = 1) }
+                        }
+                        repeat(3 - rowActs.size) { Spacer(Modifier.weight(1f)) }
+                    }
                 }
             }
         }
