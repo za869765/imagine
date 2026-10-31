@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -20,12 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,8 +33,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.za869765.imagine.data.storage.MediaEntry
-import com.za869765.imagine.data.storage.MediaHistory
 import com.za869765.imagine.data.work.VideoPollWorker
 import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineIcon
@@ -46,10 +40,8 @@ import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 import com.za869765.imagine.ui.component.SectionHeader
-import com.za869765.imagine.ui.component.SourceThumb
-import com.za869765.imagine.ui.component.TextActionButton
 
-// 素材生成首頁:三張主卡(對話/生圖/生影)+ 進行中的任務 + 最近成果(UI_REDESIGN_PLAN 3.1)+ 工具列(素材庫/去留審查/Grok)。
+// 素材生成首頁:三張主卡(對話/生圖/生影)+ 進行中的任務 + 工具列(素材庫/去留審查/Grok)。
 @Composable
 fun MaterialHubScreen(
     onPickImage: () -> Unit,
@@ -60,9 +52,6 @@ fun MaterialHubScreen(
     onNavSelected: (NavTab) -> Unit,
     onPickChat: () -> Unit = {},
     onOpenReview: () -> Unit = {},
-    // 最近成果:點縮圖開作品詳情(uri 字串);「所有作品」開歷史清單
-    onOpenRecent: (String) -> Unit = {},
-    onOpenAllWorks: () -> Unit = {},
     onOpenPose: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
@@ -71,8 +60,6 @@ fun MaterialHubScreen(
     val works by workManager.getWorkInfosByTagFlow(VideoPollWorker.TAG_VIDEO_POLL)
         .collectAsState(initial = emptyList())
     val active = works.filter { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
-    var recent by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
-    LaunchedEffect(active.size) { recent = MediaHistory.loadAll(ctx).take(6) }
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "Imagine", onSettingsClick = onSettingsClick) },
@@ -131,45 +118,6 @@ fun MaterialHubScreen(
                         trailing = "chevron_right",
                         onClick = onPickVideo,
                     )
-                }
-            }
-
-            // 最近成果:最新 6 件,3 欄縮圖,點開作品詳情
-            if (recent.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SectionHeader("最近成果", modifier = Modifier.weight(1f))
-                    TextActionButton(label = "所有作品", icon = "chevron_right", onClick = onOpenAllWorks)
-                }
-                recent.chunked(3).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { e ->
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onOpenRecent(e.uri.toString()) },
-                            ) {
-                                SourceThumb(uri = e.uri, isVideo = e.isVideo, modifier = Modifier.fillMaxSize())
-                                if (e.isVideo) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.Center)
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(Color.Black.copy(alpha = 0.55f)),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        ImagineIcon(name = "play_arrow", size = 18.dp, fill = 1, tint = Color.White)
-                                    }
-                                }
-                            }
-                        }
-                        repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
-                    }
                 }
             }
 

@@ -147,11 +147,6 @@ fun ImagineRoot() {
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     // UI_REDESIGN_PLAN 3.1:最近成果 → 作品詳情;所有作品 → 歷史清單
-                    onOpenRecent = { uri ->
-                        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_HISTORY_URI, uri)
-                        navController.navigate(Routes.HISTORY_DETAIL)
-                    },
-                    onOpenAllWorks = { navController.navigate(Routes.HISTORY) },
                     onOpenPose = { navController.navigate(Routes.POSE_LIBRARY) },
                 )
             }
