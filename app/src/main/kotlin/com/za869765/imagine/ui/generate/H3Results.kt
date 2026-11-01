@@ -659,7 +659,7 @@ fun ResultViewerDialog(
                                 val pending = com.za869765.imagine.data.h3.PendingH3Image(
                                     prompt = editText.trim() + "。其餘（人物臉孔、髮型、姿勢、構圖）保持與參考圖相同。",
                                     refs = listOf(ej.firstUri()!!) + editRefs, aspect = editAspect, mp = editMp, count = editCount, route = editRoute,
-                                    allowText = Regex("對話泡泡|對話框|對白|台詞|字幕|標題|寫著|顯示文字|加上文字|speech bubble|caption", RegexOption.IGNORE_CASE).containsMatchIn(editText),
+                                    allowText = com.za869765.imagine.data.h3.h3WantsText(editText),
                                     clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est,
                                 )
                                 val app = ctx.applicationContext

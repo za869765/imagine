@@ -156,6 +156,15 @@ fun H3ImageScreen(
     var count by rememberSaveable { mutableStateOf(1) }  // v2.5.6 一般圖固定 1 張（要更多按成品的「繼續做相同」）；只有多視角用來選角度數
     var route by rememberSaveable { mutableStateOf(prefs.h3ImgRoute) }
     var allowText by rememberSaveable { mutableStateOf(false) }
+    // v2.8.3 提示詞出現引號或文字需求時自動打勾一次；之後使用者取消就照取消，文字需求消失時收回自動打的勾
+    var hadTextWords by rememberSaveable { mutableStateOf(false) }
+    var autoChecked by rememberSaveable { mutableStateOf(false) }
+    val wantsText = com.za869765.imagine.data.h3.h3WantsText(prompt)
+    LaunchedEffect(wantsText) {
+        if (wantsText && !hadTextWords && !allowText) { allowText = true; autoChecked = true }
+        if (!wantsText) { if (autoChecked) allowText = false; autoChecked = false }
+        hadTextWords = wantsText
+    }
     // v2.1.3 製作方式:txt 文生圖 / ref 參考圖生圖 / alpha 透明背景 / sheet 多視角角色圖
     var mode by rememberSaveable { mutableStateOf(DraftStore.load(ctx, "h3_image_mode") ?: "txt") }
     LaunchedEffect(mode) { DraftStore.save(ctx, "h3_image_mode", mode) }
@@ -244,8 +253,7 @@ fun H3ImageScreen(
             mp = sendMp,
             count = sendCount,
             route = route,
-            // v2.6.1 提示詞要對話泡泡／字幕時不能再被自動加上「無文字」（只在手機本地比對）
-            allowText = allowText || Regex("對話泡泡|對話框|對白|台詞|字幕|標題|寫著|顯示文字|加上文字|speech bubble|caption", RegexOption.IGNORE_CASE).containsMatchIn(prompt) || com.za869765.imagine.data.h3.h3SpeechLines(prompt).isNotEmpty(),
+            allowText = allowText,  // v2.8.3 照勾選送出；需要文字時畫面已自動打勾
             transparent = mode == "alpha",
             sheet = isSheet,
             clientRequestId = java.util.UUID.randomUUID().toString(),
@@ -538,7 +546,7 @@ fun H3ImageScreen(
                 Column {
                     Text("允許畫面出現文字", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
                     Text(
-                        "沒勾會自動加「無文字、無浮水印」，避免 AI 亂寫字",
+                        "提示詞有台詞或要字幕時會自動打勾，台詞會畫成對話泡泡；不要文字請取消打勾，會加上「無文字、無浮水印」",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

@@ -25,15 +25,30 @@ data class PendingH3Image(
     val seed: Long? = null,
 )
 
-private val SPEECH_LINE = Regex("(?:說|講|喊|問|答|表示|叫|唸|念|道|嘆|台詞|對白)(?:著|道)?\\s*[:：,，]?\\s*[「『“\"]([^」』”\"]{1,60})[」』”\"]")
+private val QUOTED = Regex("「([^」]{1,60})」|『([^』]{1,60})』|“([^”]{1,60})”|\"([^\"]{1,60})\"")
+private val SIGN_BEFORE = Regex("(?:寫著|寫|標示|標語|招牌|牌子|標題|字樣|印著|印有|顯示|文字|字幕)\\s*[:：,，]?\\s*$")
+private val SIGN_AFTER = Regex("^\\s*(?:的)?(?:招牌|字樣|標語|標誌|牌子|標題|字幕|文字|logo)", RegexOption.IGNORE_CASE)
+private val TEXT_WORDS = Regex("對話泡泡|對話框|對白|台詞|字幕|標題|寫著|顯示文字|加上文字|speech bubble|caption", RegexOption.IGNORE_CASE)
 
-/** v2.8.2 提示詞裡「說／講／喊…」後面引號內的台詞(只在手機本地比對)。 */
-fun h3SpeechLines(prompt: String): List<String> =
-    SPEECH_LINE.findAll(prompt).map { it.groupValues[1].trim() }.filter { it.isNotEmpty() }.distinct().toList()
+private val SPOKEN = Regex("(?:(?<![小傳據聽解演學遊勸如是以雖再或])說(?!話|明|服|法|完|笑|書|謊|故事|得|了|過|的|時|不)|(?<![訪請疑學顧詢提慰])問(?!題|候|號|卷|診|路|得|了|過|的|時)|講(?!話|台|解|師|座|義|電話|究|課|笑話|得|了|過|的|時)|喊(?!叫|聲|得|了)|唸(?!書|經|得|了)|大叫|回答|表示)(?:著|道)?\\s*[:：,，]?\\s*([^，。！？!?,.；;\\n「『“\"]{2,30})")
+private val SPOKEN_END = Regex("然後|接著|同時|說完|之後|並且|並|一邊|鏡頭")
+
+/** v2.8.3 引號內的文字一律當台詞,沒引號時取「說／講／喊…」後面到標點為止的文字(只在手機本地比對);招牌、標題等畫面文字除外。 */
+fun h3SpeechLines(prompt: String): List<String> {
+    val quoted = QUOTED.findAll(prompt).toList()
+    val lines = quoted
+        .filterNot { SIGN_BEFORE.containsMatchIn(prompt.substring(0, it.range.first)) || SIGN_AFTER.containsMatchIn(prompt.substring(it.range.last + 1)) }
+        .map { m -> m.groupValues.drop(1).first { it.isNotEmpty() }.trim() }
+    val unquoted = SPOKEN.findAll(QUOTED.replace(prompt, "。")).map { it.groupValues[1].split(SPOKEN_END)[0].trim() }.filter { it.length >= 2 }
+    return (lines + unquoted).filter { it.isNotEmpty() }.distinct()
+}
+
+/** v2.8.3 提示詞看起來要文字時自動勾選「允許文字」;使用者取消打勾就不畫。 */
+fun h3WantsText(prompt: String): Boolean = TEXT_WORDS.containsMatchIn(prompt) || h3SpeechLines(prompt).isNotEmpty()
 
 /** v2.8.2 寫實照片模型不會自己畫出台詞(實測 2 張都沒有),送出時才補明確指令;畫面與紀錄仍是原提示詞。 */
 private fun withSpeechBubbles(prompt: String, lines: List<String>): String =
-    prompt + lines.joinToString("") { " Draw a white comic speech bubble next to the head of the speaker containing exactly the Traditional Chinese text \"$it\" in large clear black letters." } +
+    prompt + lines.joinToString("") { " Draw a white comic speech bubble next to the head of the speaker containing exactly the ${if (it.any { c -> c.code in 0x4E00..0x9FFF }) "Traditional Chinese " else ""}text \"$it\" in large clear black letters." } +
         " Do not draw quotation marks. The spoken text appears only inside the speech bubbles, nowhere else. Do not add any other text that was not requested."
 
 /**
@@ -58,14 +73,14 @@ object H3ImageSubmit {
         }
 
         onProgress("送出中…")
-        val speech = if (pending.sheet) emptyList() else h3SpeechLines(pending.prompt)
+        val speech = if (pending.sheet || !pending.allowText) emptyList() else h3SpeechLines(pending.prompt)
         val req = H3ImageRequest(
             prompt = if (speech.isEmpty()) pending.prompt else withSpeechBubbles(pending.prompt, speech),
             aspect = pending.aspect,
             mp = pending.mp,
             count = pending.count,
             refImages = refs,
-            allowText = pending.allowText || speech.isNotEmpty(),
+            allowText = pending.allowText,
             transparent = pending.transparent,
             sheet = pending.sheet,
             route = pending.route,
