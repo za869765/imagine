@@ -352,6 +352,12 @@ fun H3ImageJobScreen(
             }
             ImagineCard(pad = 16) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // v3.0.9 這件是什麼：生圖／參考圖張數／規格
+                    record?.let { r ->
+                        val refs = r.repeat?.refs?.size ?: 0
+                        Text("🖼 生圖・" + listOfNotNull(if (refs > 0) "參考圖 $refs 張" else "文生圖", r.meta.ifBlank { null }).joinToString("・"),
+                            fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
+                    }
                     if (s == null || s.isFinished) {
                         Text(
                             if (s == null) "讀取中…" else H3Format.statusLabel(s.status),

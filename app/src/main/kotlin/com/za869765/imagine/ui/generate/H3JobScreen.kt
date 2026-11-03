@@ -120,6 +120,25 @@ internal suspend fun saveH3SegmentsToHistory(
     } catch (_: Exception) { null }
 }
 
+/** v3.0.9 任務頁標題列：「🎬 影片・參考圖 2 張・5 秒・9:16・筆電 3070・V2・8步HD・角色 小晴」 */
+internal fun h3VideoSpec(r: H3Jobs.Job, liveRoute: String?): String {
+    val p = r.repeatVideo
+    val route = liveRoute ?: p?.route ?: r.route.ifBlank { null }
+    val mode = when {
+        r.extendBase != null -> "往後續做"
+        p == null -> null
+        p.mode == "first" -> "首幀"
+        p.mode == "t2v" -> "文生影"
+        p.mode == "motion" -> "換人（參考影片）"
+        else -> "參考圖" + (if (p.sources.isNotEmpty()) " ${p.sources.size} 張" else "")
+    }
+    val secs = "${r.seconds} 秒" + (if ((p?.segments ?: 1) > 1) " ×${p!!.segments} 段" else "")
+    return "🎬 影片・" + listOfNotNull(
+        mode, secs, p?.aspect, route?.let { H3Format.routeName(it) },
+        p?.let { H3Format.modelName(route, it.model) }, p?.subjectName?.let { "角色 $it" },
+    ).joinToString("・")
+}
+
 /** 存進所有作品時的提示詞前綴 — 歷史清單靠它辨識 H3 成品(可搜尋「H3」)。 */
 const val H3_PROMPT_TAG = "[H3] "
 
@@ -310,6 +329,8 @@ fun H3JobScreen(runId: String, onBack: () -> Unit, onOpenRepeat: (String) -> Uni
             }
             ImagineCard(pad = 16) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // v3.0.9 這件是什麼：影片／模式／秒數／機器／模型／角色
+                    record?.let { r -> Text(h3VideoSpec(r, s?.route), fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary) }
                     if (s == null || s.isFinished) {
                         Text(
                             if (s == null) "讀取中…" else H3Format.statusLabel(s.status),
