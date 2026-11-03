@@ -471,6 +471,8 @@ fun SettingsScreen(
                             }
                         }
                     }
+                    // v2.9.8 Cloudflare R2 用量監控（H3 Studio 的暫存與成品空間）
+                    R2UsageCard(prefs)
                 }
                 // ── xAI 後台（用量 / 帳單 / Grok）──
                 // v1.0.21: 砍 Management API 拉真實餘額 (xAI 回傳單位不準怎樣都對不上),

@@ -163,6 +163,10 @@ object H3Client {
         }
     }
 
+    /** v2.9.8 Cloudflare R2 用量(fresh=true 立刻重算,否則用 30 分鐘內的快取)。不花錢。 */
+    suspend fun r2Usage(prefs: SecurePrefs, fresh: Boolean = false): Result<H3R2Usage> =
+        call<H3R2Usage>(prefs, http, request(prefs, "/api/app/r2usage" + if (fresh) "?fresh=1" else "")?.get()?.build())
+
     /** v2.9.7 筆電 Gemma 對話:送出(伺服器只轉送給筆電,回 id),再用 [gemmaChatPoll] 輪詢到 done/failed。不花錢、不進雲端硬碟。 */
     suspend fun gemmaChat(prefs: SecurePrefs, messages: List<H3ChatMessage>): Result<H3ChatCreated> {
         val payload = json.encodeToString(H3ChatRequest(messages)).toRequestBody("application/json".toMediaType())

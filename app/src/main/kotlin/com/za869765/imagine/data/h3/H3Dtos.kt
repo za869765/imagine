@@ -145,6 +145,26 @@ data class H3JobStatus(
 @Serializable
 data class H3ErrorBody(val error: String? = null)
 
+/** v2.9.8 GET /api/app/r2usage — Cloudflare R2 用量(依資料夾分類)＋每日快照 */
+@Serializable
+data class H3R2Cat(val bytes: Long = 0, val objects: Int = 0)
+
+@Serializable
+data class H3R2Day(val day: String = "", val bytes: Long = 0, val objects: Int = 0)
+
+@Serializable
+data class H3R2Usage(
+    val bytes: Long = 0,
+    val objects: Int = 0,
+    val cats: Map<String, H3R2Cat> = emptyMap(),
+    val truncated: Boolean = false,
+    val at: Long = 0,
+    val gb: Double = 0.0,
+    @SerialName("free_gb") val freeGb: Double = 10.0,
+    @SerialName("est_usd_month") val estUsdMonth: Double = 0.0,
+    val days: List<H3R2Day> = emptyList(),
+)
+
 /** v2.9.7 筆電 Gemma 對話(POST /api/app/chat → GET /api/app/chat/{id}) */
 @Serializable
 data class H3ChatMessage(val role: String, val content: String)
