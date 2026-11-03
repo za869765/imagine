@@ -6,6 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -168,8 +171,8 @@ fun ChatScreen(
     }
 
     // v3.0.2 打字時(鍵盤開著)收起上方的分頁、模型、說明列,把空間留給訊息;鍵盤一開就捲到最新一則
-    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    @OptIn(ExperimentalLayoutApi::class)
+    val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(turns.size, imeVisible, sending) {
         if (turns.isNotEmpty()) listState.animateScrollToItem(turns.size - 1)
     }
