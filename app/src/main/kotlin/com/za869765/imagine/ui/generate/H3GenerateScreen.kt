@@ -117,6 +117,7 @@ fun H3GenerateScreen(
     // v2.1.4 三級:超高畫質 bf16／高畫質 int8／低畫質 Q4;預設高畫質(經濟實用)
     var tier by rememberSaveable { mutableStateOf(prefs.h3VideoTier) }
     var blink by rememberSaveable { mutableStateOf(true) }
+    var localModel by rememberSaveable { mutableStateOf("v2") }
     var colabGpus by rememberSaveable { mutableStateOf(prefs.h3ColabGpus) }
     // v2.1.8 長片段數(1～4,每段接續上一段)與每段內容(空白＝導演大腦從主描述拆);資產庫角色(鎖臉鎖聲)
     var segCount by rememberSaveable { mutableStateOf(1) }
@@ -204,6 +205,7 @@ fun H3GenerateScreen(
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
             seed = prefs.h3SeedToSend,
+            model = localModel,
         )
         estimating = true
         scope.launch {
@@ -440,6 +442,16 @@ fun H3GenerateScreen(
                 selectedId = tier,
                 onSelect = { tier = it; prefs.h3VideoTier = it },
             )
+            // v2.9.0 筆電主模型可選，預設 Singularity V2
+            if (tier == "low") ModePicker(
+                label = "筆電模型",
+                options = listOf(
+                    ModeOption("v2", "Singularity V2（預設）", "社群微調版，臉和動作較自然"),
+                    ModeOption("q4", "官方 Q4", "原本的模型"),
+                ),
+                selectedId = localModel,
+                onSelect = { localModel = it },
+            )
             // v2.3.0 長度・比例・進階收成一行摘要（Claude Design v3）
             CollapsibleSection(
                 title = "長度・比例・進階",
@@ -632,6 +644,7 @@ private fun H3ConfirmSheet(
                     "正常版 ${H3Format.seconds(it.normal)}／快速版 ${H3Format.seconds(it.fast)}"
                 } ?: "未知",
             )
+            if (pending.route == "local") ConfirmLine("筆電模型", if (pending.model == "v2") "Singularity V2" else "官方 Q4")
             ConfirmLine("圖片", "${pending.sources.size} 張・${if (pending.mode == "first") "首幀" else if (pending.mode == "t2v") "文生影" else "參考圖"}・${pending.aspect}")
             if (pending.segments > 1) ConfirmLine("長度", "${pending.segments} 段接續・每段 ${pending.seconds} 秒・約 ${pending.segments * pending.seconds} 秒")
             pending.subjectName?.let { ConfirmLine("角色", "$it（臉部模型＋聲音每段都鎖）") }

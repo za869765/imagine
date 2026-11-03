@@ -71,7 +71,8 @@ data class H3JobRequest(
     // v2.1.4 route=gputw 時送 est_ntd(est_cu 填 0);exp 帶眨眼包等(伺服器 cleanExp 白名單)
     val route: String = "cloud",
     @SerialName("est_ntd") val estNtd: Double = 0.0,
-    val exp: Map<String, Boolean>? = null,
+    // v2.9.0 exp 也帶 unet(筆電選 V2)
+    val exp: Map<String, JsonElement>? = null,
     // v2.1.5 超高畫質可用的 Colab GPU 範圍(伺服器照 G4→H100→A100 優先順序自動挑,排不到不扣 CU)
     val gpus: List<String>? = null,
     // v2.1.8 長片:segments 段接續(每段 seconds 秒);beats=每段自己寫的內容(空字串＝交給導演大腦拆);subject_id=資產庫角色(鎖臉鎖聲)

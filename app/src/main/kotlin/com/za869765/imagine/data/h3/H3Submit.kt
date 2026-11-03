@@ -28,7 +28,12 @@ data class PendingH3(
     val seed: Long? = null,
     // v2.8.0 往後續做：原片本機 uri，新片做好後接在它後面
     val extendBase: String? = null,
+    // v2.9.0 筆電主模型:"v2"(Singularity V2,預設)或 "q4"(官方 Q4)
+    val model: String = "v2",
 )
+
+/** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */
+const val H3_LOCAL_V2_UNET = "Minimax-h3_Singularity_ref2va_v2_pruned_w4a8.safetensors"
 
 /**
  * 送出 H3 任務(會花 CU)。呼叫端必須已取得使用者勾選確認,且要在 app 層 scope 執行
@@ -89,7 +94,10 @@ object H3Submit {
             clientRequestId = pending.clientRequestId,
             route = pending.route,
             estNtd = confirmed.ntd,
-            exp = if (pending.blink) mapOf("blink" to true) else null,
+            exp = buildMap<String, kotlinx.serialization.json.JsonElement> {
+                if (pending.blink) put("blink", kotlinx.serialization.json.JsonPrimitive(true))
+                if (pending.route == "local" && pending.model == "v2") put("unet", kotlinx.serialization.json.JsonPrimitive(H3_LOCAL_V2_UNET))
+            }.ifEmpty { null },
             gpus = if (pending.route == "cloud" && pending.gpus.isNotEmpty()) pending.gpus else null,
             segments = pending.segments,
             beats = if (pending.segments > 1 && pending.beats.any { it.isNotBlank() }) pending.beats else null,
