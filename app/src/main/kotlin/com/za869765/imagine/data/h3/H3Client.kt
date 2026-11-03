@@ -163,6 +163,15 @@ object H3Client {
         }
     }
 
+    /** v2.9.7 筆電 Gemma 對話:送出(伺服器只轉送給筆電,回 id),再用 [gemmaChatPoll] 輪詢到 done/failed。不花錢、不進雲端硬碟。 */
+    suspend fun gemmaChat(prefs: SecurePrefs, messages: List<H3ChatMessage>): Result<H3ChatCreated> {
+        val payload = json.encodeToString(H3ChatRequest(messages)).toRequestBody("application/json".toMediaType())
+        return call<H3ChatCreated>(prefs, http, request(prefs, "/api/app/chat")?.post(payload)?.build())
+    }
+
+    suspend fun gemmaChatPoll(prefs: SecurePrefs, id: String): Result<H3ChatStatus> =
+        call<H3ChatStatus>(prefs, http, request(prefs, "/api/app/chat/$id")?.get()?.build())
+
     suspend fun job(prefs: SecurePrefs, runId: String): Result<H3JobStatus> =
         call<H3JobStatus>(prefs, http, request(prefs, "/api/app/jobs/$runId")?.get()?.build())
 

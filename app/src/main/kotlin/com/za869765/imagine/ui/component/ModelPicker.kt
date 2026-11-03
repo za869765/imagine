@@ -99,7 +99,8 @@ private fun ProviderTag(p: ApiProvider) {
 fun modelsFor(ctx: android.content.Context, mode: ModelMode, hasXai: Boolean, hasOpenRouter: Boolean): List<CatalogModel> {
     val xai = XaiCatalog.models(mode)
     val or = OpenRouterCatalog.sortedForPicker(OpenRouterCatalog.models(ctx, mode), mode)
-    return when {
+    val local = if (mode == ModelMode.CHAT) listOf(com.za869765.imagine.data.catalog.LOCAL_GEMMA) else emptyList()  // v2.9.7 不需要 key,一律列
+    return local + when {
         hasXai && hasOpenRouter -> xai + or
         hasXai -> xai
         hasOpenRouter -> or
@@ -290,7 +291,7 @@ fun ModelPickerRow(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier.padding(top = 4.dp),
                             ) {
-                                ProviderTag(ApiProvider.ofModel(m.id))
+                                if (m.vendor != "local") ProviderTag(ApiProvider.ofModel(m.id))
                                 BadgePill(m.badge)
                                 Text(
                                     text = m.priceText(mode),

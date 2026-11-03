@@ -73,6 +73,33 @@ import java.util.Locale
 // 一輪對話:role = user / assistant / error;meta = 模型 / 費用 / tokens 小字
 data class ChatTurn(val role: String, val content: String, val meta: String = "")
 
+/** v2.9.7 筆電 Gemma:送到 H3(只轉送)→ 每 3 秒問一次,筆電答完才回;最多等 16 分鐘(筆電生成影片時要排隊)。 */
+private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagine.data.h3.H3ChatMessage>): ChatTurn {
+    val c = com.za869765.imagine.data.h3.H3Client
+    val t0 = System.currentTimeMillis()
+    val id = when (val r = c.gemmaChat(prefs, msgs)) {
+        is com.za869765.imagine.data.h3.H3Client.Result.Ok -> r.value.id ?: return ChatTurn("error", "筆電 Gemma:伺服器沒有回傳編號")
+        is com.za869765.imagine.data.h3.H3Client.Result.Err -> return ChatTurn("error", "筆電 Gemma:${r.message}")
+    }
+    var busySeen = false
+    while (System.currentTimeMillis() - t0 < 16 * 60_000) {
+        kotlinx.coroutines.delay(3000)
+        when (val r = c.gemmaChatPoll(prefs, id)) {
+            is com.za869765.imagine.data.h3.H3Client.Result.Ok -> {
+                val s = r.value
+                busySeen = busySeen || s.busy
+                if (s.status == "done") {
+                    val sec = (System.currentTimeMillis() - t0) / 1000
+                    return ChatTurn("assistant", s.text.orEmpty(), "🔒 筆電 Gemma 4 12B · ${sec} 秒 · 免費" + if (busySeen) "（等過筆電生成）" else "")
+                }
+                if (s.status == "failed") return ChatTurn("error", s.error ?: "筆電 Gemma 失敗")
+            }
+            is com.za869765.imagine.data.h3.H3Client.Result.Err -> if (System.currentTimeMillis() - t0 > 60_000) return ChatTurn("error", "筆電 Gemma:${r.message}")
+        }
+    }
+    return ChatTurn("error", "筆電 Gemma 超過 16 分鐘沒回答")
+}
+
 private val chatTurnsSaver = listSaver<List<ChatTurn>, String>(
     save = { list -> list.flatMap { listOf(it.role, it.content, it.meta) } },
     restore = { flat -> flat.chunked(3).filter { it.size == 3 }.map { ChatTurn(it[0], it[1], it[2]) } },
@@ -106,6 +133,8 @@ fun ChatScreen(
         mutableStateOf(prefs.chatModel ?: defaultModelFor(ModelMode.CHAT, prefs.isApiKeySet, prefs.isOpenRouterKeySet))
     }
     val provider = ApiProvider.ofModel(model)
+    val isLocal = model == com.za869765.imagine.data.catalog.LOCAL_GEMMA_ID  // v2.9.7 筆電 Gemma:不用 key、走 H3 權杖
+    val hasKey = if (isLocal) prefs.isH3TokenSet else prefs.hasKeyFor(provider)
     var turns by rememberSaveable(stateSaver = chatTurnsSaver) { mutableStateOf(emptyList<ChatTurn>()) }
     var input by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -148,10 +177,15 @@ fun ChatScreen(
         sending = true
         val capturedModel = model
         val capturedProvider = provider
+        val capturedLocal = isLocal
         scope.launch {
             try {
                 val apiMsgs = history.filter { it.role == "user" || it.role == "assistant" }
                     .map { ChatMessage(it.role, it.content) }
+                if (capturedLocal) {
+                    turns = turns + gemmaReply(prefs, apiMsgs.map { com.za869765.imagine.data.h3.H3ChatMessage(it.role, it.content) })
+                    return@launch
+                }
                 when (capturedProvider) {
                     ApiProvider.OPENROUTER -> when (val r = orRepo.chat(apiMsgs, capturedModel)) {
                         is ApiResult.Success -> {
@@ -226,10 +260,11 @@ fun ChatScreen(
                 onSelect = { model = it; prefs.chatModel = it },
             )
 
-            if (!prefs.hasKeyFor(provider)) {
+            if (!hasKey) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
                     Text(
-                        "未設定 ${provider.label} API Key — 點此到設定填入,或在上方模型清單改選另一家的模型",
+                        if (isLocal) "未設定 H3 Studio 權杖 — 筆電 Gemma 要透過 H3 Studio 轉送,點此到設定填入"
+                        else "未設定 ${provider.label} API Key — 點此到設定填入,或在上方模型清單改選另一家的模型",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.error,
                         lineHeight = 19.sp,
@@ -244,7 +279,9 @@ fun ChatScreen(
             ) {
                 Text(
                     text = buildString {
-                        if (provider == ApiProvider.OPENROUTER) {
+                        if (isLocal) {
+                            append("🔒 筆電本機回答 · 免費 · 不進雲端硬碟 · 每則約 10～30 秒")
+                        } else if (provider == ApiProvider.OPENROUTER) {
                             append("本次對話 $").append(fmtUsd(sessionCost))
                             balanceText?.let { append(" · ").append(it) }
                         } else {
@@ -305,7 +342,7 @@ fun ChatScreen(
                     maxLines = 5,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp, max = 140.dp),
                 )
-                val canSend = input.isNotBlank() && !sending && prefs.hasKeyFor(provider)
+                val canSend = input.isNotBlank() && !sending && hasKey
                 Box(
                     modifier = Modifier
                         .size(48.dp)

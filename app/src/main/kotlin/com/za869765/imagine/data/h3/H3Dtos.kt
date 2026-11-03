@@ -145,6 +145,19 @@ data class H3JobStatus(
 @Serializable
 data class H3ErrorBody(val error: String? = null)
 
+/** v2.9.7 筆電 Gemma 對話(POST /api/app/chat → GET /api/app/chat/{id}) */
+@Serializable
+data class H3ChatMessage(val role: String, val content: String)
+
+@Serializable
+data class H3ChatRequest(val messages: List<H3ChatMessage>)
+
+@Serializable
+data class H3ChatCreated(val id: String? = null, val busy: Boolean = false)
+
+@Serializable
+data class H3ChatStatus(val status: String = "queued", val text: String? = null, val error: String? = null, val busy: Boolean = false)
+
 /** GET /api/app/subjects — H3 Studio 資產庫角色(face_locked＝已建臉部模型;voice＝有參考音)。 */
 @Serializable
 data class H3Subject(val id: String, val name: String, val desc: String = "", @SerialName("face_locked") val faceLocked: Boolean = false, val voice: Boolean = false, val thumb: String? = null)
