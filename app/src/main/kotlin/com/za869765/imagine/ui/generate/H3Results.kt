@@ -211,7 +211,7 @@ fun MachineChips(board: List<H3Machine>, routes: List<String>, highlight: String
 private fun MutedLoopPreview(uri: String, modifier: Modifier) {
     val ctx = LocalContext.current
     val player = remember(uri) {
-        ExoPlayer.Builder(ctx).build().apply {
+        ExoPlayer.Builder(ctx).setLoadControl(smallLoadControl(3_000, 2)).build().apply {
             volume = 0f
             repeatMode = Player.REPEAT_MODE_ALL
             setMediaItem(MediaItem.fromUri(uri))

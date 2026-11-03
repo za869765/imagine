@@ -289,6 +289,14 @@ fun RecentJobsPoller(prefs: com.za869765.imagine.data.prefs.SecurePrefs, jobs: L
     }
 }
 
+/** v3.0.8 預設緩衝會把整支影片讀進記憶體，縮圖預覽一多就 OOM 閃退；限制最多先讀幾秒、幾 MB。 */
+@androidx.annotation.OptIn(UnstableApi::class)
+internal fun smallLoadControl(maxMs: Int, mb: Int) = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+    .setBufferDurationsMs(minOf(2_000, maxMs), maxMs, 500, 1_000)
+    .setTargetBufferBytes(mb * 1024 * 1024)
+    .setPrioritizeTimeOverSizeThresholds(false)
+    .build()
+
 /**
  * 播放 H3 成品:遠端串流需帶 Authorization(伺服器支援 HTTP Range);本機 file:// 直接播。
  */
@@ -297,7 +305,7 @@ fun RecentJobsPoller(prefs: com.za869765.imagine.data.prefs.SecurePrefs, jobs: L
 fun H3VideoPlayer(url: String, headers: Map<String, String>, userAgent: String, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val player = remember(url) {
-        val builder = ExoPlayer.Builder(ctx)
+        val builder = ExoPlayer.Builder(ctx).setLoadControl(smallLoadControl(30_000, 16))
         if (url.startsWith("http")) {
             val http = DefaultHttpDataSource.Factory()
                 .setUserAgent(userAgent)
