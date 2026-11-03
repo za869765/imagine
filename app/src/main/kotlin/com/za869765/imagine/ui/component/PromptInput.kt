@@ -218,6 +218,8 @@ fun PromptInput(
     var optimizing by remember { mutableStateOf(false) }
     var optResult by remember { mutableStateOf<H3Optimized?>(null) }
     var optBackup by remember { mutableStateOf<String?>(null) }
+    var pickBrain by remember { mutableStateOf(false) }
+    var optBrain by remember { mutableStateOf(prefs.h3OptimizeBrain) }
     fun runOptimize() {
         val kind = optimizeKind ?: return
         if (optimizing) return
@@ -231,17 +233,35 @@ fun PromptInput(
         }
         optimizing = true
         scope.launch {
-            when (val r = H3Client.optimizePrompt(prefs, kind, tfValue.text, optimizeContext)) {
+            when (val r = H3Client.optimizePrompt(prefs, kind, tfValue.text, optimizeContext, optBrain)) {
                 is H3Client.Result.Ok -> optResult = r.value
                 is H3Client.Result.Err -> Toast.makeText(ctx, "優化失敗：${r.message}", Toast.LENGTH_LONG).show()
             }
             optimizing = false
         }
     }
+    if (pickBrain) {
+        AlertDialog(
+            onDismissRequest = { pickBrain = false },
+            title = { Text("✨ 用哪個 AI 優化？", fontWeight = FontWeight.W700) },
+            text = {
+                Column {
+                    OPT_BRAINS.forEach { (id, name, note) ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { optBrain = id }.padding(vertical = 4.dp)) {
+                            androidx.compose.material3.RadioButton(selected = optBrain == id, onClick = { optBrain = id })
+                            Column { Text(name, fontSize = 14.sp); Text(note, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp) }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { pickBrain = false; prefs.h3OptimizeBrain = optBrain; runOptimize() }) { Text("開始優化") } },
+            dismissButton = { TextButton(onClick = { pickBrain = false }) { Text("取消") } },
+        )
+    }
     optResult?.let { r ->
         AlertDialog(
             onDismissRequest = { optResult = null },
-            title = { Text("✨ 優化結果", fontWeight = FontWeight.W700) },
+            title = { Text("✨ 優化結果" + (OPT_BRAINS.firstOrNull { it.first == r.brain }?.let { "（${it.second}）" } ?: ""), fontWeight = FontWeight.W700) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text(r.optimized, fontSize = 13.sp, lineHeight = 19.sp)
@@ -301,7 +321,7 @@ fun PromptInput(
                 PromptToolChip(icon = "content_paste", label = "套用範本") { showApplyTemplate = true }
                 PromptToolChip(icon = "auto_awesome", label = "自己組") { showTemplateSheet = true }
                 if (optimizeKind != null) {
-                    PromptToolChip(icon = "star", label = if (optimizing) "優化中…" else "優化") { runOptimize() }
+                    PromptToolChip(icon = "star", label = if (optimizing) "優化中…" else "優化") { if (!optimizing) pickBrain = true }
                 }
                 if (value.isNotBlank()) {
                     Box {
@@ -741,3 +761,13 @@ private fun evaluatePrompt(p: String, maxChars: Int, forVideo: Boolean = false):
 
     return null
 }
+
+/** v3.0.0 ✨ 優化可選的 AI(id, 名稱, 說明);第一個是預設 */
+private val OPT_BRAINS = listOf(
+    Triple("gemma", "🔒 筆電 Gemma（預設）", "提示詞只到你的筆電・免費・約 10～45 秒"),
+    Triple("claude", "🖥 筆電 Claude（你的訂閱）", "經筆電送 Anthropic・約 10～30 秒"),
+    Triple("claude_api", "Claude API", "用 H3 設定裡的 Claude 金鑰・送 Anthropic"),
+    Triple("openai", "ChatGPT API", "用 H3 設定裡的 OpenAI 金鑰・送 OpenAI"),
+    Triple("grok", "Grok API", "用 H3 設定裡的 Grok 金鑰・送 xAI"),
+    Triple("gemini", "Gemini", "經你的 Gemini 中繼站・送 Google・最快"),
+)

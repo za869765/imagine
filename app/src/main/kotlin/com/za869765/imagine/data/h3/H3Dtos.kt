@@ -302,11 +302,15 @@ data class H3ImageStatus(
 
 /** POST /api/app/prompt/optimize — kind image|video|shot|director|subject|generic。 */
 @Serializable
-data class H3OptimizeRequest(val kind: String, val text: String, val context: Map<String, String> = emptyMap())
+data class H3OptimizeRequest(val kind: String, val text: String, val context: Map<String, String> = emptyMap(),
+    // v3.0.0 優化大腦:gemma(筆電,預設)/claude(筆電 Claude 訂閱)/claude_api/openai/grok/gemini;job_id＝筆電處理中輪詢用
+    val brain: String = "gemma", @SerialName("job_id") val jobId: String? = null)
 
 @Serializable
 data class H3Optimized(
     val kind: String = "",
     val optimized: String = "",
     val notes: List<String> = emptyList(),
+    val pending: String? = null,
+    val brain: String? = null,
 )

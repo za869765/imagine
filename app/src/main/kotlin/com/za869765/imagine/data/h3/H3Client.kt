@@ -240,9 +240,18 @@ object H3Client {
         call<H3ImageStatus>(prefs, http, request(prefs, "/api/app/images/$runId")?.get()?.build())
 
     /** ✨ 優化提示詞:用 H3 Studio 的導演大腦改寫並說明改了什麼(不花 CU)。 */
-    suspend fun optimizePrompt(prefs: SecurePrefs, kind: String, text: String, context: Map<String, String> = emptyMap()): Result<H3Optimized> {
-        val payload = json.encodeToString(H3OptimizeRequest(kind, text, context)).toRequestBody("application/json".toMediaType())
-        return call<H3Optimized>(prefs, http, request(prefs, "/api/app/prompt/optimize")?.post(payload)?.build())
+    suspend fun optimizePrompt(prefs: SecurePrefs, kind: String, text: String, context: Map<String, String> = emptyMap(), brain: String = "gemma"): Result<H3Optimized> {
+        // v3.0.0 筆電(Gemma／Claude)會先回 pending,每 3 秒帶 job_id 再問,最多 16 分鐘(筆電在生成影片時要排隊)
+        val t0 = System.currentTimeMillis()
+        var jobId: String? = null
+        while (true) {
+            val payload = json.encodeToString(H3OptimizeRequest(kind, text, context, brain, jobId)).toRequestBody("application/json".toMediaType())
+            val r = call<H3Optimized>(prefs, http, request(prefs, "/api/app/prompt/optimize")?.post(payload)?.build())
+            if (r !is Result.Ok || r.value.pending.isNullOrBlank()) return r
+            if (System.currentTimeMillis() - t0 > 16 * 60_000) return Result.Err("筆電超過 16 分鐘沒回,可以改選其他 AI")
+            jobId = r.value.pending
+            kotlinx.coroutines.delay(3000)
+        }
     }
 
     private fun enc(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")

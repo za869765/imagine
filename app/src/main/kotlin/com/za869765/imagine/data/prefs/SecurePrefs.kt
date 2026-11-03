@@ -103,6 +103,10 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3LocalModel: String
         get() = prefs.getString("h3_local_model", "v2")!!
         set(v) = prefs.edit().putString("h3_local_model", v).apply()
+    // v3.0.0 ✨ 優化用哪個 AI(預設筆電 Gemma,提示詞不出筆電)
+    var h3OptimizeBrain: String
+        get() = prefs.getString("h3_optimize_brain", "gemma")!!
+        set(v) = prefs.edit().putString("h3_optimize_brain", v).apply()
     // v2.9.4 H3 影片描述自動翻英文(工人在本機翻),預設開
     var h3Translate: Boolean
         get() = prefs.getBoolean("h3_translate", true)

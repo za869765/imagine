@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -135,7 +137,16 @@ fun ChatScreen(
     val provider = ApiProvider.ofModel(model)
     val isLocal = model == com.za869765.imagine.data.catalog.LOCAL_GEMMA_ID  // v2.9.7 筆電 Gemma:不用 key、走 H3 權杖
     val hasKey = if (isLocal) prefs.isH3TokenSet else prefs.hasKeyFor(provider)
-    var turns by rememberSaveable(stateSaver = chatTurnsSaver) { mutableStateOf(emptyList<ChatTurn>()) }
+    // v3.0.0 對話存手機(重開 App、更新後接著顯示);歷史可回看、刪除
+    val CH = com.za869765.imagine.data.chat.ChatHistory
+    var chatId by rememberSaveable { mutableStateOf(CH.current(ctx)?.id) }
+    var turns by rememberSaveable(stateSaver = chatTurnsSaver) {
+        mutableStateOf(CH.current(ctx)?.turns?.map { ChatTurn(it.role, it.content, it.meta) } ?: emptyList())
+    }
+    var showHistory by remember { mutableStateOf(false) }
+    LaunchedEffect(turns) {
+        if (turns.isNotEmpty()) chatId = CH.save(ctx, chatId, model, turns.map { com.za869765.imagine.data.chat.SavedTurn(it.role, it.content, it.meta) })
+    }
     var input by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     var sessionCost by rememberSaveable { mutableStateOf(0.0) }
@@ -294,11 +305,41 @@ fun ChatScreen(
                     modifier = Modifier.weight(1f),
                 )
                 ImagineChip(label = "帳單", icon = "receipt_long", variant = ChipVariant.Outlined, onClick = { openBilling() })
+                ImagineChip(label = "歷史", icon = "history", variant = ChipVariant.Outlined, onClick = { showHistory = true })
                 if (turns.isNotEmpty()) {
-                    ImagineChip(label = "清除", icon = "delete", variant = ChipVariant.Outlined, onClick = {
-                        turns = emptyList(); sessionCost = 0.0
+                    ImagineChip(label = "新對話", icon = "add", variant = ChipVariant.Outlined, onClick = {
+                        CH.startNew(ctx); chatId = null; turns = emptyList(); sessionCost = 0.0  // 舊的留在「歷史」
                     })
                 }
+            }
+
+            if (showHistory) {
+                var list by remember { mutableStateOf(CH.all(ctx)) }
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showHistory = false },
+                    title = { Text("對話紀錄（存在這支手機）") },
+                    text = {
+                        if (list.isEmpty()) Text("還沒有存下來的對話", fontSize = 13.sp)
+                        else LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(list.size) { i ->
+                                val c = list[i]
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()
+                                    .clickable { CH.open(ctx, c.id)?.let { o -> chatId = o.id; turns = o.turns.map { ChatTurn(it.role, it.content, it.meta) }; sessionCost = 0.0 }; showHistory = false }
+                                    .padding(vertical = 6.dp)) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text((if (c.id == chatId) "▶ " else "") + c.title, fontSize = 14.sp, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(java.text.SimpleDateFormat("M/d HH:mm", Locale.TAIWAN).format(java.util.Date(c.updatedAt)) + "・${c.turns.size} 則",
+                                            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text("刪除", fontSize = 13.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.clickable {
+                                        CH.delete(ctx, c.id); if (c.id == chatId) { chatId = null; turns = emptyList() }; list = CH.all(ctx)
+                                    }.padding(8.dp))
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = { androidx.compose.material3.TextButton(onClick = { showHistory = false }) { Text("關閉") } },
+                )
             }
 
             LazyColumn(
