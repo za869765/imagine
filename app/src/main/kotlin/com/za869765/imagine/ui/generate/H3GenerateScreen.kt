@@ -453,7 +453,10 @@ fun H3GenerateScreen(
                 ) else listOf(
                     ModeOption("v2", "V2・int8（預設）", "Singularity V2 社群微調版（剪枝 int8），臉和動作較自然"),
                     ModeOption("q4", if (tier == "ultra") "官方 bf16" else "官方 int8", "MiniMax 官方完整模型"),
-                ),
+                ) + if (tier == "high") listOf(
+                    // v2.9.6 只在 GPUtw 實測過（11/3，8 步約 2 分）
+                    ModeOption("prism", "PRISM・8步", "Singularity＋10Eros 合併版，加速燒進權重，8 步較快"),
+                ) else emptyList(),
                 selectedId = localModel,
                 onSelect = { localModel = it },
             )
