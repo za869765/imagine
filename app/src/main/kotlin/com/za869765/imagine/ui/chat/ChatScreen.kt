@@ -154,7 +154,8 @@ fun ChatScreen(
         mutableStateOf(CH.current(ctx)?.turns?.map { ChatTurn(it.role, it.content, it.meta) } ?: emptyList())
     }
     var showHistory by remember { mutableStateOf(false) }
-    var waitNote by remember { mutableStateOf<String?>(null) }  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
+    var waitNote by remember { mutableStateOf<String?>(null) }
+    var queued by remember { mutableStateOf(emptyList<Pair<String, List<Uri>>>()) }  // v3.0.6 回答中送出的訊息,依序排隊  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
     // v3.0.4 筆電 Gemma 可附圖(看圖、OCR),最多 3 張
     var attached by remember { mutableStateOf(emptyList<Uri>()) }
     val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { u ->
@@ -198,15 +199,11 @@ fun ChatScreen(
         }
     }
 
-    fun send() {
-        val text = input.trim()
-        val pics = if (isLocal) attached else emptyList()
-        if ((text.isEmpty() && pics.isEmpty()) || sending) return
+    // v3.0.6 回答中也能送出:排進佇列,上一則答完再依序送(每則都帶到當下為止的對話)
+    fun process(text: String, pics: List<Uri>) {
         val shown = (if (pics.isNotEmpty()) "🖼 附圖 ${pics.size} 張\n" else "") + text
         val history = turns + ChatTurn("user", shown)
         turns = history
-        input = ""
-        attached = emptyList()
         sending = true
         val capturedModel = model
         val capturedProvider = provider
@@ -253,8 +250,19 @@ fun ChatScreen(
                 turns = turns + ChatTurn("error", "失敗:${t.message?.take(120) ?: t::class.simpleName}")
             } finally {
                 sending = false
+                queued.firstOrNull()?.let { (t, p) -> queued = queued.drop(1); process(t, p) }
             }
         }
+    }
+
+    fun send() {
+        val text = input.trim()
+        val pics = if (isLocal) attached else emptyList()
+        if (text.isEmpty() && pics.isEmpty()) return
+        input = ""
+        attached = emptyList()
+        if (sending) { if (queued.size < 5) queued = queued + (text to pics); return }
+        process(text, pics)
     }
 
     ImagineScreen(
@@ -398,6 +406,11 @@ fun ChatScreen(
                         }
                     }
                 }
+                itemsIndexed(queued) { i, q ->
+                    Text("⏳ 排隊第 ${i + 1}：" + (if (q.second.isNotEmpty()) "🖼${q.second.size} " else "") + q.first.replace('\n', ' ').take(60) + "（點一下取消）",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().clickable { queued = queued.filterIndexed { k, _ -> k != i } }.padding(vertical = 2.dp))
+                }
             }
 
             if (isLocal && attached.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -430,7 +443,7 @@ fun ChatScreen(
                     maxLines = 5,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp, max = 140.dp),
                 )
-                val canSend = (input.isNotBlank() || (isLocal && attached.isNotEmpty())) && !sending && hasKey
+                val canSend = (input.isNotBlank() || (isLocal && attached.isNotEmpty())) && hasKey && queued.size < 5
                 Box(
                     modifier = Modifier
                         .size(48.dp)
