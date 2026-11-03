@@ -340,7 +340,7 @@ fun SettingsScreen(
                         value = defLocalModel,
                         options = listOf("v2", "q4"),
                         onSelect = { defLocalModel = it; prefs.h3LocalModel = it },
-                        displayName = { if (it == "v2") "Singularity V2" else "官方 Q4" },
+                        displayName = { if (it == "v2") "V2・8步HD" else "Q4・8步HD" },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

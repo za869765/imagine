@@ -91,7 +91,7 @@ private fun H3Jobs.Job.machine(): String? =
         ?: meta.substringAfterLast("・", "").takeIf { it in listOf("筆電", "製圖機", "GPUtw 5090", "Colab", "5090", "GPUtw") }
 /** v2.9.1 影片用了哪個模型（舊任務沒記，筆電一律當官方 Q4） */
 private fun H3Jobs.Job.modelName(): String? = if (kind == "image") null else when (route) {
-    "local" -> if (repeatVideo?.model == "v2") "V2" else "官方 Q4"
+    "local" -> if (repeatVideo?.model == "v2") "V2・8步HD" else "Q4・8步HD"
     "gputw" -> "官方 int8"
     "cloud" -> "官方 bf16"
     else -> null
