@@ -28,8 +28,8 @@ data class PendingH3(
     val seed: Long? = null,
     // v2.8.0 往後續做：原片本機 uri，新片做好後接在它後面
     val extendBase: String? = null,
-    // v2.9.0 筆電主模型:"v2"(Singularity V2,預設)或 "q4"(官方 Q4)
-    val model: String = "v2",
+    // v2.9.0 筆電主模型:"v2"(Singularity V2)或 "q4"(官方 Q4);舊紀錄沒這欄＝當時只有 Q4
+    val model: String = "q4",
 )
 
 /** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */

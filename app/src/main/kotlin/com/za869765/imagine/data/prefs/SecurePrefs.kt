@@ -99,6 +99,10 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3VideoTier: String
         get() = prefs.getString("h3_video_tier", "high")!!
         set(v) = prefs.edit().putString("h3_video_tier", v).apply()
+    // v2.9.1 筆電影片預設模型:"v2"(Singularity V2)或 "q4"(官方 Q4),設定頁可改
+    var h3LocalModel: String
+        get() = prefs.getString("h3_local_model", "v2")!!
+        set(v) = prefs.edit().putString("h3_local_model", v).apply()
     // v2.0.7 生圖引擎:"grok"(xAI / OpenRouter 模型)或 "h3"(H3 Studio 的 Qwen-Image 2.1);以及 H3 生圖上次用的參數
     var imageEngine: String
         get() = prefs.getString(K_IMAGE_ENGINE, "grok")!!

@@ -89,6 +89,14 @@ private fun H3Jobs.Job.isRunning() = status in listOf("running", "launching", "s
 private fun H3Jobs.Job.machine(): String? =
     route.takeIf { it.isNotBlank() && it != "auto" }?.let { H3Format.routeShort(it) }
         ?: meta.substringAfterLast("・", "").takeIf { it in listOf("筆電", "製圖機", "GPUtw 5090", "Colab", "5090", "GPUtw") }
+/** v2.9.1 影片用了哪個模型（舊任務沒記，筆電一律當官方 Q4） */
+private fun H3Jobs.Job.modelName(): String? = if (kind == "image") null else when (route) {
+    "local" -> if (repeatVideo?.model == "v2") "V2" else "官方 Q4"
+    "gputw" -> "官方 int8"
+    "cloud" -> "官方 bf16"
+    else -> null
+}
+private fun H3Jobs.Job.machineModel(): String? = listOfNotNull(machine(), modelName()).joinToString("・").ifBlank { null }
 
 /** v2.4.4 做完存進手機的進度：saving＝下載／串接中、failed＝上次失敗（不再自動重抓，等使用者點縮圖重試） */
 private val saveState = mutableStateMapOf<String, String>()
@@ -254,7 +262,7 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
         if (job.isDone() && uri != null) {
             AsyncImage(model = uri, contentDescription = job.prompt, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             if (job.kind != "image") MutedLoopPreview(uri, Modifier.fillMaxSize())
-            job.machine()?.let { m ->
+            job.machineModel()?.let { m ->
                 Text(
                     m, fontSize = 10.sp, color = Color.White,
                     modifier = Modifier.align(Alignment.TopStart).padding(6.dp).background(Color(0x99000000), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
@@ -274,7 +282,7 @@ private fun ResultTile(job: H3Jobs.Job, modifier: Modifier, onClick: () -> Unit)
             )
         } else {
             Column(modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)) {
-                Text((if (job.kind == "image") "圖片" else "影片") + (job.machine()?.let { "・$it" } ?: ""), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text((if (job.kind == "image") "圖片" else "影片") + (job.machineModel()?.let { "・$it" } ?: ""), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     when {
                         job.isDone() -> if (saveState[job.runId] == "failed") "存檔失敗\n點一下重試" else "完成・存檔中…"
@@ -470,7 +478,7 @@ fun ResultViewerDialog(
                 ) { Text("✕", fontSize = 18.sp, color = Color.White) }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(
-                        "${pager.currentPage + 1} / ${items.size}・" + (if (cur.kind == "image") "圖片" else "影片 ${cur.seconds} 秒"),
+                        "${pager.currentPage + 1} / ${items.size}・" + (if (cur.kind == "image") "圖片" else "影片 ${cur.seconds} 秒") + (cur.modelName()?.let { "・$it" } ?: ""),
                         fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.W600,
                     )
                     Text(

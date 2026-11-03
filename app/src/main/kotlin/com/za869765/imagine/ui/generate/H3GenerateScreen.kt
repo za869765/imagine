@@ -117,7 +117,7 @@ fun H3GenerateScreen(
     // v2.1.4 三級:超高畫質 bf16／高畫質 int8／低畫質 Q4;預設高畫質(經濟實用)
     var tier by rememberSaveable { mutableStateOf(prefs.h3VideoTier) }
     var blink by rememberSaveable { mutableStateOf(true) }
-    var localModel by rememberSaveable { mutableStateOf("v2") }
+    var localModel by rememberSaveable { mutableStateOf(prefs.h3LocalModel) }
     var colabGpus by rememberSaveable { mutableStateOf(prefs.h3ColabGpus) }
     // v2.1.8 長片段數(1～4,每段接續上一段)與每段內容(空白＝導演大腦從主描述拆);資產庫角色(鎖臉鎖聲)
     var segCount by rememberSaveable { mutableStateOf(1) }

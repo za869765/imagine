@@ -333,6 +333,16 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                         )
                     }
+                    // v2.9.1 H3 筆電（低畫質）預設模型
+                    var defLocalModel by remember { mutableStateOf(prefs.h3LocalModel) }
+                    ParamPicker(
+                        label = "H3 筆電模型",
+                        value = defLocalModel,
+                        options = listOf("v2", "q4"),
+                        onSelect = { defLocalModel = it; prefs.h3LocalModel = it },
+                        displayName = { if (it == "v2") "Singularity V2" else "官方 Q4" },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
             if (section == "api") {
