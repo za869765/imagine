@@ -103,6 +103,10 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3LocalModel: String
         get() = prefs.getString("h3_local_model", "v2")!!
         set(v) = prefs.edit().putString("h3_local_model", v).apply()
+    // v2.9.4 H3 影片描述自動翻英文(工人在本機翻),預設開
+    var h3Translate: Boolean
+        get() = prefs.getBoolean("h3_translate", true)
+        set(v) = prefs.edit().putBoolean("h3_translate", v).apply()
     // v2.0.7 生圖引擎:"grok"(xAI / OpenRouter 模型)或 "h3"(H3 Studio 的 Qwen-Image 2.1);以及 H3 生圖上次用的參數
     var imageEngine: String
         get() = prefs.getString(K_IMAGE_ENGINE, "grok")!!

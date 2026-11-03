@@ -118,6 +118,7 @@ fun H3GenerateScreen(
     var tier by rememberSaveable { mutableStateOf(prefs.h3VideoTier) }
     var blink by rememberSaveable { mutableStateOf(true) }
     var localModel by rememberSaveable { mutableStateOf(prefs.h3LocalModel) }
+    var translate by rememberSaveable { mutableStateOf(prefs.h3Translate) }
     var colabGpus by rememberSaveable { mutableStateOf(prefs.h3ColabGpus) }
     // v2.1.8 長片段數(1～4,每段接續上一段)與每段內容(空白＝導演大腦從主描述拆);資產庫角色(鎖臉鎖聲)
     var segCount by rememberSaveable { mutableStateOf(1) }
@@ -206,6 +207,7 @@ fun H3GenerateScreen(
             estimate = null,
             seed = prefs.h3SeedToSend,
             model = localModel,
+            translate = translate,
         )
         estimating = true
         scope.launch {
@@ -512,6 +514,14 @@ fun H3GenerateScreen(
             ) {
                 Checkbox(checked = blink, onCheckedChange = { blink = it })
                 Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            }
+            // v2.9.4 中文描述會被念出來：生成那台機器在本機把引號外的描述翻英文（台詞不動），任務頁看得到翻好的句子
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { translate = !translate; prefs.h3Translate = translate },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = translate, onCheckedChange = { translate = it; prefs.h3Translate = it })
+                Text("描述自動翻英文（避免描述被念出來；引號內台詞不翻）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             }
             // v2.5.3 影片一律只留在 APP，不再給勾選
             Text("成品只存手機、不進雲端硬碟：生成時短暫存放在伺服器，存進手機後立刻刪除；要上傳請在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

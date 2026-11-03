@@ -132,6 +132,8 @@ data class H3JobStatus(
     /** v2.4.4 長片機器端沒串成完整版時，各段影片網址（依段落順序），APP 自己接 */
     @SerialName("segment_urls") val segmentUrls: List<String>? = null,
     val seed: Long? = null,
+    /** v2.9.4 工人在本機把中文描述翻成英文的紀錄(含翻好的 [Shot] 句),給使用者自己對照 */
+    val translated: String? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 

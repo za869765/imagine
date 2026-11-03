@@ -30,6 +30,8 @@ data class PendingH3(
     val extendBase: String? = null,
     // v2.9.0 筆電主模型:"v2"(Singularity V2)或 "q4"(官方 Q4);舊紀錄沒這欄＝當時只有 Q4
     val model: String = "q4",
+    // v2.9.4 描述自動翻英文(舊紀錄沒這欄＝當時沒翻)
+    val translate: Boolean = false,
 )
 
 /** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */
@@ -96,6 +98,7 @@ object H3Submit {
             estNtd = confirmed.ntd,
             exp = buildMap<String, kotlinx.serialization.json.JsonElement> {
                 if (pending.blink) put("blink", kotlinx.serialization.json.JsonPrimitive(true))
+                if (pending.translate) put("translate", kotlinx.serialization.json.JsonPrimitive(true))
                 if (pending.route == "local" && pending.model == "v2") put("unet", kotlinx.serialization.json.JsonPrimitive(H3_LOCAL_V2_UNET))
             }.ifEmpty { null },
             gpus = if (pending.route == "cloud" && pending.gpus.isNotEmpty()) pending.gpus else null,

@@ -326,6 +326,9 @@ fun H3JobScreen(runId: String, onBack: () -> Unit, onOpenRepeat: (String) -> Uni
                     ev?.message?.takeIf { it.isNotBlank() }?.let {
                         Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
+                    s?.translated?.takeIf { it.isNotBlank() }?.let {
+                        Text("🔤 $it", fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     val phase = ev?.phase
                     val pct = ev?.pct
                     if (phase != null || pct != null) {
