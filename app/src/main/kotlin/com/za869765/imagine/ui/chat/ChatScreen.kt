@@ -202,8 +202,7 @@ fun ChatScreen(
         val text = input.trim()
         val pics = if (isLocal) attached else emptyList()
         if ((text.isEmpty() && pics.isEmpty()) || sending) return
-        val shown = (if (pics.isNotEmpty()) "🖼 附圖 ${pics.size} 張
-" else "") + text
+        val shown = (if (pics.isNotEmpty()) "🖼 附圖 ${pics.size} 張\n" else "") + text
         val history = turns + ChatTurn("user", shown)
         turns = history
         input = ""
