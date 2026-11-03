@@ -764,7 +764,7 @@ private fun evaluatePrompt(p: String, maxChars: Int, forVideo: Boolean = false):
 
 /** v3.0.0 ✨ 優化可選的 AI(id, 名稱, 說明);第一個是預設 */
 private val OPT_BRAINS = listOf(
-    Triple("gemma", "🔒 筆電 Gemma 無拒答版（預設）", "提示詞只到你的筆電・免費・約 10～45 秒"),
+    Triple("gemma", "🔒 筆電 Gemma（預設）", "提示詞只到你的筆電・免費・約 10～45 秒"),
     Triple("claude", "🖥 筆電 Claude（你的訂閱）", "經筆電送 Anthropic・約 10～30 秒"),
     Triple("claude_api", "Claude API", "用 H3 設定裡的 Claude 金鑰・送 Anthropic"),
     Triple("openai", "ChatGPT API", "用 H3 設定裡的 OpenAI 金鑰・送 OpenAI"),

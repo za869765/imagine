@@ -95,7 +95,7 @@ private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagi
                 busySeen = busySeen || s.busy
                 if (s.status == "done") {
                     val sec = (System.currentTimeMillis() - t0) / 1000
-                    return ChatTurn("assistant", s.text.orEmpty(), "🔒 筆電 Gemma 4 12B 無拒答版 · ${sec} 秒 · 免費" + if (busySeen) "（等過筆電生成）" else "")
+                    return ChatTurn("assistant", s.text.orEmpty(), "🔒 筆電 Gemma 4 12B · ${sec} 秒 · 免費" + if (busySeen) "（等過筆電生成）" else "")
                 }
                 if (s.status == "failed") return ChatTurn("error", s.error ?: "筆電 Gemma 失敗")
             }
