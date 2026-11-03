@@ -32,6 +32,9 @@ data class PendingH3(
     val model: String = "q4",
     // v2.9.4 描述自動翻英文(舊紀錄沒這欄＝當時沒翻)
     val translate: Boolean = false,
+    // v3.1.0 換人(mode=motion):參考影片本機 uri 與秒數
+    val refVideo: String? = null,
+    val refVideoSeconds: Double? = null,
 )
 
 /** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */
@@ -87,6 +90,19 @@ object H3Submit {
         H3Format.blockReason(fresh)?.let { return Outcome.Blocked(it, fresh) }
         if (H3Format.estimateChanged(confirmed, fresh)) return Outcome.EstimateChanged(fresh)
 
+        var refVideo: H3RefVideo? = null
+        if (pending.mode == "motion") {
+            val uri = pending.refVideo ?: return Outcome.LocalError("換人模式要先選一支參考影片，未送出")
+            onProgress("上傳參考影片…")
+            val bytes = runCatching { ctx.contentResolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() } }.getOrNull()
+                ?: return Outcome.LocalError("參考影片讀不到，未送出（沒有花費）")
+            if (bytes.size > 80 * 1024 * 1024) return Outcome.LocalError("參考影片超過 80MB，請先剪短，未送出")
+            refVideo = when (val r = H3Client.uploadRefVideo(prefs, bytes, pending.refVideoSeconds)) {
+                is H3Client.Result.Ok -> r.value
+                is H3Client.Result.Err -> return Outcome.LocalError("參考影片上傳失敗，未送出：${r.message}")
+            }
+        }
+
         onProgress("送出中…")
         val req = H3JobRequest(
             prompt = pending.prompt,
@@ -118,6 +134,7 @@ object H3Submit {
             keepInStudio = false,
             seed = pending.seed,
             t2v = pending.mode == "t2v",
+            refVideo = refVideo,
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {

@@ -171,6 +171,21 @@ fun H3GenerateScreen(
         }
     }
 
+    // v3.1.0 換人(參考影片模式):照影片的動作換成角色／照片;秒數跟影片走
+    var refVideo by rememberSaveable { mutableStateOf<String?>(null) }
+    var refVideoSec by rememberSaveable { mutableStateOf<Double?>(null) }
+    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        if (uri != null) {
+            runCatching { ctx.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            refVideo = uri.toString()
+            refVideoSec = runCatching {
+                android.media.MediaMetadataRetriever().run {
+                    try { setDataSource(ctx, uri); extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toDouble()?.div(1000) } finally { release() }
+                }
+            }.getOrNull()
+        }
+    }
+
     // retry != null:重新估算同一筆(沿用 client_request_id);null:依目前畫面參數開新的一筆(新 id)
     fun startEstimate(retry: PendingH3? = null) {
         if (estimating) return
@@ -186,11 +201,17 @@ fun H3GenerateScreen(
             Toast.makeText(ctx, if (mode == "first") "請先選擇首幀圖" else "請先選擇參考圖（1～9 張）", Toast.LENGTH_SHORT).show()
             return
         }
+        val motion = mode == "motion" && extendBase == null
+        if (retry == null && motion && refVideo == null) {
+            Toast.makeText(ctx, "換人模式請先選一支參考影片", Toast.LENGTH_SHORT).show()
+            return
+        }
         focusManager.clearFocus()
+        val motionSec = kotlin.math.ceil(refVideoSec ?: 5.0).toInt().coerceIn(4, if (tier == "low") 8 else 15)
         val snapshot = retry?.copy(estimate = null) ?: PendingH3(
             prompt = prompt.trim(),
             sources = if (mode == "t2v" && extendBase == null) emptyList() else sourceStrings,
-            seconds = if (tier == "low") seconds.coerceAtMost(8) else seconds,
+            seconds = if (motion) motionSec else if (tier == "low") seconds.coerceAtMost(8) else seconds,
             quality = H3Format.tierQuality(tier),
             // 續做用最後一格當首幀；筆電沒裝首幀模型，改當參考圖
             mode = if (extendBase != null && subjectId == null && tier != "low") "first" else if (extendBase != null) "ref" else mode,
@@ -198,8 +219,8 @@ fun H3GenerateScreen(
             route = H3Format.tierRoute(tier),
             blink = blink,
             gpus = colabGpus,
-            segments = if (extendBase != null) 1 else segCount,
-            beats = if (extendBase != null) emptyList() else beats.take(segCount),
+            segments = if (extendBase != null || motion) 1 else segCount,
+            beats = if (extendBase != null || motion) emptyList() else beats.take(segCount),
             extendBase = extendBase,
             subjectId = subjectId,
             subjectName = subjects.firstOrNull { it.id == subjectId }?.name,
@@ -208,6 +229,8 @@ fun H3GenerateScreen(
             seed = prefs.h3SeedToSend,
             model = localModel,
             translate = translate,
+            refVideo = if (motion) refVideo else null,
+            refVideoSeconds = if (motion) refVideoSec else null,
         )
         estimating = true
         scope.launch {
@@ -282,7 +305,7 @@ fun H3GenerateScreen(
                 label = if (estimating) "估算中…" else "估算並確認（H3）",
                 icon = if (estimating) null else "movie",
                 loading = estimating,
-                enabled = !estimating && prefs.isH3TokenSet && prompt.isNotBlank() && (sources.isNotEmpty() || mode == "t2v"),
+                enabled = !estimating && prefs.isH3TokenSet && prompt.isNotBlank() && (sources.isNotEmpty() || mode == "t2v" || (mode == "motion" && subjectId != null)),
                 onClick = { startEstimate() },
             )
             }
@@ -390,7 +413,7 @@ fun H3GenerateScreen(
             CollapsibleSection(
                 title = "素材（角色・參考圖）",
                 summary = "角色：" + (subjects.firstOrNull { it.id == subjectId }?.name ?: "不綁") +
-                    if (mode == "t2v") "・文生影（不放圖）" else "・${if (mode == "first") "首幀" else "參考圖"} ${sources.size} 張",
+                    if (mode == "t2v") "・文生影（不放圖）" else "・${if (mode == "first") "首幀" else if (mode == "motion") "換人" else "參考圖"} ${sources.size} 張",
                 expanded = assetsOpen,
                 onToggle = { assetsOpen = !assetsOpen },
             ) {
@@ -410,10 +433,23 @@ fun H3GenerateScreen(
                     ModeOption("ref", "參考圖（Ref2VA）", "1～9 張參考圖鎖角色／場景，不會被當成第一幀"),
                     ModeOption("first", "首幀", "第一張圖當影片第一幀，其餘當參考"),
                     ModeOption("t2v", "文生影", "不放圖，只用文字描述生成（人物長相每次都不同）"),
+                    ModeOption("motion", "換人（參考影片）", "照一支影片的動作、嘴型、運鏡和聲音，把人換成角色或照片裡的人"),
                 ),
                 selectedId = mode,
                 onSelect = { mode = it; prefs.h3Mode = it },
             )
+
+            if (mode == "motion" && extendBase == null) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedActionButton(
+                    label = if (refVideo == null) "🎞 選參考影片" else "🎞 換一支參考影片",
+                    onClick = { pickVideo.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
+                )
+                Text(
+                    if (refVideo == null) "選一支自己拍的表演（2～15 秒最好，筆電最多用前 8 秒）。影片存在 H3 Studio 的 R2，不上傳雲端硬碟。"
+                    else "已選影片${refVideoSec?.let { "・%.1f 秒".format(it) } ?: ""}；輸出秒數跟影片走${if (tier == "low") "（筆電最多 8 秒）" else "（最多 15 秒）"}。人用上面的角色或下面的照片。",
+                    fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             if (mode != "t2v" || extendBase != null) SourceSlot(
                 title = if (subjectId != null) "補充照片（選填：場景、服裝）" else if (mode == "first") "首幀圖（第一張為第一幀）" else "參考圖（1～9 張）",
@@ -661,7 +697,7 @@ private fun H3ConfirmSheet(
                 } ?: "未知",
             )
             ConfirmLine("模型", H3Format.modelName(pending.route, pending.model))
-            ConfirmLine("圖片", "${pending.sources.size} 張・${if (pending.mode == "first") "首幀" else if (pending.mode == "t2v") "文生影" else "參考圖"}・${pending.aspect}")
+            ConfirmLine("圖片", "${pending.sources.size} 張・${if (pending.mode == "first") "首幀" else if (pending.mode == "t2v") "文生影" else if (pending.mode == "motion") "換人（參考影片）" else "參考圖"}・${pending.aspect}")
             if (pending.segments > 1) ConfirmLine("長度", "${pending.segments} 段接續・每段 ${pending.seconds} 秒・約 ${pending.segments * pending.seconds} 秒")
             pending.subjectName?.let { ConfirmLine("角色", "$it（臉部模型＋聲音每段都鎖）") }
 

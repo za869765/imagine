@@ -85,6 +85,14 @@ data class H3JobRequest(
     val seed: Long? = null,
     // v2.9.0 文生影:不放圖、不綁角色,只用文字(伺服器拿掉參考圖節點)
     val t2v: Boolean = false,
+    // v3.1.0 換人(mode=motion):先 POST /api/app/refvideo 拿到 file_id
+    @SerialName("ref_video") val refVideo: H3RefVideo? = null,
+)
+
+@Serializable
+data class H3RefVideo(
+    @SerialName("file_id") val fileId: String,
+    val seconds: Double? = null,
 )
 
 @Serializable

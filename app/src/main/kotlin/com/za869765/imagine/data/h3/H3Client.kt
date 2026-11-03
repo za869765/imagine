@@ -154,6 +154,13 @@ object H3Client {
         return call<H3JobCreated>(prefs, submitHttp, request(prefs, "/api/app/jobs")?.post(payload)?.build())
     }
 
+    /** v3.1.0 換人:參考影片原檔存到 Studio 的 R2(不花錢),回 file_id 給 submit 的 ref_video。 */
+    suspend fun uploadRefVideo(prefs: SecurePrefs, bytes: ByteArray, seconds: Double?): Result<H3RefVideo> {
+        val req = request(prefs, "/api/app/refvideo")?.header("x-seconds", seconds?.toString() ?: "")
+            ?.post(bytes.toRequestBody("video/mp4".toMediaType()))?.build()
+        return call<H3RefVideo>(prefs, submitHttp, req)
+    }
+
     /** 要求伺服器查一次 CU 餘額(GitHub Actions 讀 colab usage,不消耗 CU,約 30~60 秒後更新)。 */
     suspend fun refreshCu(prefs: SecurePrefs): Result<Unit> {
         val req = request(prefs, "/api/cu/refresh")?.post("{}".toRequestBody("application/json".toMediaType()))?.build()
