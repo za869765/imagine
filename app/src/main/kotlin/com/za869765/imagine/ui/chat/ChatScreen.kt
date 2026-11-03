@@ -147,6 +147,11 @@ fun ChatScreen(
         mutableStateOf(CH.current(ctx)?.turns?.map { ChatTurn(it.role, it.content, it.meta) } ?: emptyList())
     }
     var showHistory by remember { mutableStateOf(false) }
+    // v3.0.4 筆電 Gemma 可附圖(看圖、OCR),最多 3 張
+    var attached by remember { mutableStateOf(emptyList<Uri>()) }
+    val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { u ->
+        if (u != null && attached.size < 3) attached = attached + u
+    }
     LaunchedEffect(turns) {
         if (turns.isNotEmpty()) chatId = CH.save(ctx, chatId, model, turns.map { com.za869765.imagine.data.chat.SavedTurn(it.role, it.content, it.meta) })
     }
@@ -187,10 +192,14 @@ fun ChatScreen(
 
     fun send() {
         val text = input.trim()
-        if (text.isEmpty() || sending) return
-        val history = turns + ChatTurn("user", text)
+        val pics = if (isLocal) attached else emptyList()
+        if ((text.isEmpty() && pics.isEmpty()) || sending) return
+        val shown = (if (pics.isNotEmpty()) "🖼 附圖 ${pics.size} 張
+" else "") + text
+        val history = turns + ChatTurn("user", shown)
         turns = history
         input = ""
+        attached = emptyList()
         sending = true
         val capturedModel = model
         val capturedProvider = provider
@@ -200,7 +209,12 @@ fun ChatScreen(
                 val apiMsgs = history.filter { it.role == "user" || it.role == "assistant" }
                     .map { ChatMessage(it.role, it.content) }
                 if (capturedLocal) {
-                    turns = turns + gemmaReply(prefs, apiMsgs.map { com.za869765.imagine.data.h3.H3ChatMessage(it.role, it.content) })
+                    // v3.0.4 附圖:壓成 JPEG(長邊 1600)跟最後一則一起送;圖只在這次送出,不存進對話紀錄
+                    val b64 = pics.mapIndexedNotNull { i, u -> com.za869765.imagine.data.h3.H3Images.encode(ctx, u, i)?.base64 }
+                    val msgs = apiMsgs.mapIndexed { i, m ->
+                        com.za869765.imagine.data.h3.H3ChatMessage(m.role, if (i == apiMsgs.lastIndex) text else m.content, if (i == apiMsgs.lastIndex && b64.isNotEmpty()) b64 else null)
+                    }
+                    turns = turns + gemmaReply(prefs, msgs)
                     return@launch
                 }
                 when (capturedProvider) {
@@ -378,11 +392,29 @@ fun ChatScreen(
                 }
             }
 
+            if (isLocal && attached.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                attached.forEachIndexed { i, u ->
+                    Box {
+                        coil3.compose.AsyncImage(model = u, contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)))
+                        Text("✕", fontSize = 12.sp, color = Color.White, modifier = Modifier.align(Alignment.TopEnd).background(Color(0x99000000), RoundedCornerShape(8.dp))
+                            .clickable { attached = attached.filterIndexed { k, _ -> k != i } }.padding(horizontal = 5.dp))
+                    }
+                }
+                Text("送出時一起給筆電 Gemma 看（最多 3 張）", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (isLocal) Box(
+                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ImagineIconButton(name = "image", onClick = { if (attached.size < 3) pickImage.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
@@ -390,7 +422,7 @@ fun ChatScreen(
                     maxLines = 5,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp, max = 140.dp),
                 )
-                val canSend = input.isNotBlank() && !sending && hasKey
+                val canSend = (input.isNotBlank() || (isLocal && attached.isNotEmpty())) && !sending && hasKey
                 Box(
                     modifier = Modifier
                         .size(48.dp)

@@ -173,7 +173,7 @@ data class H3R2Expiring(val id: String = "", val name: String = "", val segs: In
 
 /** v2.9.7 筆電 Gemma 對話(POST /api/app/chat → GET /api/app/chat/{id}) */
 @Serializable
-data class H3ChatMessage(val role: String, val content: String)
+data class H3ChatMessage(val role: String, val content: String, val images: List<String>? = null)  // v3.0.4 images＝JPEG base64(只有筆電 Gemma 看圖用)
 
 @Serializable
 data class H3ChatRequest(val messages: List<H3ChatMessage>)
