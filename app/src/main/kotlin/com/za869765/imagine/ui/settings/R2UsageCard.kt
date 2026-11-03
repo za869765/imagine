@@ -86,6 +86,17 @@ fun R2UsageCard(prefs: SecurePrefs) {
                 fontSize = 12.sp, color = muted, lineHeight = 17.sp,
             )
 
+            // v2.9.9 快要自動清除的 Studio 作品（7 天沒動、沒設永久保存）
+            if (d.expiring.isNotEmpty()) {
+                Text("⏳ 快要清除的 Studio 成品", fontSize = 13.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                d.expiring.forEach { x ->
+                    Text("・${x.name}:${x.segs} 段,${x.daysLeft} 天後清除", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
+                Text("要留的請到 H3 Studio 打開作品勾「永久保存」,或存到雲端硬碟／下載。作品、分鏡、臉鎖不會被清。", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+            } else {
+                Text("Studio 作品 ${d.keepDays} 天沒動會自動清掉 R2 成品(設「永久保存」的除外);目前沒有快到期的。", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+            }
+
             // 分類
             if (d.cats.isNotEmpty()) {
                 Text("依用途", fontSize = 13.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 4.dp))

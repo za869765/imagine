@@ -163,7 +163,13 @@ data class H3R2Usage(
     @SerialName("free_gb") val freeGb: Double = 10.0,
     @SerialName("est_usd_month") val estUsdMonth: Double = 0.0,
     val days: List<H3R2Day> = emptyList(),
+    /** v2.9.9 Studio 作品 7 天沒動就清 R2 成品;快到期的(剩 2 天內)列在這 */
+    val expiring: List<H3R2Expiring> = emptyList(),
+    @SerialName("keep_days") val keepDays: Int = 7,
 )
+
+@Serializable
+data class H3R2Expiring(val id: String = "", val name: String = "", val segs: Int = 0, @SerialName("days_left") val daysLeft: Int = 0)
 
 /** v2.9.7 筆電 Gemma 對話(POST /api/app/chat → GET /api/app/chat/{id}) */
 @Serializable
