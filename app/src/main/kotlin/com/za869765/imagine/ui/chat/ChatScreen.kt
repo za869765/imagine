@@ -157,13 +157,7 @@ fun ChatScreen(
     var showHistory by remember { mutableStateOf(false) }
     var waitNote by remember { mutableStateOf<String?>(null) }
     var queued by remember { mutableStateOf(emptyList<Pair<String, List<Uri>>>()) }
-    // v3.0.7 讀秒＋預計時間(這支手機上同一個模型最近 20 則回答的中位數)
-    var elapsed by remember { mutableStateOf(0) }
-    LaunchedEffect(sending) { elapsed = 0; while (sending) { kotlinx.coroutines.delay(1000); elapsed++ } }
-    fun secsKey(m: String) = "chat_secs_" + m.replace(Regex("[^A-Za-z0-9]"), "_")
-    val medianSec = remember(model, sending) {
-        com.za869765.imagine.data.prefs.DraftStore.loadList(ctx, secsKey(model)).mapNotNull { it.toIntOrNull() }.sorted().let { if (it.size >= 3) it[it.size / 2] else null }
-    }  // v3.0.6 回答中送出的訊息,依序排隊  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
+  // v3.0.6 回答中送出的訊息,依序排隊  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
     // v3.0.4 筆電 Gemma 可附圖(看圖、OCR),最多 3 張
     var attached by remember { mutableStateOf(emptyList<Uri>()) }
     val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { u ->
@@ -174,6 +168,13 @@ fun ChatScreen(
     }
     var input by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
+    // v3.0.7 讀秒＋預計時間(這支手機上同一個模型最近 20 則回答的中位數)
+    var elapsed by remember { mutableStateOf(0) }
+    LaunchedEffect(sending) { elapsed = 0; while (sending) { kotlinx.coroutines.delay(1000); elapsed++ } }
+    fun secsKey(m: String) = "chat_secs_" + m.replace(Regex("[^A-Za-z0-9]"), "_")
+    val medianSec = remember(model, sending) {
+        com.za869765.imagine.data.prefs.DraftStore.loadList(ctx, secsKey(model)).mapNotNull { it.toIntOrNull() }.sorted().let { if (it.size >= 3) it[it.size / 2] else null }
+    }
     var sessionCost by rememberSaveable { mutableStateOf(0.0) }
     var balanceText by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
@@ -570,9 +571,9 @@ private fun mdInline(s: String): androidx.compose.ui.text.AnnotatedString = andr
     s.lines().forEachIndexed { li, raw ->
         if (li > 0) append('\n')
         var line = raw
-        val head = Regex("^#{1,6}\s+").find(line)
+        val head = Regex("""^#{1,6}\s+""").find(line)
         if (head != null) line = line.substring(head.range.last + 1)
-        line = line.replace(Regex("^(\s*)[*-]\s+"), "$1・")
+        line = line.replace(Regex("""^(\s*)[*-]\s+"""), "\$1・")
         if (head != null) pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp))
         var rest = line
         while (true) {
