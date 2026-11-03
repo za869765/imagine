@@ -336,11 +336,11 @@ fun SettingsScreen(
                     // v2.9.1 H3 筆電（低畫質）預設模型
                     var defLocalModel by remember { mutableStateOf(prefs.h3LocalModel) }
                     ParamPicker(
-                        label = "H3 筆電模型",
+                        label = "H3 影片模型",
                         value = defLocalModel,
                         options = listOf("v2", "q4"),
                         onSelect = { defLocalModel = it; prefs.h3LocalModel = it },
-                        displayName = { if (it == "v2") "V2・8步HD" else "Q4・8步HD" },
+                        displayName = { if (it == "v2") "Singularity V2" else "官方（筆電 Q4）" },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

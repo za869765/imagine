@@ -444,12 +444,15 @@ fun H3GenerateScreen(
                 selectedId = tier,
                 onSelect = { tier = it; prefs.h3VideoTier = it },
             )
-            // v2.9.0 筆電主模型可選，預設 Singularity V2
-            if (tier == "low") ModePicker(
-                label = "筆電模型",
-                options = listOf(
+            // v2.9.0 筆電主模型可選；v2.9.5 雲端兩種畫質也可選，預設都是 Singularity V2
+            ModePicker(
+                label = "模型",
+                options = if (tier == "low") listOf(
                     ModeOption("v2", "V2・8步HD（預設）", "Singularity V2 社群微調版＋8 步 HD，臉和動作較自然"),
                     ModeOption("q4", "Q4・8步HD", "原本的 Q4＋8 步 HD"),
+                ) else listOf(
+                    ModeOption("v2", "V2・int8（預設）", "Singularity V2 社群微調版（剪枝 int8），臉和動作較自然"),
+                    ModeOption("q4", if (tier == "ultra") "官方 bf16" else "官方 int8", "MiniMax 官方完整模型"),
                 ),
                 selectedId = localModel,
                 onSelect = { localModel = it },
@@ -654,7 +657,7 @@ private fun H3ConfirmSheet(
                     "正常版 ${H3Format.seconds(it.normal)}／快速版 ${H3Format.seconds(it.fast)}"
                 } ?: "未知",
             )
-            if (pending.route == "local") ConfirmLine("筆電模型", if (pending.model == "v2") "V2・8步HD" else "Q4・8步HD")
+            ConfirmLine("模型", H3Format.modelName(pending.route, pending.model))
             ConfirmLine("圖片", "${pending.sources.size} 張・${if (pending.mode == "first") "首幀" else if (pending.mode == "t2v") "文生影" else "參考圖"}・${pending.aspect}")
             if (pending.segments > 1) ConfirmLine("長度", "${pending.segments} 段接續・每段 ${pending.seconds} 秒・約 ${pending.segments * pending.seconds} 秒")
             pending.subjectName?.let { ConfirmLine("角色", "$it（臉部模型＋聲音每段都鎖）") }

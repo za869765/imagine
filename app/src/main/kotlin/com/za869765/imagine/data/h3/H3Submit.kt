@@ -36,6 +36,8 @@ data class PendingH3(
 
 /** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */
 const val H3_LOCAL_V2_UNET = "Minimax-h3_Singularity_ref2va_v2_pruned_w4a8.safetensors"
+/** v2.9.5 雲端(GPUtw／Colab)的 V2 檔名(h3_worker.FILE_REPO 認得,11/3 兩邊都實測過) */
+const val H3_CLOUD_V2_UNET = "Minimax-h3_Singularity_ref2va_v2_pruned_int8_convrot_r2.safetensors"
 
 /**
  * 送出 H3 任務(會花 CU)。呼叫端必須已取得使用者勾選確認,且要在 app 層 scope 執行
@@ -99,7 +101,7 @@ object H3Submit {
             exp = buildMap<String, kotlinx.serialization.json.JsonElement> {
                 if (pending.blink) put("blink", kotlinx.serialization.json.JsonPrimitive(true))
                 if (pending.translate) put("translate", kotlinx.serialization.json.JsonPrimitive(true))
-                if (pending.route == "local" && pending.model == "v2") put("unet", kotlinx.serialization.json.JsonPrimitive(H3_LOCAL_V2_UNET))
+                if (pending.model == "v2") put("unet", kotlinx.serialization.json.JsonPrimitive(if (pending.route == "local") H3_LOCAL_V2_UNET else H3_CLOUD_V2_UNET))
             }.ifEmpty { null },
             gpus = if (pending.route == "cloud" && pending.gpus.isNotEmpty()) pending.gpus else null,
             segments = pending.segments,

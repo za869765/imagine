@@ -83,6 +83,14 @@ object H3Format {
         else -> r
     }
 
+    /** v2.9.5 影片主模型顯示名:model＝"v2"(Singularity V2)或 "q4"(筆電 Q4／雲端官方)。 */
+    fun modelName(route: String?, model: String?): String = when (route) {
+        "local" -> if (model == "v2") "V2・8步HD" else "Q4・8步HD"
+        "gputw" -> if (model == "v2") "V2・int8" else "官方 int8"
+        "cloud" -> if (model == "v2") "V2・int8" else "官方 bf16"
+        else -> if (model == "v2") "V2" else "官方"
+    }
+
     /** v2.1.0 確認視窗用的機器名(比 routeShort 完整)。 */
     fun routeName(r: String?): String = when (r) {
         "auto" -> "自動"

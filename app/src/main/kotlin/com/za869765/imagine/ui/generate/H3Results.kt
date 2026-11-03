@@ -90,12 +90,8 @@ private fun H3Jobs.Job.machine(): String? =
     route.takeIf { it.isNotBlank() && it != "auto" }?.let { H3Format.routeShort(it) }
         ?: meta.substringAfterLast("・", "").takeIf { it in listOf("筆電", "製圖機", "GPUtw 5090", "Colab", "5090", "GPUtw") }
 /** v2.9.1 影片用了哪個模型（舊任務沒記，筆電一律當官方 Q4） */
-private fun H3Jobs.Job.modelName(): String? = if (kind == "image") null else when (route) {
-    "local" -> if (repeatVideo?.model == "v2") "V2・8步HD" else "Q4・8步HD"
-    "gputw" -> "官方 int8"
-    "cloud" -> "官方 bf16"
-    else -> null
-}
+private fun H3Jobs.Job.modelName(): String? =
+    if (kind == "image" || route !in listOf("local", "gputw", "cloud")) null else H3Format.modelName(route, repeatVideo?.model)
 private fun H3Jobs.Job.machineModel(): String? = listOfNotNull(machine(), modelName()).joinToString("・").ifBlank { null }
 
 /** v2.4.4 做完存進手機的進度：saving＝下載／串接中、failed＝上次失敗（不再自動重抓，等使用者點縮圖重試） */
