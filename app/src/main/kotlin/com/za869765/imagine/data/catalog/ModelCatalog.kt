@@ -377,7 +377,7 @@ fun defaultModelFor(mode: ModelMode, hasXai: Boolean, hasOpenRouter: Boolean, xa
 
 // v2.9.7 筆電 Gemma(經 H3 Studio 轉送到使用者筆電的 llama.cpp;不用 API key、不花錢、不進雲端硬碟)
 const val LOCAL_GEMMA_ID = "h3-local-gemma"
-val LOCAL_GEMMA = CatalogModel(id = LOCAL_GEMMA_ID, name = "🔒 筆電 Gemma 4 12B（本機）", vendor = "local", badge = "free",
+val LOCAL_GEMMA = CatalogModel(id = LOCAL_GEMMA_ID, name = "🔒 筆電 Gemma 4 12B（無拒答版・本機）", vendor = "local", badge = "free",
     note = "經 H3 轉到你的筆電回答・每則約 10～30 秒・筆電生成影片時要排隊")
 
 // xAI 固定清單(官方統一價:圖 $0.05/張、影片 $0.05/秒;對話模型價格 app 不硬寫,看後台)
