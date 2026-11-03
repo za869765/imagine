@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.za869765.imagine.data.api.OpenRouterClient
@@ -155,7 +156,14 @@ fun ChatScreen(
     }
     var showHistory by remember { mutableStateOf(false) }
     var waitNote by remember { mutableStateOf<String?>(null) }
-    var queued by remember { mutableStateOf(emptyList<Pair<String, List<Uri>>>()) }  // v3.0.6 回答中送出的訊息,依序排隊  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
+    var queued by remember { mutableStateOf(emptyList<Pair<String, List<Uri>>>()) }
+    // v3.0.7 讀秒＋預計時間(這支手機上同一個模型最近 20 則回答的中位數)
+    var elapsed by remember { mutableStateOf(0) }
+    LaunchedEffect(sending) { elapsed = 0; while (sending) { kotlinx.coroutines.delay(1000); elapsed++ } }
+    fun secsKey(m: String) = "chat_secs_" + m.replace(Regex("[^A-Za-z0-9]"), "_")
+    val medianSec = remember(model, sending) {
+        com.za869765.imagine.data.prefs.DraftStore.loadList(ctx, secsKey(model)).mapNotNull { it.toIntOrNull() }.sorted().let { if (it.size >= 3) it[it.size / 2] else null }
+    }  // v3.0.6 回答中送出的訊息,依序排隊  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
     // v3.0.4 筆電 Gemma 可附圖(看圖、OCR),最多 3 張
     var attached by remember { mutableStateOf(emptyList<Uri>()) }
     val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { u ->
@@ -205,6 +213,7 @@ fun ChatScreen(
         val history = turns + ChatTurn("user", shown)
         turns = history
         sending = true
+        val t0 = System.currentTimeMillis()
         val capturedModel = model
         val capturedProvider = provider
         val capturedLocal = isLocal
@@ -249,6 +258,11 @@ fun ChatScreen(
                 if (t is kotlinx.coroutines.CancellationException) throw t
                 turns = turns + ChatTurn("error", "失敗:${t.message?.take(120) ?: t::class.simpleName}")
             } finally {
+                if (turns.lastOrNull()?.role == "assistant") {  // 只記成功的回答
+                    val k = secsKey(capturedModel)
+                    val prev = com.za869765.imagine.data.prefs.DraftStore.loadList(ctx, k)
+                    com.za869765.imagine.data.prefs.DraftStore.saveList(ctx, k, (prev + ((System.currentTimeMillis() - t0) / 1000).toString()).takeLast(20))
+                }
                 sending = false
                 queued.firstOrNull()?.let { (t, p) -> queued = queued.drop(1); process(t, p) }
             }
@@ -402,7 +416,8 @@ fun ChatScreen(
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                            Text(waitNote ?: "思考中…", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text((waitNote ?: "思考中…") + "　已 $elapsed 秒" + (medianSec?.let { "・預計約 $it 秒（最近中位數）" } ?: ""),
+                                fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -487,17 +502,23 @@ private fun ChatBubble(t: ChatTurn) {
                 )
                 .padding(horizontal = 12.dp, vertical = 9.dp),
         ) {
-            SelectionContainer {
-                Text(
-                    text = t.content,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = when {
-                        isUser -> MaterialTheme.colorScheme.onPrimaryContainer
-                        isError -> MaterialTheme.colorScheme.onErrorContainer
-                        else -> MaterialTheme.colorScheme.onSurface
-                    },
-                )
+            val fg = when {
+                isUser -> MaterialTheme.colorScheme.onPrimaryContainer
+                isError -> MaterialTheme.colorScheme.onErrorContainer
+                else -> MaterialTheme.colorScheme.onSurface
+            }
+            // v3.0.7 回答轉基本格式(**粗體**、# 標題),```程式碼／提示詞```放灰底框、可一鍵複製
+            if (isUser || isError) SelectionContainer { Text(text = t.content, fontSize = 14.sp, lineHeight = 20.sp, color = fg) }
+            else MdBlocks(t.content).forEach { (code, body) ->
+                if (code) Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(8.dp),
+                ) {
+                    Text("📋 複製這段", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(6.dp))
+                            .clickable { Clipboard.copy(ctx, body, toastMsg = "已複製這段") }.padding(horizontal = 6.dp, vertical = 2.dp))
+                    SelectionContainer { Text(body, fontSize = 13.sp, lineHeight = 19.sp, fontFamily = FontFamily.Monospace, color = fg) }
+                } else SelectionContainer { Text(mdInline(body), fontSize = 14.sp, lineHeight = 20.sp, color = fg) }
             }
             if (!isUser) {
                 Row(
@@ -521,15 +542,50 @@ private fun ChatBubble(t: ChatTurn) {
                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                         modifier = Modifier.clip(RoundedCornerShape(8.dp)).padding(2.dp),
                     ) {
-                        ImagineIconButton(
-                            name = "content_copy",
-                            size = 14.dp,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            onClick = { Clipboard.copy(ctx, t.content, toastMsg = "已複製") },
-                        )
+                        Text("📋 複製全部", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                                .clickable { Clipboard.copy(ctx, mdPlain(t.content), toastMsg = "已複製整則回答") }.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
             }
         }
     }
 }
+
+/** v3.0.7 把回答切成「一般文字」與「```程式碼區塊```」;區塊內容去掉開頭的語言標記 */
+private fun MdBlocks(s: String): List<Pair<Boolean, String>> {
+    val out = mutableListOf<Pair<Boolean, String>>()
+    val parts = s.split("```")
+    parts.forEachIndexed { i, p ->
+        if (i % 2 == 1) {
+            val body = p.substringAfter('\n', p).trimEnd()  // 第一行是 ```text 的語言名稱
+            if (body.isNotBlank()) out += true to body
+        } else if (p.isNotBlank()) out += false to p.trim('\n')
+    }
+    return out
+}
+
+/** 基本 Markdown:# 標題放大加粗、**粗體**、行首 * / - 換成「・」 */
+private fun mdInline(s: String): androidx.compose.ui.text.AnnotatedString = androidx.compose.ui.text.buildAnnotatedString {
+    s.lines().forEachIndexed { li, raw ->
+        if (li > 0) append('\n')
+        var line = raw
+        val head = Regex("^#{1,6}\s+").find(line)
+        if (head != null) line = line.substring(head.range.last + 1)
+        line = line.replace(Regex("^(\s*)[*-]\s+"), "$1・")
+        if (head != null) pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp))
+        var rest = line
+        while (true) {
+            val a = rest.indexOf("**"); if (a < 0) break
+            val b = rest.indexOf("**", a + 2); if (b < 0) break
+            append(rest.substring(0, a))
+            withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(rest.substring(a + 2, b)) }
+            rest = rest.substring(b + 2)
+        }
+        append(rest)
+        if (head != null) pop()
+    }
+}
+
+/** 複製全部用:去掉 Markdown 符號,程式碼區塊只留內容 */
+private fun mdPlain(s: String): String = MdBlocks(s).joinToString("\n\n") { (code, body) -> if (code) body else mdInline(body).text }
