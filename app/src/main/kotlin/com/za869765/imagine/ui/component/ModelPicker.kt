@@ -150,7 +150,7 @@ fun ModelPickerRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "模型 · ${selectedProvider.shortLabel}",
+                text = "模型 · " + if (selected.vendor == "local") "本機" else selectedProvider.shortLabel,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W500,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

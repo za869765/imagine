@@ -167,7 +167,10 @@ fun ChatScreen(
         } else balanceText = null
     }
 
-    LaunchedEffect(turns.size) {
+    // v3.0.2 打字時(鍵盤開著)收起上方的分頁、模型、說明列,把空間留給訊息;鍵盤一開就捲到最新一則
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    LaunchedEffect(turns.size, imeVisible, sending) {
         if (turns.isNotEmpty()) listState.animateScrollToItem(turns.size - 1)
     }
 
@@ -249,7 +252,7 @@ fun ChatScreen(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SegmentedTab(
+            if (!imeVisible) SegmentedTab(
                 options = listOf(
                     SegmentedOption("chat", "對話"),
                     SegmentedOption("image", "生圖"),
@@ -265,13 +268,13 @@ fun ChatScreen(
                 activeColor = Color(0xFF4A2E6E),
             )
 
-            ModelPickerRow(
+            if (!imeVisible) ModelPickerRow(
                 mode = ModelMode.CHAT,
                 selectedId = model,
                 onSelect = { model = it; prefs.chatModel = it },
             )
 
-            if (!hasKey) {
+            if (!hasKey && !imeVisible) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
                     Text(
                         if (isLocal) "未設定 H3 Studio 權杖 — 筆電 Gemma 要透過 H3 Studio 轉送,點此到設定填入"
@@ -283,15 +286,10 @@ fun ChatScreen(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
+            if (!imeVisible) Text(
                     text = buildString {
                         if (isLocal) {
-                            append("🔒 筆電本機回答 · 免費 · 不進雲端硬碟 · 每則約 10～30 秒")
+                            append("🔒 筆電本機・免費・不進雲端硬碟・每則約 10～30 秒")
                         } else if (provider == ApiProvider.OPENROUTER) {
                             append("本次對話 $").append(fmtUsd(sessionCost))
                             balanceText?.let { append(" · ").append(it) }
@@ -302,9 +300,15 @@ fun ChatScreen(
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
-                ImagineChip(label = "帳單", icon = "receipt_long", variant = ChipVariant.Outlined, onClick = { openBilling() })
+            if (!imeVisible) Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                if (!isLocal) ImagineChip(label = "帳單", icon = "receipt_long", variant = ChipVariant.Outlined, onClick = { openBilling() })
                 ImagineChip(label = "歷史", icon = "history", variant = ChipVariant.Outlined, onClick = { showHistory = true })
                 if (turns.isNotEmpty()) {
                     ImagineChip(label = "新對話", icon = "add", variant = ChipVariant.Outlined, onClick = {
