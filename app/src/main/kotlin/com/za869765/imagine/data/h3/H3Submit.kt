@@ -97,6 +97,7 @@ object H3Submit {
             // v2.5.3 影片一律不留在 Studio；只有使用者按「補上傳 Studio」才上傳
             keepInStudio = false,
             seed = pending.seed,
+            t2v = pending.mode == "t2v",
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {

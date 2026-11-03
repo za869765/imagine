@@ -82,6 +82,8 @@ data class H3JobRequest(
     @SerialName("keep_in_studio") val keepInStudio: Boolean = true,
     // v2.5.9 固定種子(null=隨機);長片每段依序 +1
     val seed: Long? = null,
+    // v2.9.0 文生影:不放圖、不綁角色,只用文字(伺服器拿掉參考圖節點)
+    val t2v: Boolean = false,
 )
 
 @Serializable
