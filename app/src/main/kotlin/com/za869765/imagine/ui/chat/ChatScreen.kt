@@ -79,7 +79,7 @@ import java.util.Locale
 data class ChatTurn(val role: String, val content: String, val meta: String = "")
 
 /** v2.9.7 筆電 Gemma:送到 H3(只轉送)→ 每 3 秒問一次,筆電答完才回;最多等 16 分鐘(筆電生成影片時要排隊)。 */
-private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagine.data.h3.H3ChatMessage>): ChatTurn {
+private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagine.data.h3.H3ChatMessage>, onWait: (String?) -> Unit = {}): ChatTurn {
     val c = com.za869765.imagine.data.h3.H3Client
     val t0 = System.currentTimeMillis()
     val id = when (val r = c.gemmaChat(prefs, msgs)) {
@@ -93,6 +93,13 @@ private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagi
             is com.za869765.imagine.data.h3.H3Client.Result.Ok -> {
                 val s = r.value
                 busySeen = busySeen || s.busy
+                // v3.0.5 排隊等筆電生成時,顯示預計幾點開始回答
+                onWait(when {
+                    s.status == "queued" && s.busy && s.startAt != null ->
+                        "⏳ 筆電正在生成影片／圖片,預計 " + java.text.SimpleDateFormat("HH:mm", Locale.TAIWAN).format(java.util.Date(s.startAt)) + "（約 ${kotlin.math.ceil(s.waitMin ?: 0.0).toInt()} 分）開始回答"
+                    s.status == "running" -> "🔒 筆電 Gemma 回答中…"
+                    else -> "🔒 等筆電 Gemma 接手…"
+                })
                 if (s.status == "done") {
                     val sec = (System.currentTimeMillis() - t0) / 1000
                     return ChatTurn("assistant", s.text.orEmpty(), "🔒 筆電 Gemma 4 12B · ${sec} 秒 · 免費" + if (busySeen) "（等過筆電生成）" else "")
@@ -147,6 +154,7 @@ fun ChatScreen(
         mutableStateOf(CH.current(ctx)?.turns?.map { ChatTurn(it.role, it.content, it.meta) } ?: emptyList())
     }
     var showHistory by remember { mutableStateOf(false) }
+    var waitNote by remember { mutableStateOf<String?>(null) }  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
     // v3.0.4 筆電 Gemma 可附圖(看圖、OCR),最多 3 張
     var attached by remember { mutableStateOf(emptyList<Uri>()) }
     val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { u ->
@@ -214,7 +222,8 @@ fun ChatScreen(
                     val msgs = apiMsgs.mapIndexed { i, m ->
                         com.za869765.imagine.data.h3.H3ChatMessage(m.role, if (i == apiMsgs.lastIndex) text else m.content, if (i == apiMsgs.lastIndex && b64.isNotEmpty()) b64 else null)
                     }
-                    turns = turns + gemmaReply(prefs, msgs)
+                    turns = turns + gemmaReply(prefs, msgs) { waitNote = it }
+                    waitNote = null
                     return@launch
                 }
                 when (capturedProvider) {
@@ -386,7 +395,7 @@ fun ChatScreen(
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                            Text("思考中…", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(waitNote ?: "思考中…", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
