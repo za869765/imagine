@@ -105,7 +105,6 @@ fun LongVideoScreen(
     onCombineExtend: (String, String) -> Unit = { _, _ -> },
 ) {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     var allVideos by remember { mutableStateOf<List<MediaEntry>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
@@ -232,8 +231,9 @@ fun LongVideoScreen(
                         merging = true
                         val clips = sequence.map { it.uri }
                         val count = sequence.size
-                        scope.launch {
-                            val result = VideoMerger.merge(ctx, clips, "$MERGED_PREFIX $count 段")
+                        // v3.1.2 合成走 App 層:切頁不會中斷(已合成的照樣存進作品)
+                        com.za869765.imagine.ImagineApp.appScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                            val result = VideoMerger.merge(ctx.applicationContext, clips, "$MERGED_PREFIX $count 段")
                             merging = false
                             if (result != null) {
                                 Toast.makeText(ctx, "已合成 $count 段並存到作品；排列保留，可繼續調整", Toast.LENGTH_SHORT).show()

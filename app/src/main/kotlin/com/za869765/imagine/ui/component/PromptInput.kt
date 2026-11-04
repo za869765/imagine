@@ -56,6 +56,11 @@ import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.util.Clipboard
 import kotlinx.coroutines.launch
 
+private object OptLive {
+    val running = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+    val result = androidx.compose.runtime.mutableStateMapOf<String, H3Optimized>()
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PromptInput(
@@ -215,8 +220,10 @@ fun PromptInput(
     }
 
     // v2.0.7 ✨ 優化:結果先看(對話框),按「套用」才覆蓋;原文留在 optBackup,「更多」選單可還原
-    var optimizing by remember { mutableStateOf(false) }
-    var optResult by remember { mutableStateOf<H3Optimized?>(null) }
+    // v3.1.2 優化中／結果放 App 層(依圖／影分開):切頁再回來，結果還在、不會重複送
+    val optKey = optimizeKind.orEmpty()
+    val optimizing = OptLive.running[optKey] == true
+    val optResult = OptLive.result[optKey]
     var optBackup by remember { mutableStateOf<String?>(null) }
     var pickBrain by remember { mutableStateOf(false) }
     var optBrain by remember { mutableStateOf(prefs.h3OptimizeBrain) }
@@ -231,13 +238,14 @@ fun PromptInput(
             Toast.makeText(ctx, "✨ 優化要先在「設定 › H3 Studio」填入權杖", Toast.LENGTH_LONG).show()
             return
         }
-        optimizing = true
-        scope.launch {
+        OptLive.running[optKey] = true
+        val appCtx = ctx.applicationContext
+        com.za869765.imagine.ImagineApp.appScope.launch(kotlinx.coroutines.Dispatchers.Main) {
             when (val r = H3Client.optimizePrompt(prefs, kind, tfValue.text, optimizeContext, optBrain)) {
-                is H3Client.Result.Ok -> optResult = r.value
-                is H3Client.Result.Err -> Toast.makeText(ctx, "優化失敗：${r.message}", Toast.LENGTH_LONG).show()
+                is H3Client.Result.Ok -> OptLive.result[optKey] = r.value
+                is H3Client.Result.Err -> Toast.makeText(appCtx, "優化失敗：${r.message}", Toast.LENGTH_LONG).show()
             }
-            optimizing = false
+            OptLive.running.remove(optKey)
         }
     }
     if (pickBrain) {
@@ -260,7 +268,7 @@ fun PromptInput(
     }
     optResult?.let { r ->
         AlertDialog(
-            onDismissRequest = { optResult = null },
+            onDismissRequest = { OptLive.result.remove(optKey) },
             title = { Text("✨ 優化結果" + (OPT_BRAINS.firstOrNull { it.first == r.brain }?.let { "（${it.second}）" } ?: ""), fontWeight = FontWeight.W700) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -280,11 +288,11 @@ fun PromptInput(
                 TextButton(onClick = {
                     optBackup = tfValue.text
                     setWholeText(r.optimized)
-                    optResult = null
+                    OptLive.result.remove(optKey)
                     Toast.makeText(ctx, "已套用；「更多」選單可還原原文", Toast.LENGTH_SHORT).show()
                 }) { Text("套用") }
             },
-            dismissButton = { TextButton(onClick = { optResult = null }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { OptLive.result.remove(optKey) }) { Text("取消") } },
         )
     }
 
