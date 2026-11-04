@@ -56,6 +56,8 @@ import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
 
 private const val DEFAULT_H3_URL = "https://h3-studio.pages.dev"
+/** v3.1.4 VidoGrid 分頁內嵌的網址(網頁免費方案在這裡用) */
+const val VIDOGRID_URL = "https://vidogrid.ai/app/video-gen/grok"
 private const val UA = Constants.GROK_WEBVIEW_UA
 
 /** H3 Studio 網址:設定裡有有效的 H3 網址就用它,否則用預設站。 */
@@ -69,7 +71,7 @@ fun h3StudioUrl(ctx: Context): String {
  * 切到其他分頁時 WebView 只從畫面拔下、不銷毀,回來不重載;Activity 結束才 destroy。
  * 登入靠網站 session cookie(HttpOnly、長效),CookieManager.flush() 寫盤,App 重開仍維持登入。
  */
-class H3WebHolder {
+class H3WebHolder(private val startUrl: ((Context) -> String)? = null) {
     var webView: WebView? = null
         private set
     var progress by mutableIntStateOf(0)
@@ -192,7 +194,7 @@ class H3WebHolder {
                     Toast.makeText(ctx, "下載失敗：${it.message?.take(60)}", Toast.LENGTH_LONG).show()
                 }
             }
-            loadUrl(h3StudioUrl(ctx))
+            loadUrl(startUrl?.invoke(ctx) ?: h3StudioUrl(ctx))
         }
         webView = wv
         return wv
@@ -217,6 +219,9 @@ fun H3StudioWebScreen(
     holder: H3WebHolder,
     onBack: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
+    title: String = "H3 Studio",
+    tab: NavTab = NavTab.H3,
+    homeUrl: String? = null,
 ) {
     val ctx = LocalContext.current
 
@@ -269,7 +274,7 @@ fun H3StudioWebScreen(
     ImagineScreen(
         appBar = {
             ImagineTopAppBar(
-                title = "H3 Studio",
+                title = title,
                 trailing = {
                     Row {
                         ImagineIconButton(name = "refresh", onClick = { holder.webView?.reload() })
@@ -278,7 +283,7 @@ fun H3StudioWebScreen(
                             onClick = {
                                 runCatching {
                                     ctx.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(holder.webView?.url ?: h3StudioUrl(ctx)))
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(holder.webView?.url ?: homeUrl ?: h3StudioUrl(ctx)))
                                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                                     )
                                 }
@@ -289,7 +294,7 @@ fun H3StudioWebScreen(
             )
         },
         scroll = false,
-        bottomNav = { ImagineBottomNav(active = NavTab.H3, onTabSelected = onNavSelected) },
+        bottomNav = { ImagineBottomNav(active = tab, onTabSelected = onNavSelected) },
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AndroidView(

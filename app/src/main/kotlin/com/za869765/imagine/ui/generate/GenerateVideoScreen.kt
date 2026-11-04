@@ -149,6 +149,7 @@ fun GenerateVideoScreen(
     onOpenH3Job: (String) -> Unit = {},
     onOpenH3ImageJob: (String) -> Unit = {},
     onEditImage: ((String, String) -> Unit)? = null, // v2.4.7 H3 成品「修改」選 Grok → 開 Grok 修圖頁
+    onOpenLongVideo: () -> Unit = {}, // v3.1.4 長片組合從底部分頁移進生影頁
     initialEngine: String? = null, // v2.0.8 "h3":H3 生圖成品「動起來」→ 直接開 H3 生影(圖當參考圖)
 ) {
     val ctx = LocalContext.current
@@ -159,7 +160,10 @@ fun GenerateVideoScreen(
         initialVideoMode != null || initialExtendBase != null
     var engine by rememberSaveable { mutableStateOf(initialEngine ?: if (hasEntryArgs) ENGINE_GROK else prefs.videoEngine) }
     val selector: @Composable () -> Unit = {
-        VideoEngineSelector(engine = engine, onSelect = { engine = it; prefs.videoEngine = it })
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            VideoEngineSelector(engine = engine, onSelect = { engine = it; prefs.videoEngine = it })
+            OutlinedActionButton(label = "🎞 長片組合（把片段接成長片）", onClick = onOpenLongVideo, modifier = Modifier.fillMaxWidth())
+        }
     }
     if (engine == ENGINE_VIDOGRID && initialExtendBase == null) {
         VidoGridVideoScreen(onSettingsClick = onSettingsClick, onNavSelected = onNavSelected, engineSelector = selector, initialImageUri = initialImageUri, initialPrompt = initialPrompt)

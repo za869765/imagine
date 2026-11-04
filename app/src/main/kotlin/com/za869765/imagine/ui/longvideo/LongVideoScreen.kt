@@ -156,7 +156,7 @@ fun LongVideoScreen(
                 },
             )
         },
-        bottomNav = { ImagineBottomNav(active = NavTab.LONG_VIDEO, onTabSelected = onNavSelected) },
+        bottomNav = { ImagineBottomNav(active = NavTab.MATERIAL, onTabSelected = onNavSelected) },
     ) {
         Column(
             modifier = Modifier

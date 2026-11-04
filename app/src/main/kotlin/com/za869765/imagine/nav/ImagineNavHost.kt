@@ -39,6 +39,7 @@ import com.za869765.imagine.ui.settings.SettingsScreen
 import com.za869765.imagine.ui.tutorial.TutorialScreen
 import com.za869765.imagine.ui.h3web.H3StudioWebScreen
 import com.za869765.imagine.ui.h3web.H3WebHolder
+import com.za869765.imagine.ui.h3web.VIDOGRID_URL
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
@@ -65,8 +66,9 @@ fun ImagineRoot() {
     val scope = rememberCoroutineScope()
     // v2.0.5 H3 Studio 分頁的 WebView 放在 NavHost 之上,切分頁回來不重載;Activity 結束才銷毀
     val h3WebHolder = remember { H3WebHolder() }
+    val vidoWebHolder = remember { H3WebHolder { VIDOGRID_URL } }
     DisposableEffect(h3WebHolder) {
-        onDispose { h3WebHolder.destroy() }
+        onDispose { h3WebHolder.destroy(); vidoWebHolder.destroy() }
     }
 
     val currentRoute by navController.currentBackStackEntryAsState()
@@ -258,6 +260,17 @@ fun ImagineRoot() {
                     holder = h3WebHolder,
                     onBack = { navController.popBackStack() },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
+                )
+            }
+
+            composable(Routes.VIDOGRID_WEB) {
+                H3StudioWebScreen(
+                    holder = vidoWebHolder,
+                    onBack = { navController.popBackStack() },
+                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                    title = "VidoGrid",
+                    tab = NavTab.VIDOGRID,
+                    homeUrl = VIDOGRID_URL,
                 )
             }
 
@@ -453,6 +466,7 @@ fun ImagineRoot() {
                     onOpenH3Job = { runId -> navController.navigate(Routes.h3Job(runId)) },
                     onOpenH3ImageJob = { runId -> navController.navigate(Routes.h3ImageJob(runId)) },
                     initialEngine = initEngine,
+                    onOpenLongVideo = { navController.navigate(Routes.LONG_VIDEO) },
                     onEditImage = { url, prompt ->
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
                             set(KEY_INIT_MEDIA, url)
@@ -686,7 +700,7 @@ private fun handleTabNav(
 ) {
     val target = when (tab) {
         NavTab.MATERIAL -> Routes.MATERIAL_HUB
-        NavTab.LONG_VIDEO -> Routes.LONG_VIDEO
+        NavTab.VIDOGRID -> Routes.VIDOGRID_WEB
         NavTab.RESULTS -> Routes.H3_RESULTS
         NavTab.H3 -> Routes.H3_STUDIO
     }
