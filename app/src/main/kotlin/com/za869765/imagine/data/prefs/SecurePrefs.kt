@@ -75,7 +75,12 @@ class SecurePrefs private constructor(ctx: Context) {
         set(v) = prefs.edit().putString(K_H3_TOKEN, v).apply()
     val isH3TokenSet: Boolean get() = !h3Token.isNullOrBlank()
 
-    // 生影引擎:"grok"(xAI / OpenRouter 模型)或 "h3"(H3 Studio)
+    // v3.1.3 VidoGrid(第三方轉接站,Grok Video 1.5):key 只存加密 prefs
+    var vidogridKey: String?
+        get() = prefs.getString(K_VIDOGRID_KEY, null)
+        set(v) = prefs.edit().putString(K_VIDOGRID_KEY, v).apply()
+
+    // 生影引擎:"grok"(xAI / OpenRouter 模型)、"h3"(H3 Studio)或 "vidogrid"
     var videoEngine: String
         get() = prefs.getString(K_VIDEO_ENGINE, "grok")!!
         set(v) = prefs.edit().putString(K_VIDEO_ENGINE, v).apply()
@@ -246,6 +251,7 @@ class SecurePrefs private constructor(ctx: Context) {
         private const val K_H3_URL = "h3_base_url"
         private const val K_H3_TOKEN = "h3_app_token"
         private const val K_VIDEO_ENGINE = "video_engine"
+        private const val K_VIDOGRID_KEY = "vidogrid_key"
         private const val K_H3_QUALITY = "h3_quality"
         private const val K_H3_MODE = "h3_mode"
         private const val K_H3_SECONDS = "h3_seconds"

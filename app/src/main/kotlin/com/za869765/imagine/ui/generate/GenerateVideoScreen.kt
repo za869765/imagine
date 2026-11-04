@@ -161,7 +161,9 @@ fun GenerateVideoScreen(
     val selector: @Composable () -> Unit = {
         VideoEngineSelector(engine = engine, onSelect = { engine = it; prefs.videoEngine = it })
     }
-    if (engine == ENGINE_H3 && initialExtendBase == null) {
+    if (engine == ENGINE_VIDOGRID && initialExtendBase == null) {
+        VidoGridVideoScreen(onSettingsClick = onSettingsClick, onNavSelected = onNavSelected, engineSelector = selector, initialImageUri = initialImageUri, initialPrompt = initialPrompt)
+    } else if (engine == ENGINE_H3 && initialExtendBase == null) {
         H3GenerateScreen(
             onSwitchToImage = onSwitchToImage,
             onSwitchToChat = onSwitchToChat,

@@ -36,15 +36,16 @@ import com.za869765.imagine.ui.component.SegmentedTab
 
 const val ENGINE_GROK = "grok"
 const val ENGINE_H3 = "h3"
+const val ENGINE_VIDOGRID = "vidogrid"
 
 /** v2.0.7 生圖頁:「生成引擎：Grok Imagine ｜ H3 Studio（Qwen 生圖）」,同一組 id(grok / h3)。 */
 @Composable
 fun ImageEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) =
-    VideoEngineSelector(engine = engine, onSelect = onSelect, modifier = modifier, h3Label = "H3 Studio（Qwen 生圖）")
+    VideoEngineSelector(engine = engine, onSelect = onSelect, modifier = modifier, h3Label = "H3 Studio（Qwen 生圖）", vidogrid = false)
 
 /** 生影頁 / 設定頁共用:「生成引擎：Grok Imagine ｜ H3 Studio」。 */
 @Composable
-fun VideoEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier, h3Label: String = "H3 Studio") {
+fun VideoEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier, h3Label: String = "H3 Studio", vidogrid: Boolean = true) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             "生成引擎",
@@ -56,10 +57,10 @@ fun VideoEngineSelector(engine: String, onSelect: (String) -> Unit, modifier: Mo
             options = listOf(
                 SegmentedOption(ENGINE_GROK, "Grok Imagine"),
                 SegmentedOption(ENGINE_H3, h3Label),
-            ),
+            ) + if (vidogrid) listOf(SegmentedOption(ENGINE_VIDOGRID, "VidoGrid")) else emptyList(),
             activeId = engine,
             onSelected = onSelect,
-            activeColor = if (engine == ENGINE_H3) Color(0xFF5B3FA8) else Color(0xFF14463F),
+            activeColor = when (engine) { ENGINE_H3 -> Color(0xFF5B3FA8); ENGINE_VIDOGRID -> Color(0xFF8A4B12); else -> Color(0xFF14463F) },
         )
     }
 }
