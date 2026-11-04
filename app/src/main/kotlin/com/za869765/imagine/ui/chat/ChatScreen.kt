@@ -34,8 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -113,14 +111,24 @@ private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagi
     return ChatTurn("error", "筆電 Gemma 超過 16 分鐘沒回答")
 }
 
-private val chatTurnsSaver = listSaver<List<ChatTurn>, String>(
-    save = { list -> list.flatMap { listOf(it.role, it.content, it.meta) } },
-    restore = { flat -> flat.chunked(3).filter { it.size == 3 }.map { ChatTurn(it[0], it[1], it[2]) } },
-)
-
 private fun fmtUsd(d: Double): String {
     val s = String.format(Locale.US, "%.4f", d)
     return s.trimEnd('0').trimEnd('.').ifEmpty { "0" }
+}
+
+/**
+ * v3.1.1 對話進行中的狀態放在 App 層(不跟著畫面):切到別的分頁,回答中與排隊中的訊息照樣送完、存進紀錄。
+ * gen:開新對話／打開歷史時 +1,舊的回答回來就不寫進新對話。
+ */
+private object ChatLive {
+    var loaded = false
+    var gen = 0
+    var chatId by mutableStateOf<String?>(null)
+    var turns by mutableStateOf(emptyList<ChatTurn>())
+    var sending by mutableStateOf(false)
+    var waitNote by mutableStateOf<String?>(null)
+    var queued by mutableStateOf(emptyList<Pair<String, List<Uri>>>())
+    var sessionCost by mutableStateOf(0.0)
 }
 
 /**
@@ -137,7 +145,6 @@ fun ChatScreen(
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
-    val scope = rememberCoroutineScope()
     val xaiRepo = remember(prefs) { ImagineRepository(XaiClient.build(prefs)) }
     val orRepo = remember(prefs) { OpenRouterRepository(OpenRouterClient.build(prefs)) }
 
@@ -150,13 +157,15 @@ fun ChatScreen(
     val hasKey = if (isLocal) prefs.isH3TokenSet else prefs.hasKeyFor(provider)
     // v3.0.0 對話存手機(重開 App、更新後接著顯示);歷史可回看、刪除
     val CH = com.za869765.imagine.data.chat.ChatHistory
-    var chatId by rememberSaveable { mutableStateOf(CH.current(ctx)?.id) }
-    var turns by rememberSaveable(stateSaver = chatTurnsSaver) {
-        mutableStateOf(CH.current(ctx)?.turns?.map { ChatTurn(it.role, it.content, it.meta) } ?: emptyList())
+    if (!ChatLive.loaded) {
+        ChatLive.loaded = true
+        CH.current(ctx)?.let { c -> ChatLive.chatId = c.id; ChatLive.turns = c.turns.map { ChatTurn(it.role, it.content, it.meta) } }
     }
+    var chatId by ChatLive::chatId
+    var turns by ChatLive::turns
     var showHistory by remember { mutableStateOf(false) }
-    var waitNote by remember { mutableStateOf<String?>(null) }
-    var queued by remember { mutableStateOf(emptyList<Pair<String, List<Uri>>>()) }
+    var waitNote by ChatLive::waitNote
+    var queued by ChatLive::queued
   // v3.0.6 回答中送出的訊息,依序排隊  // v3.0.5 筆電 Gemma 排隊／回答中的狀態
     // v3.0.4 筆電 Gemma 可附圖(看圖、OCR),最多 3 張
     var attached by remember { mutableStateOf(emptyList<Uri>()) }
@@ -167,7 +176,7 @@ fun ChatScreen(
         if (turns.isNotEmpty()) chatId = CH.save(ctx, chatId, model, turns.map { com.za869765.imagine.data.chat.SavedTurn(it.role, it.content, it.meta) })
     }
     var input by rememberSaveable { mutableStateOf("") }
-    var sending by remember { mutableStateOf(false) }
+    var sending by ChatLive::sending
     // v3.0.7 讀秒＋預計時間(這支手機上同一個模型最近 20 則回答的中位數)
     var elapsed by remember { mutableStateOf(0) }
     LaunchedEffect(sending) { elapsed = 0; while (sending) { kotlinx.coroutines.delay(1000); elapsed++ } }
@@ -175,7 +184,7 @@ fun ChatScreen(
     val medianSec = remember(model, sending) {
         com.za869765.imagine.data.prefs.DraftStore.loadList(ctx, secsKey(model)).mapNotNull { it.toIntOrNull() }.sorted().let { if (it.size >= 3) it[it.size / 2] else null }
     }
-    var sessionCost by rememberSaveable { mutableStateOf(0.0) }
+    var sessionCost by ChatLive::sessionCost
     var balanceText by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
@@ -218,17 +227,21 @@ fun ChatScreen(
         val capturedModel = model
         val capturedProvider = provider
         val capturedLocal = isLocal
-        scope.launch {
+        val gen = ChatLive.gen
+        val appCtx = ctx.applicationContext
+        // 切走畫面也要送完：走 App 層 scope；回來的回答只寫進同一個對話
+        fun add(t: ChatTurn) { if (ChatLive.gen == gen) ChatLive.turns = ChatLive.turns + t }
+        com.za869765.imagine.ImagineApp.appScope.launch(kotlinx.coroutines.Dispatchers.Main) {
             try {
                 val apiMsgs = history.filter { it.role == "user" || it.role == "assistant" }
                     .map { ChatMessage(it.role, it.content) }
                 if (capturedLocal) {
                     // v3.0.4 附圖:壓成 JPEG(長邊 1600)跟最後一則一起送;圖只在這次送出,不存進對話紀錄
-                    val b64 = pics.mapIndexedNotNull { i, u -> com.za869765.imagine.data.h3.H3Images.encode(ctx, u, i)?.base64 }
+                    val b64 = pics.mapIndexedNotNull { i, u -> com.za869765.imagine.data.h3.H3Images.encode(appCtx, u, i)?.base64 }
                     val msgs = apiMsgs.mapIndexed { i, m ->
                         com.za869765.imagine.data.h3.H3ChatMessage(m.role, if (i == apiMsgs.lastIndex) text else m.content, if (i == apiMsgs.lastIndex && b64.isNotEmpty()) b64 else null)
                     }
-                    turns = turns + gemmaReply(prefs, msgs) { waitNote = it }
+                    add(gemmaReply(prefs, msgs) { waitNote = it })
                     waitNote = null
                     return@launch
                 }
@@ -237,7 +250,7 @@ fun ChatScreen(
                         is ApiResult.Success -> {
                             val c = r.value
                             val cost = c.cost
-                            if (cost != null) sessionCost += cost
+                            if (cost != null && ChatLive.gen == gen) sessionCost += cost
                             val meta = buildString {
                                 append(c.model ?: capturedModel)
                                 if (cost != null) append(" · 本則 $").append(fmtUsd(cost))
@@ -245,27 +258,30 @@ fun ChatScreen(
                                     append(" · ").append(c.promptTokens ?: 0).append("+").append(c.completionTokens ?: 0).append(" tok")
                                 }
                             }
-                            turns = turns + ChatTurn("assistant", c.content, meta)
+                            add(ChatTurn("assistant", c.content, meta))
                             balanceTick++
                         }
-                        is ApiResult.Error -> turns = turns + ChatTurn("error", "${r.kind.userFriendlyTag()}:${r.message}")
+                        is ApiResult.Error -> add(ChatTurn("error", "${r.kind.userFriendlyTag()}:${r.message}"))
                     }
                     ApiProvider.XAI -> when (val r = xaiRepo.chat(apiMsgs, capturedModel)) {
-                        is ApiResult.Success -> turns = turns + ChatTurn("assistant", r.value, "xAI · $capturedModel · 費用見 xAI 後台")
-                        is ApiResult.Error -> turns = turns + ChatTurn("error", "${r.kind.userFriendlyTag()}:${r.message}")
+                        is ApiResult.Success -> add(ChatTurn("assistant", r.value, "xAI · $capturedModel · 費用見 xAI 後台"))
+                        is ApiResult.Error -> add(ChatTurn("error", "${r.kind.userFriendlyTag()}:${r.message}"))
                     }
                 }
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
-                turns = turns + ChatTurn("error", "失敗:${t.message?.take(120) ?: t::class.simpleName}")
+                add(ChatTurn("error", "失敗:${t.message?.take(120) ?: t::class.simpleName}"))
             } finally {
-                if (turns.lastOrNull()?.role == "assistant") {  // 只記成功的回答
+                waitNote = null
+                if (ChatLive.gen == gen && ChatLive.turns.lastOrNull()?.role == "assistant") {  // 只記成功的回答
                     val k = secsKey(capturedModel)
-                    val prev = com.za869765.imagine.data.prefs.DraftStore.loadList(ctx, k)
-                    com.za869765.imagine.data.prefs.DraftStore.saveList(ctx, k, (prev + ((System.currentTimeMillis() - t0) / 1000).toString()).takeLast(20))
+                    val prev = com.za869765.imagine.data.prefs.DraftStore.loadList(appCtx, k)
+                    com.za869765.imagine.data.prefs.DraftStore.saveList(appCtx, k, (prev + ((System.currentTimeMillis() - t0) / 1000).toString()).takeLast(20))
                 }
+                // 畫面不在時 LaunchedEffect 不會存，這裡直接存一次
+                if (ChatLive.gen == gen && ChatLive.turns.isNotEmpty()) ChatLive.chatId = CH.save(appCtx, ChatLive.chatId, capturedModel, ChatLive.turns.map { com.za869765.imagine.data.chat.SavedTurn(it.role, it.content, it.meta) })
                 sending = false
-                queued.firstOrNull()?.let { (t, p) -> queued = queued.drop(1); process(t, p) }
+                if (ChatLive.gen == gen) queued.firstOrNull()?.let { (t, p) -> queued = queued.drop(1); process(t, p) } else queued = emptyList()
             }
         }
     }
@@ -360,7 +376,7 @@ fun ChatScreen(
                 ImagineChip(label = "歷史", icon = "history", variant = ChipVariant.Outlined, onClick = { showHistory = true })
                 if (turns.isNotEmpty()) {
                     ImagineChip(label = "新對話", icon = "add", variant = ChipVariant.Outlined, onClick = {
-                        CH.startNew(ctx); chatId = null; turns = emptyList(); sessionCost = 0.0  // 舊的留在「歷史」
+                        CH.startNew(ctx); ChatLive.gen++; queued = emptyList(); chatId = null; turns = emptyList(); sessionCost = 0.0  // 舊的留在「歷史」
                     })
                 }
             }
@@ -376,7 +392,7 @@ fun ChatScreen(
                             items(list.size) { i ->
                                 val c = list[i]
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()
-                                    .clickable { CH.open(ctx, c.id)?.let { o -> chatId = o.id; turns = o.turns.map { ChatTurn(it.role, it.content, it.meta) }; sessionCost = 0.0 }; showHistory = false }
+                                    .clickable { CH.open(ctx, c.id)?.let { o -> ChatLive.gen++; queued = emptyList(); chatId = o.id; turns = o.turns.map { ChatTurn(it.role, it.content, it.meta) }; sessionCost = 0.0 }; showHistory = false }
                                     .padding(vertical = 6.dp)) {
                                     Column(Modifier.weight(1f)) {
                                         Text((if (c.id == chatId) "▶ " else "") + c.title, fontSize = 14.sp, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
@@ -384,7 +400,7 @@ fun ChatScreen(
                                             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text("刪除", fontSize = 13.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.clickable {
-                                        CH.delete(ctx, c.id); if (c.id == chatId) { chatId = null; turns = emptyList() }; list = CH.all(ctx)
+                                        CH.delete(ctx, c.id); if (c.id == chatId) { ChatLive.gen++; queued = emptyList(); chatId = null; turns = emptyList() }; list = CH.all(ctx)
                                     }.padding(8.dp))
                                 }
                             }
