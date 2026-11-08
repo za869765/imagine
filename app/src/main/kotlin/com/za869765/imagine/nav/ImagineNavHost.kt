@@ -179,18 +179,10 @@ fun ImagineRoot() {
             composable(Routes.CHAT) {
                 ChatScreen(
                     onSwitchToImage = {
-                        navController.navigate(Routes.GENERATE_IMAGE) {
-                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        switchSibling(navController, Routes.GENERATE_IMAGE)
                     },
                     onSwitchToVideo = {
-                        navController.navigate(Routes.GENERATE_VIDEO) {
-                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        switchSibling(navController, Routes.GENERATE_VIDEO)
                     },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
@@ -368,21 +360,13 @@ fun ImagineRoot() {
                 GenerateImageScreen(
                     initialPrompt = initPrompt,
                     onSwitchToChat = {
-                        navController.navigate(Routes.CHAT) {
-                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        switchSibling(navController, Routes.CHAT)
                     },
                     onSwitchToVideo = {
                         // 圖/影互切錨定 MATERIAL_HUB(素材生成 section root,啟動後永遠在 stack 底)。
                         // 不可錨 GENERATE_IMAGE:從 hub 直接進影片頁時它根本不在 stack,
                         // popUpTo 不可達會讓 saveState 失效 + 畫面一直疊加。
-                        navController.navigate(Routes.GENERATE_VIDEO) {
-                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        switchSibling(navController, Routes.GENERATE_VIDEO)
                     },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
@@ -442,18 +426,10 @@ fun ImagineRoot() {
                 }
                 GenerateVideoScreen(
                     onSwitchToImage = {
-                        navController.navigate(Routes.GENERATE_IMAGE) {
-                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        switchSibling(navController, Routes.GENERATE_IMAGE)
                     },
                     onSwitchToChat = {
-                        navController.navigate(Routes.CHAT) {
-                            popUpTo(Routes.MATERIAL_HUB) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        switchSibling(navController, Routes.CHAT)
                     },
                     // 影片延長 / 影片編輯改為生成頁內切模式(EditPane),不再導頁進 EditScreen
                     // → 移除 onExtend / onOpenVideoEdit
@@ -704,6 +680,18 @@ private fun handleTabNav(
         NavTab.RESULTS -> Routes.H3_RESULTS
         NavTab.H3 -> Routes.H3_STUDIO
     }
+    switchSibling(navController, target)
+}
+
+// v3.1.5 生圖送出後進任務頁、再從任務頁進生影時,stack 是 hub→生圖→任務→生影;
+// 原本 popUpTo(hub, saveState) 會把這三頁存成同一包,按「生圖」restoreState 又整包還原,最上面還是生影 → 點了沒反應。
+// 改成:目標已在 stack 就直接退回它;否則照舊切換,還原後最上面不是目標再退回目標。
+private fun switchSibling(
+    navController: androidx.navigation.NavController,
+    target: String,
+) {
+    if (navController.currentDestination?.route == target) return
+    if (target != Routes.MATERIAL_HUB && navController.popBackStack(target, inclusive = false, saveState = true)) return
     // popUpTo 用 MATERIAL_HUB(BottomNav 主舞台,啟動後永遠在 stack 底);saveState/restoreState
     // 讓兩頁切換保留各自狀態。
     navController.navigate(target) {
@@ -711,4 +699,5 @@ private fun handleTabNav(
         launchSingleTop = true
         restoreState = true
     }
+    if (navController.currentDestination?.route != target) navController.popBackStack(target, inclusive = false, saveState = true)
 }
