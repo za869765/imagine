@@ -76,7 +76,7 @@ object H3Format {
 
     fun routeLabel(r: String): String = when (r) {
         "auto" -> "自動（筆電免費 → 開著的機器 → 製圖機）"
-        "local" -> "筆電 3070（免費，一張約 30～60 秒）"
+        "local" -> "筆電 3070（免費，一張約 1 分）"
         "gputw_image" -> "製圖機（GPUtw 只搬 Qwen 權重，按時計費）"
         "gputw" -> "GPUtw 5090（影片機順便做）"
         "cloud" -> "Colab A100（花 CU）"
