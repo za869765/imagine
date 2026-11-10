@@ -560,6 +560,27 @@ fun ResultViewerDialog(
                         H3Jobs.remove(ctx, cur.runId); gone = gone + cur.runId; msg = "已從清單移除"; onChanged()
                     }
                 })
+                // v3.1.7 真的刪掉:手機裡的檔、Studio 那份、這筆紀錄
+                if (cur.isDone() || cur.isFailed()) add("刪除成品" to {
+                    confirm = "刪除這件成品？\n手機裡的檔案、Studio 那份和這筆紀錄都會刪掉，無法復原。" to {
+                        busy = "刪除成品"
+                        scope.launch {
+                            if (!cur.forgotten) H3Client.forget(prefs, cur.runId)  // Studio 那份;連不上也照刪手機的
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                cur.savedUri.orEmpty().lineSequence().filter { it.isNotBlank() }.forEach { u ->
+                                    runCatching {
+                                        val f = android.net.Uri.parse(u).path?.let { java.io.File(it) } ?: return@runCatching
+                                        f.delete()
+                                        com.za869765.imagine.data.storage.PromptIndex.remove(ctx, f.name)
+                                        com.za869765.imagine.data.storage.MaterialLibrary.remove(ctx, f.name)
+                                    }
+                                }
+                            }
+                            H3Jobs.remove(ctx, cur.runId); gone = gone + cur.runId; msg = "已刪除"; busy = null; onChanged()
+                        }
+                        Unit
+                    }
+                })
             }
             // v2.6.6 固定每排 3 格，格子一樣大；不足 3 格的排用空位補齊，不拉寬
             Column(
