@@ -380,6 +380,24 @@ const val LOCAL_GEMMA_ID = "h3-local-gemma"
 val LOCAL_GEMMA = CatalogModel(id = LOCAL_GEMMA_ID, name = "🔒 筆電 Gemma 4 12B（本機）", vendor = "local", badge = "free",
     note = "經 H3 轉到你的筆電回答・每則約 10～30 秒・筆電生成影片時要排隊")
 
+// v3.1.6 筆電再多兩款可選(一次只載一款,換款多等 5～25 秒)。✨ 優化與翻譯仍固定用 Gemma。
+const val LOCAL_ORNITH_ID = "h3-local-ornith"
+const val LOCAL_DEFIANT_ID = "h3-local-defiant"
+val LOCAL_CHAT_MODELS = listOf(
+    LOCAL_GEMMA,
+    CatalogModel(id = LOCAL_ORNITH_ID, name = "🔒 筆電 Ornith 1.5 9B（快速）", vendor = "local", badge = "free",
+        note = "比 Gemma 快約 4 倍・一般問答、翻譯、改錯字・成人內容多半會拒絕"),
+    CatalogModel(id = LOCAL_DEFIANT_ID, name = "🔒 筆電 Qwen3.5 9B Defiant（中速）", vendor = "local", badge = "free",
+        note = "比 Gemma 快約 2 倍・英文成人提示詞肯寫・中文露骨文字會拒絕"),
+)
+/** 筆電模型 id → (送給 H3 的款式, 顯示名);不是筆電模型回 null */
+fun localChatModel(id: String): Pair<String, String>? = when (id) {
+    LOCAL_GEMMA_ID -> "gemma" to "Gemma 4 12B"
+    LOCAL_ORNITH_ID -> "ornith" to "Ornith 1.5 9B"
+    LOCAL_DEFIANT_ID -> "defiant" to "Qwen3.5 9B Defiant"
+    else -> null
+}
+
 // xAI 固定清單(官方統一價:圖 $0.05/張、影片 $0.05/秒;對話模型價格 app 不硬寫,看後台)
 object XaiCatalog {
     private val CHAT = listOf(

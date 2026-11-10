@@ -175,8 +175,8 @@ object H3Client {
         call<H3R2Usage>(prefs, http, request(prefs, "/api/app/r2usage" + if (fresh) "?fresh=1" else "")?.get()?.build())
 
     /** v2.9.7 筆電 Gemma 對話:送出(伺服器只轉送給筆電,回 id),再用 [gemmaChatPoll] 輪詢到 done/failed。不花錢、不進雲端硬碟。 */
-    suspend fun gemmaChat(prefs: SecurePrefs, messages: List<H3ChatMessage>): Result<H3ChatCreated> {
-        val payload = json.encodeToString(H3ChatRequest(messages)).toRequestBody("application/json".toMediaType())
+    suspend fun gemmaChat(prefs: SecurePrefs, messages: List<H3ChatMessage>, model: String = "gemma"): Result<H3ChatCreated> {
+        val payload = json.encodeToString(H3ChatRequest(messages, model)).toRequestBody("application/json".toMediaType())
         return call<H3ChatCreated>(prefs, http, request(prefs, "/api/app/chat")?.post(payload)?.build())
     }
 

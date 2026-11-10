@@ -99,7 +99,7 @@ private fun ProviderTag(p: ApiProvider) {
 fun modelsFor(ctx: android.content.Context, mode: ModelMode, hasXai: Boolean, hasOpenRouter: Boolean): List<CatalogModel> {
     val xai = XaiCatalog.models(mode)
     val or = OpenRouterCatalog.sortedForPicker(OpenRouterCatalog.models(ctx, mode), mode)
-    val local = if (mode == ModelMode.CHAT) listOf(com.za869765.imagine.data.catalog.LOCAL_GEMMA) else emptyList()  // v2.9.7 不需要 key,一律列
+    val local = if (mode == ModelMode.CHAT) com.za869765.imagine.data.catalog.LOCAL_CHAT_MODELS else emptyList()  // v2.9.7 不需要 key,一律列
     return local + when {
         hasXai && hasOpenRouter -> xai + or
         hasXai -> xai

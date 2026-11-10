@@ -78,10 +78,11 @@ import java.util.Locale
 data class ChatTurn(val role: String, val content: String, val meta: String = "")
 
 /** v2.9.7 筆電 Gemma:送到 H3(只轉送)→ 每 3 秒問一次,筆電答完才回;最多等 16 分鐘(筆電生成影片時要排隊)。 */
-private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagine.data.h3.H3ChatMessage>, onWait: (String?) -> Unit = {}): ChatTurn {
+private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagine.data.h3.H3ChatMessage>, modelId: String, onWait: (String?) -> Unit = {}): ChatTurn {
     val c = com.za869765.imagine.data.h3.H3Client
     val t0 = System.currentTimeMillis()
-    val id = when (val r = c.gemmaChat(prefs, msgs)) {
+    val (key, label) = com.za869765.imagine.data.catalog.localChatModel(modelId) ?: ("gemma" to "Gemma 4 12B")  // v3.1.6 三款可選
+    val id = when (val r = c.gemmaChat(prefs, msgs, key)) {
         is com.za869765.imagine.data.h3.H3Client.Result.Ok -> r.value.id ?: return ChatTurn("error", "筆電 Gemma:伺服器沒有回傳編號")
         is com.za869765.imagine.data.h3.H3Client.Result.Err -> return ChatTurn("error", "筆電 Gemma:${r.message}")
     }
@@ -96,12 +97,12 @@ private suspend fun gemmaReply(prefs: SecurePrefs, msgs: List<com.za869765.imagi
                 onWait(when {
                     s.status == "queued" && s.busy && s.startAt != null ->
                         "⏳ 筆電正在生成影片／圖片,預計 " + java.text.SimpleDateFormat("HH:mm", Locale.TAIWAN).format(java.util.Date(s.startAt)) + "（約 ${kotlin.math.ceil(s.waitMin ?: 0.0).toInt()} 分）開始回答"
-                    s.status == "running" -> "🔒 筆電 Gemma 回答中…"
-                    else -> "🔒 等筆電 Gemma 接手…"
+                    s.status == "running" -> "🔒 筆電 $label 回答中…"
+                    else -> "🔒 等筆電 $label 接手…"
                 })
                 if (s.status == "done") {
                     val sec = (System.currentTimeMillis() - t0) / 1000
-                    return ChatTurn("assistant", s.text.orEmpty(), "🔒 筆電 Gemma 4 12B · ${sec} 秒 · 免費" + if (busySeen) "（等過筆電生成）" else "")
+                    return ChatTurn("assistant", s.text.orEmpty(), "🔒 筆電 $label · ${sec} 秒 · 免費" + if (busySeen) "（等過筆電生成）" else "")
                 }
                 if (s.status == "failed") return ChatTurn("error", s.error ?: "筆電 Gemma 失敗")
             }
@@ -153,7 +154,7 @@ fun ChatScreen(
         mutableStateOf(prefs.chatModel ?: defaultModelFor(ModelMode.CHAT, prefs.isApiKeySet, prefs.isOpenRouterKeySet))
     }
     val provider = ApiProvider.ofModel(model)
-    val isLocal = model == com.za869765.imagine.data.catalog.LOCAL_GEMMA_ID  // v2.9.7 筆電 Gemma:不用 key、走 H3 權杖
+    val isLocal = com.za869765.imagine.data.catalog.localChatModel(model) != null  // v2.9.7 筆電 Gemma:不用 key、走 H3 權杖
     val hasKey = if (isLocal) prefs.isH3TokenSet else prefs.hasKeyFor(provider)
     // v3.0.0 對話存手機(重開 App、更新後接著顯示);歷史可回看、刪除
     val CH = com.za869765.imagine.data.chat.ChatHistory
@@ -241,7 +242,7 @@ fun ChatScreen(
                     val msgs = apiMsgs.mapIndexed { i, m ->
                         com.za869765.imagine.data.h3.H3ChatMessage(m.role, if (i == apiMsgs.lastIndex) text else m.content, if (i == apiMsgs.lastIndex && b64.isNotEmpty()) b64 else null)
                     }
-                    add(gemmaReply(prefs, msgs) { waitNote = it })
+                    add(gemmaReply(prefs, msgs, capturedModel) { waitNote = it })
                     waitNote = null
                     return@launch
                 }

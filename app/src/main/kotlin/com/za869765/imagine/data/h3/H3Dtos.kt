@@ -184,7 +184,7 @@ data class H3R2Expiring(val id: String = "", val name: String = "", val segs: In
 data class H3ChatMessage(val role: String, val content: String, val images: List<String>? = null)  // v3.0.4 images＝JPEG base64(只有筆電 Gemma 看圖用)
 
 @Serializable
-data class H3ChatRequest(val messages: List<H3ChatMessage>)
+data class H3ChatRequest(val messages: List<H3ChatMessage>, val model: String = "gemma")  // v3.1.6 model＝gemma／ornith／defiant
 
 @Serializable
 data class H3ChatCreated(val id: String? = null, val busy: Boolean = false)
