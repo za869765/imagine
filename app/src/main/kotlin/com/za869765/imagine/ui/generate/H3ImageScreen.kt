@@ -513,7 +513,7 @@ fun H3ImageScreen(
                 ParamPicker(
                     label = "畫質",
                     value = if (sendModel != null) "h3" else mp.toString(),
-                    options = if (sendModel != null) listOf("h3") else if (route == "local") listOf("1") else listOf("1", "4"),  // v2.7.5 筆電 Turbo 最高 1K；v3.2.1 H3-Image 固定 2K
+                    options = if (sendModel != null) listOf("h3") else listOf("1", "4"),  // v3.2.1 H3-Image 固定 2K；v3.2.2 筆電 Turbo 也開放 2K（一張約 2 分）
                     onSelect = { if (it != "h3") { mp = if (it == "4") 4 else 1; prefs.h3ImgMp = mp } },
                     displayName = { if (it == "h3") "2K（${H3Format.imageSize(aspect, 4)}）" else if (it == "4") "2K（${H3Format.imageSize(aspect, 4)}，費時 4 倍）" else "1K（${H3Format.imageSize(aspect, 1)}）" },
                     modifier = Modifier.weight(1f),
@@ -765,7 +765,7 @@ private fun H3ImageConfirmSheet(
                     (if (pending.allowText) "・允許文字" else "・無文字"),
             )
             // 選「自動」卻派到筆電時，實話實說
-            if (pending.mp == 4 && e.route == "local" && pending.model == null) ConfirmLine("注意", "這張派到筆電，實際只會輸出 1K；要 2K 請改選製圖機或 Colab", strong = true)
+            if (pending.mp == 4 && e.route == "local" && pending.model == null && e.caps?.qwen2k != true) ConfirmLine("注意", "這張派到筆電，實際只會輸出 1K；要 2K 請改選製圖機或 Colab", strong = true)
             if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin, now = rememberNowMs()) + "（含前面排隊）", strong = true)
             ConfirmLine("餘額", balanceLine)
 

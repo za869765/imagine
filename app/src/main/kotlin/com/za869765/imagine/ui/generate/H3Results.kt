@@ -653,9 +653,9 @@ fun ResultViewerDialog(
                                     )
                                 }
                             }
-                            chips("用哪台機器修", listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab"), editRoute) { editRoute = it; if (it == "local") editMp = 1 }
+                            chips("用哪台機器修", listOf("auto" to "自動", "local" to "筆電（免費）", "gputw_image" to "製圖機 約NT$8", "gputw" to "影片機順便", "cloud" to "Colab"), editRoute) { editRoute = it }
                             chips("比例", listOf("9:16", "16:9", "1:1", "3:4", "4:3").map { it to it }, editAspect) { editAspect = it }
-                            chips("畫質", if (editRoute == "local") listOf("1" to "1K（筆電最高）") else listOf("1" to "1K", "4" to "2K"), editMp.toString()) { editMp = it.toInt() }
+                            chips("畫質", listOf("1" to "1K", "4" to "2K"), editMp.toString()) { editMp = it.toInt() }
                             chips("張數", (1..4).map { "$it" to "$it 張" }, editCount.toString()) { editCount = it.toInt() }
                         }
                         if (!editGrok) editEst?.let { Text(it.text, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }

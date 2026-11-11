@@ -257,6 +257,7 @@ data class H3Caps(
     val image: Boolean = false,
     val refmod: Boolean = false,
     val ver: String? = null,
+    @SerialName("qwen_2k") val qwen2k: Boolean = false,  // v3.2.2 筆電 Turbo 可直接做 2K
 )
 
 /** GET /api/app/images/estimate?mp&count&route — 派工結果 + 估價(分鐘 / NT$ / CU)+ 餘額(未知時 null)。 */
