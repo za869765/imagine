@@ -243,6 +243,15 @@ object H3Client {
         return call<H3ErrorBody>(prefs, submitHttp, request(prefs, "/api/app/import")?.post(payload)?.build())
     }
 
+    /** v3.2.0 下載分頁:網址交給筆電代下載(不花錢),回 run_id;再用 [downloadRun] 輪詢 */
+    suspend fun submitDownload(prefs: SecurePrefs, body: H3DownloadRequest): Result<H3DownloadCreated> {
+        val payload = json.encodeToString(body).toRequestBody("application/json".toMediaType())
+        return call<H3DownloadCreated>(prefs, submitHttp, request(prefs, "/api/app/download")?.post(payload)?.build())
+    }
+
+    suspend fun downloadRun(prefs: SecurePrefs, runId: String): Result<H3DownloadStatus> =
+        call<H3DownloadStatus>(prefs, http, request(prefs, "/api/app/download/$runId")?.get()?.build())
+
     suspend fun imageRun(prefs: SecurePrefs, runId: String): Result<H3ImageStatus> =
         call<H3ImageStatus>(prefs, http, request(prefs, "/api/app/images/$runId")?.get()?.build())
 

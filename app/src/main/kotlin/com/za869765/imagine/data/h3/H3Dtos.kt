@@ -193,6 +193,31 @@ data class H3ChatCreated(val id: String? = null, val busy: Boolean = false)
 data class H3ChatStatus(val status: String = "queued", val text: String? = null, val error: String? = null, val busy: Boolean = false,
     @SerialName("wait_min") val waitMin: Double? = null, @SerialName("start_at") val startAt: Long? = null)  // v3.0.5 筆電在生成時預計幾點開始回答
 
+/** v3.2.0 下載分頁:筆電代下載(POST /api/app/download → GET /api/app/download/{id});parts＝依序拼起來的站內路徑 */
+@Serializable
+data class H3DownloadRequest(
+    val url: String,
+    val mode: String,
+    val confirm: Boolean = true,
+    @SerialName("client_request_id") val clientRequestId: String,
+)
+
+@Serializable
+data class H3DownloadCreated(@SerialName("run_id") val runId: String? = null)
+
+@Serializable
+data class H3DownloadStatus(
+    val status: String = "queued",
+    val error: String? = null,
+    val phase: String? = null,
+    val pct: Double? = null,
+    @SerialName("eta_sec") val etaSec: Long? = null,
+    val title: String? = null,
+    val ext: String? = null,
+    val bytes: Long? = null,
+    val parts: List<String> = emptyList(),
+)
+
 /** GET /api/app/subjects — H3 Studio 資產庫角色(face_locked＝已建臉部模型;voice＝有參考音)。 */
 @Serializable
 data class H3Subject(val id: String, val name: String, val desc: String = "", @SerialName("face_locked") val faceLocked: Boolean = false, val voice: Boolean = false, val thumb: String? = null)
