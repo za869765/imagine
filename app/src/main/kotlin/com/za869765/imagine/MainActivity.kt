@@ -57,6 +57,11 @@ class MainActivity : FragmentActivity() {
 
     // 通知點擊直達作品(UI_REDESIGN_PLAN 6.7):onCreate / onNewIntent(SINGLE_TOP)都讀 extra
     private fun consumeOpenIntent(intent: android.content.Intent?) {
+        // v3.1.9 ImportActivity 轉來的分享網址 → 下載分頁
+        intent?.getStringExtra(EXTRA_DOWNLOAD_URL)?.let {
+            intent.removeExtra(EXTRA_DOWNLOAD_URL)
+            com.za869765.imagine.data.download.Downloader.sharedUrl.value = it
+        }
         val uri = intent?.getStringExtra(PendingOpen.EXTRA_OPEN_URI) ?: return
         intent.removeExtra(PendingOpen.EXTRA_OPEN_URI)
         PendingOpen.uri.value = uri

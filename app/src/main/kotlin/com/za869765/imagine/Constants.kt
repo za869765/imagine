@@ -14,3 +14,6 @@ object Constants {
     // 下載影片前要求的最少剩餘空間(UI_REDESIGN_PLAN 6.3)
     const val MIN_FREE_BYTES_FOR_DOWNLOAD = 200L * 1024 * 1024
 }
+
+// v3.1.9 分享網址 → 下載分頁(ImportActivity 轉給 MainActivity)
+const val EXTRA_DOWNLOAD_URL = "download_url"

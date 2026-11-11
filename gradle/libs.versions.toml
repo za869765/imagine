@@ -16,6 +16,7 @@ coil = "3.0.4"
 media3 = "1.5.1"
 work = "2.10.0"
 core-ktx = "1.15.0"
+ytdl = "0.18.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
@@ -56,6 +57,10 @@ androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", versi
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+
+# v3.1.9 下載分頁:手機內建 yt-dlp(含 Python)與 FFmpeg
+ytdl-library = { module = "io.github.junkfood02.youtubedl-android:library", version.ref = "ytdl" }
+ytdl-ffmpeg = { module = "io.github.junkfood02.youtubedl-android:ffmpeg", version.ref = "ytdl" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

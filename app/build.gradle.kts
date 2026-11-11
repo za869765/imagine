@@ -15,11 +15,13 @@ android {
         targetSdk = 35
         // 版次顯示整合為 1.X.X(各 1 位十進位數字,如累計 141 → "1.4.1");滿 9 進位:1.4.9→1.5.0→…1.9.9→2.0.0。
         // versionCode 仍各自單調 +1(Android 規定,與顯示版次脫鉤)。
-        versionCode = 299
-        versionName = "3.1.8"
+        versionCode = 300
+        versionName = "3.1.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        // v3.1.9 下載分頁內建 Python/FFmpeg 原生檔:只打包 S22U 用的 arm64,APK 少一大半
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     signingConfigs {
@@ -86,6 +88,8 @@ android {
     }
 
     packaging {
+        // v3.1.9 yt-dlp 要從 nativeLibraryDir 直接執行 libpython.so 等檔,原生檔必須解壓到磁碟
+        jniLibs { useLegacyPackaging = true }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/DEPENDENCIES"
@@ -146,4 +150,6 @@ dependencies {
 
     // Background work
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.ytdl.library) // v3.1.9 下載分頁
+    implementation(libs.ytdl.ffmpeg)
 }

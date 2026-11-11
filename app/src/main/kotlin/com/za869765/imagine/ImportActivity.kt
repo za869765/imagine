@@ -42,6 +42,22 @@ class ImportActivity : Activity() {
             return
         }
 
+        // v3.1.9 分享的是網址(text/plain)→ 交給主畫面的下載分頁
+        if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+            val url = com.za869765.imagine.ui.download.firstUrl(intent.getStringExtra(Intent.EXTRA_TEXT))
+            if (url == null) {
+                Toast.makeText(this, "分享內容裡沒有網址", Toast.LENGTH_SHORT).show()
+            } else {
+                startActivity(
+                    Intent(this, MainActivity::class.java)
+                        .putExtra(EXTRA_DOWNLOAD_URL, url)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                )
+            }
+            finish()
+            return
+        }
+
         val uris = collectUris(intent)
         if (uris.isEmpty()) {
             Toast.makeText(this, "沒收到可匯入的檔案", Toast.LENGTH_SHORT).show()

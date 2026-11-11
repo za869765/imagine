@@ -37,6 +37,13 @@
 -keep class androidx.media3.** { *; }
 -dontwarn androidx.media3.**
 
+# v3.1.9 youtubedl-android(Jackson 反射解析 yt-dlp 輸出、commons-compress 解壓 Python)
+-keep class com.yausername.** { *; }
+-keep class com.fasterxml.jackson.** { *; }
+-keep class org.apache.commons.compress.** { *; }
+-dontwarn com.fasterxml.jackson.**
+-dontwarn org.apache.commons.**
+
 # Coil 3 (AsyncImage 反射載入 fetcher)
 -keep class coil3.** { *; }
 -dontwarn coil3.**

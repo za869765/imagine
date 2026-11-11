@@ -83,6 +83,13 @@ fun ImagineRoot() {
         navController.navigate(Routes.HISTORY_DETAIL)
     }
 
+    // v3.1.9 從其他 APP 分享網址進來 → 切到下載分頁(下載頁自己把網址填進去)
+    val sharedDlUrl by com.za869765.imagine.data.download.Downloader.sharedUrl.collectAsState()
+    LaunchedEffect(sharedDlUrl, routeId) {
+        // 冷啟動先等開場頁進到主畫面(素材生成在 stack 底)才切
+        if (sharedDlUrl != null && routeId != null && routeId != Routes.SPLASH && routeId != Routes.DOWNLOADER) switchSibling(navController, Routes.DOWNLOADER)
+    }
+
     // ── in-app updater ────────────────────────────────────────────────
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     var bannerDismissed by remember { mutableStateOf(false) }
@@ -252,6 +259,17 @@ fun ImagineRoot() {
                     holder = h3WebHolder,
                     onBack = { navController.popBackStack() },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
+                )
+            }
+
+            composable(Routes.DOWNLOADER) {
+                com.za869765.imagine.ui.download.DownloadScreen(
+                    onNavSelected = { tab -> handleTabNav(navController, tab) },
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onOpenVideo = { uri ->
+                        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_HISTORY_URI, uri)
+                        navController.navigate(Routes.HISTORY_DETAIL)
+                    },
                 )
             }
 
@@ -677,6 +695,7 @@ private fun handleTabNav(
     val target = when (tab) {
         NavTab.MATERIAL -> Routes.MATERIAL_HUB
         NavTab.VIDOGRID -> Routes.VIDOGRID_WEB
+        NavTab.DOWNLOAD -> Routes.DOWNLOADER
         NavTab.RESULTS -> Routes.H3_RESULTS
         NavTab.H3 -> Routes.H3_STUDIO
     }
