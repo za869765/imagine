@@ -300,6 +300,8 @@ data class H3ImageRequest(
     val confirm: Boolean,
     @SerialName("client_request_id") val clientRequestId: String,
     val seed: Long? = null,
+    // v3.2.1 "h3image"＝筆電 MiniMax-H3-Image(2K、6 步);null＝原本的 Qwen
+    val model: String? = null,
 )
 
 @Serializable

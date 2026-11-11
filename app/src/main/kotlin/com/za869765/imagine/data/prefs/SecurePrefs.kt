@@ -142,6 +142,10 @@ class SecurePrefs private constructor(ctx: Context) {
     var h3ImgRoute: String
         get() = prefs.getString(K_H3_IMG_ROUTE, "auto")!!
         set(v) = prefs.edit().putString(K_H3_IMG_ROUTE, v).apply()
+    // v3.2.1 筆電生圖用哪個模型:""＝Turbo(1K)、"h3image"＝MiniMax-H3-Image(2K);只在 h3ImgRoute=local 時有效
+    var h3ImgModel: String
+        get() = prefs.getString("h3_img_model", "")!!
+        set(v) = prefs.edit().putString("h3_img_model", v).apply()
 
     // ── PIN (hash + salt + length-hint) ──────────────────────────
     var pinHash: String?

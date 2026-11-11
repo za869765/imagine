@@ -108,6 +108,7 @@ private fun machineOptions(st: H3ImageEstimate?, board: List<com.za869765.imagin
     return listOf(
         ModeOption("auto", "自動（建議）", "筆電有空就免費 → 開著的機器順便做 → 再不然開製圖機約 NT$8$autoNow"),
         ModeOption("local", "筆電 3070", "免費・一張約 1～2 分・筆電要開著" + machineNote(board, "local").ifEmpty { laptop }),
+        ModeOption("local_h3", "筆電 3070・H3-Image（2K）", "免費・一張約 1 分・比較像真實照片・筆電要開著；多視角與透明背景仍用 Turbo"),
         ModeOption("gputw_image", "製圖機（GPUtw）", "約 NT$8／次（含開機 14 分）" + machineNote(board, "gputw_image").ifEmpty { gi }),
         ModeOption("gputw", "GPUtw 5090（影片機）", "影片機開著時順便做・同製圖機費率" + machineNote(board, "gputw").ifEmpty { g }),
         ModeOption("cloud", "Colab A100", "花 CU・1 張約 1.04 CU ≈ NT$4・冷啟動 6 分" + machineNote(board, "cloud") + cu),
@@ -155,6 +156,7 @@ fun H3ImageScreen(
     var mp by rememberSaveable { mutableStateOf(prefs.h3ImgMp) }
     var count by rememberSaveable { mutableStateOf(1) }  // v2.5.6 一般圖固定 1 張（要更多按成品的「繼續做相同」）；只有多視角用來選角度數
     var route by rememberSaveable { mutableStateOf(prefs.h3ImgRoute) }
+    var model by rememberSaveable { mutableStateOf(prefs.h3ImgModel) }  // v3.2.1 ""＝Turbo、"h3image"＝筆電 H3-Image
     var allowText by rememberSaveable { mutableStateOf(false) }
     // v2.8.3 提示詞出現引號或文字需求時自動打勾一次；之後使用者取消就照取消，文字需求消失時收回自動打的勾
     var hadTextWords by rememberSaveable { mutableStateOf(false) }
@@ -170,14 +172,16 @@ fun H3ImageScreen(
     LaunchedEffect(mode) { DraftStore.save(ctx, "h3_image_mode", mode) }
     val isSheet = mode == "sheet"
     val sendRefs = if (mode == "txt") emptyList() else if (isSheet) refStrings.take(1) else refStrings
-    val sendMp = if (isSheet) 4 else mp
+    // v3.2.1 H3-Image 只在筆電、一般生圖與參考圖模式用;一律 2K
+    val sendModel = if (route == "local" && model == "h3image" && !isSheet && mode != "alpha") "h3image" else null
+    val sendMp = if (isSheet || sendModel != null) 4 else mp
     val sendCount = if (isSheet) count.coerceIn(1, 2) else 1
     // 預估時間:參數一變就向伺服器問一次(不花錢),依生成紀錄平均
     var preview by remember { mutableStateOf<H3ImageEstimate?>(null) }
-    LaunchedEffect(mode, mp, count, route) {
+    LaunchedEffect(mode, mp, count, route, model) {
         if (!prefs.isH3TokenSet) return@LaunchedEffect
         delay(400)
-        preview = (H3Client.imageEstimate(prefs, sendMp, sendCount, route) as? H3Client.Result.Ok)?.value
+        preview = (H3Client.imageEstimate(prefs, sendMp, sendCount, route, sendModel) as? H3Client.Result.Ok)?.value
     }
 
     var showLibraryPicker by remember { mutableStateOf(false) }
@@ -259,10 +263,11 @@ fun H3ImageScreen(
             clientRequestId = java.util.UUID.randomUUID().toString(),
             estimate = null,
             seed = prefs.h3SeedToSend,
+            model = sendModel,
         )
         estimating = true
         scope.launch {
-            when (val r = H3Client.imageEstimate(prefs, snapshot.mp, snapshot.count, snapshot.route)) {
+            when (val r = H3Client.imageEstimate(prefs, snapshot.mp, snapshot.count, snapshot.route, snapshot.model)) {
                 is H3Client.Result.Ok -> {
                     pendingConfirm = snapshot.copy(estimate = r.value)
                     if (snapshot.route == "auto") status = r.value
@@ -320,7 +325,9 @@ fun H3ImageScreen(
                 pendingConfirm = null
                 route = r
                 prefs.h3ImgRoute = r
-                startEstimate(pending.copy(route = r))
+                model = ""
+                prefs.h3ImgModel = ""
+                startEstimate(pending.copy(route = r, model = null))
             },
         )
     }
@@ -505,10 +512,10 @@ fun H3ImageScreen(
                 )
                 ParamPicker(
                     label = "畫質",
-                    value = mp.toString(),
-                    options = if (route == "local") listOf("1") else listOf("1", "4"),  // v2.7.5 筆電最高 1K，不給選 2K
-                    onSelect = { mp = if (it == "4") 4 else 1; prefs.h3ImgMp = mp },
-                    displayName = { if (it == "4") "2K（${H3Format.imageSize(aspect, 4)}，費時 4 倍）" else "1K（${H3Format.imageSize(aspect, 1)}）" },
+                    value = if (sendModel != null) "h3" else mp.toString(),
+                    options = if (sendModel != null) listOf("h3") else if (route == "local") listOf("1") else listOf("1", "4"),  // v2.7.5 筆電 Turbo 最高 1K；v3.2.1 H3-Image 固定 2K
+                    onSelect = { if (it != "h3") { mp = if (it == "4") 4 else 1; prefs.h3ImgMp = mp } },
+                    displayName = { if (it == "h3") "2K（${H3Format.imageSize(aspect, 4)}）" else if (it == "4") "2K（${H3Format.imageSize(aspect, 4)}，費時 4 倍）" else "1K（${H3Format.imageSize(aspect, 1)}）" },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -531,8 +538,13 @@ fun H3ImageScreen(
             ModePicker(
                 label = "在哪台機器生成",
                 options = machineOptions(status, board),
-                selectedId = route,
-                onSelect = { route = it; prefs.h3ImgRoute = it },
+                selectedId = if (route == "local" && model == "h3image") "local_h3" else route,
+                onSelect = {
+                    route = if (it == "local_h3") "local" else it
+                    model = if (it == "local_h3") "h3image" else ""
+                    prefs.h3ImgRoute = route
+                    prefs.h3ImgModel = model
+                },
                 footnote = "狀態是開頁時向 H3 Studio 查的，不花錢；費用都是預估，確認視窗會再算一次。",
             )
 
@@ -619,7 +631,7 @@ private fun H3ImageConfirmSheet(
     var agreed by remember(pending) { mutableStateOf(e.route == "local") }
     var submitting by remember(pending) { mutableStateOf(false) }
     var progressText by remember(pending) { mutableStateOf<String?>(null) }
-    val name = H3Format.routeName(e.route)
+    val name = H3Format.routeName(e.route) + if (pending.model == "h3image") "・H3-Image" else ""
     val costText = when (e.route) {
         "cloud" -> "${H3Format.cu(e.cu)} CU ≈ NT$${H3Format.ntd(e.ntd)}"
         "local" -> "免費"
@@ -753,7 +765,7 @@ private fun H3ImageConfirmSheet(
                     (if (pending.allowText) "・允許文字" else "・無文字"),
             )
             // 選「自動」卻派到筆電時，實話實說
-            if (pending.mp == 4 && e.route == "local") ConfirmLine("注意", "這張派到筆電，實際只會輸出 1K；要 2K 請改選製圖機或 Colab", strong = true)
+            if (pending.mp == 4 && e.route == "local" && pending.model == null) ConfirmLine("注意", "這張派到筆電，實際只會輸出 1K；要 2K 請改選製圖機或 Colab", strong = true)
             if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin, now = rememberNowMs()) + "（含前面排隊）", strong = true)
             ConfirmLine("餘額", balanceLine)
 

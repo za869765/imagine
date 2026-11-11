@@ -197,8 +197,8 @@ object H3Client {
     // ── v2.0.7 Qwen-Image 2.1 生圖(估算不花錢 → 確認 → 送單 → 輪詢)與 ✨ 優化提示詞 ──
 
     /** 不花錢的生圖估算:派工結果(筆電 / 製圖機 / GPUtw / Colab)+ 分鐘 / NT$ / CU + 餘額。 */
-    suspend fun imageEstimate(prefs: SecurePrefs, mp: Int, count: Int, route: String): Result<H3ImageEstimate> =
-        call<H3ImageEstimate>(prefs, http, request(prefs, "/api/app/images/estimate?mp=$mp&count=$count&route=${enc(route)}")?.get()?.build())
+    suspend fun imageEstimate(prefs: SecurePrefs, mp: Int, count: Int, route: String, model: String? = null): Result<H3ImageEstimate> =
+        call<H3ImageEstimate>(prefs, http, request(prefs, "/api/app/images/estimate?mp=$mp&count=$count&route=${enc(route)}" + (model?.let { "&model=${enc(it)}" } ?: ""))?.get()?.build())
 
     /** ⚠️ 會開機器／花錢 — 只能在使用者於確認視窗勾選並按「確認開跑」後呼叫。 */
     suspend fun submitImage(prefs: SecurePrefs, body: H3ImageRequest): Result<H3ImageCreated> {

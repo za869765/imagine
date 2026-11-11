@@ -151,7 +151,7 @@ fun H3ImageJobScreen(
         val spec = if (sameSeed != null) base.copy(seed = sameSeed, route = rec.route.ifBlank { base.route }) else base.copy(seed = null)
         repeating = true
         ImagineApp.appScope.launch(Dispatchers.Main) {
-            val est = H3Client.imageEstimate(prefs, spec.mp, spec.count, spec.route)
+            val est = H3Client.imageEstimate(prefs, spec.mp, spec.count, spec.route, spec.model)
             if (est is H3Client.Result.Err) {
                 repeating = false
                 AppNotice.show("送出失敗：${est.message}")

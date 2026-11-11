@@ -23,6 +23,7 @@ data class PendingH3Image(
     val estimate: H3ImageEstimate?,
     val groupId: String? = null,
     val seed: Long? = null,
+    val model: String? = null,  // v3.2.1 "h3image"＝筆電 H3-Image
 )
 
 private val QUOTED = Regex("「([^」]{1,60})」|『([^』]{1,60})』|“([^”]{1,60})”|\"([^\"]{1,60})\"")
@@ -87,6 +88,7 @@ object H3ImageSubmit {
             confirm = true,
             clientRequestId = pending.clientRequestId,
             seed = pending.seed,
+            model = pending.model,
         )
         return when (val r = H3Client.submitImage(prefs, req)) {
             is H3Client.Result.Ok -> {
