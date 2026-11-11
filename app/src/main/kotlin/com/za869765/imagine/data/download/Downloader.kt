@@ -114,6 +114,7 @@ object Downloader {
             val work = File(app.cacheDir, "dl/$id")
             try {
                 ensureInit(app)
+                if (isCancelled(id)) return@launch // 準備中就按了取消
                 set(id) { it.copy(stage = "下載中") }
                 work.mkdirs()
                 val req = YoutubeDLRequest(url).apply {
@@ -144,6 +145,7 @@ object Downloader {
                         )
                     }
                 }
+                if (isCancelled(id)) return@launch
                 val out = work.listFiles()
                     ?.filter { it.isFile && !it.name.endsWith(".part") && !it.name.endsWith(".ytdl") }
                     ?.maxByOrNull { it.length() }
@@ -155,13 +157,14 @@ object Downloader {
                 set(id) { it.copy(status = Status.CANCELLED, stage = "已取消") }
             } catch (e: Throwable) {
                 // 取消時 process 被殺,有時會以一般錯誤結束
-                val cancelled = tasks.value.firstOrNull { it.id == id }?.status == Status.CANCELLED
-                if (!cancelled) set(id) { it.copy(status = Status.FAILED, stage = "失敗", error = friendly(e)) }
+                if (!isCancelled(id)) set(id) { it.copy(status = Status.FAILED, stage = "失敗", error = friendly(e)) }
             } finally {
                 work.deleteRecursively()
             }
         }
     }
+
+    private fun isCancelled(id: String) = tasks.value.firstOrNull { it.id == id }?.status == Status.CANCELLED
 
     fun cancel(id: String) {
         set(id) { it.copy(status = Status.CANCELLED, stage = "已取消") }
