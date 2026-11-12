@@ -35,6 +35,8 @@ data class PendingH3(
     // v3.1.0 換人(mode=motion):參考影片本機 uri 與秒數
     val refVideo: String? = null,
     val refVideoSeconds: Double? = null,
+    // v3.2.6 一條龍:人物長相(文生影＋筆電才有);筆電先生一張參考人像再生影片
+    val autoRef: String? = null,
 )
 
 /** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */
@@ -134,6 +136,7 @@ object H3Submit {
             keepInStudio = false,
             seed = pending.seed,
             t2v = pending.mode == "t2v",
+            autoRef = pending.autoRef?.trim()?.takeIf { it.isNotEmpty() && pending.mode == "t2v" && pending.route == "local" && pending.subjectId == null },
             refVideo = refVideo,
         )
         return when (val r = H3Client.submit(prefs, req)) {

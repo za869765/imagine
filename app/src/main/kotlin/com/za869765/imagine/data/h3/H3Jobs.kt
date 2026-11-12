@@ -47,6 +47,8 @@ object H3Jobs {
         val repeatVideo: PendingH3? = null,
         // v2.8.0 往後續做：原片本機 uri（存檔時接在前面）
         val extendBase: String? = null,
+        // v3.2.6 一條龍:筆電先生的參考人像存到手機後的本機 uri
+        val refImageUri: String? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"

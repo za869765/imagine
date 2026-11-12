@@ -85,6 +85,8 @@ data class H3JobRequest(
     val seed: Long? = null,
     // v2.9.0 文生影:不放圖、不綁角色,只用文字(伺服器拿掉參考圖節點)
     val t2v: Boolean = false,
+    // v3.2.6 一條龍:人物長相(只在筆電、文生影、沒綁角色時送);筆電先用 Turbo 生一張參考人像再拿它生影片
+    @SerialName("auto_ref") val autoRef: String? = null,
     // v3.1.0 換人(mode=motion):先 POST /api/app/refvideo 拿到 file_id
     @SerialName("ref_video") val refVideo: H3RefVideo? = null,
 )
@@ -142,6 +144,8 @@ data class H3JobStatus(
     val seed: Long? = null,
     /** v2.9.4 工人在本機把中文描述翻成英文的紀錄(含翻好的 [Shot] 句),給使用者自己對照 */
     val translated: String? = null,
+    /** v3.2.6 一條龍:筆電先生的那張參考人像(站內路徑;還沒生好或不是一條龍＝null) */
+    @SerialName("ref_image_url") val refImageUrl: String? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 

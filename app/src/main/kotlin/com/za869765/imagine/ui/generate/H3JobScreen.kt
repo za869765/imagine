@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +60,17 @@ import androidx.lifecycle.repeatOnLifecycle
 private val h3SaveMutex = Mutex()
 private val h3SavedByRun = HashMap<String, String>()
 
+/** v3.2.6 一條龍:筆電先生的參考人像也存進所有作品(要在請伺服器刪除之前);不是一條龍或已存過就不做,失敗不影響影片。 */
+private suspend fun saveH3AutoRef(ctx: android.content.Context, prefs: SecurePrefs, runId: String) {
+    val j = H3Jobs.find(ctx, runId) ?: return
+    val who = j.repeatVideo?.autoRef?.takeIf { it.isNotBlank() } ?: return
+    if (j.refImageUri != null) return
+    val url = (H3Client.job(prefs, runId) as? H3Client.Result.Ok)?.value?.refImageUrl ?: return
+    val dl = H3Client.downloadBytes(prefs, url) ?: return
+    val uri = MediaSaver.saveImage(ctx, dl.first, H3_PROMPT_TAG + "參考人像：" + who, dl.second ?: "image/jpeg") ?: return
+    H3Jobs.update(ctx, runId) { it.copy(refImageUri = uri) }
+}
+
 /**
  * 下載成品存進所有作品(標 [H3])。全域互斥 + 已存紀錄(H3Jobs / 記憶體)→ 同一任務只下載、只入庫一次。
  */
@@ -80,6 +92,7 @@ internal suspend fun saveH3ToHistory(
     if (uri != null) {
         h3SavedByRun[runId] = uri
         H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
+        runCatching { saveH3AutoRef(ctx, prefs, runId) }
         forgetInStudioIfAsked(ctx, prefs, runId)
     }
     uri
@@ -113,6 +126,7 @@ internal suspend fun saveH3SegmentsToHistory(
         if (uri != null) {
             h3SavedByRun[runId] = uri
             H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
+            runCatching { saveH3AutoRef(ctx, prefs, runId) }
             forgetInStudioIfAsked(ctx, prefs, runId)
             dir.deleteRecursively()
         }
@@ -349,6 +363,23 @@ fun H3JobScreen(runId: String, onBack: () -> Unit, onOpenRepeat: (String) -> Uni
                     }
                     s?.translated?.takeIf { it.isNotBlank() }?.let {
                         Text("🔤 $it", fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    // v3.2.6 一條龍:筆電先生的參考人像,做好就先給看
+                    val refUrl = s?.refImageUrl
+                    var refBmp by remember(runId) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+                    LaunchedEffect(refUrl) {
+                        if (refUrl != null && refBmp == null) refBmp = withContext(Dispatchers.IO) {
+                            H3Client.downloadBytes(prefs, refUrl)?.first?.let { b ->
+                                runCatching { android.graphics.BitmapFactory.decodeByteArray(b, 0, b.size)?.asImageBitmap() }.getOrNull()
+                            }
+                        }
+                    }
+                    refBmp?.let { bmp ->
+                        Text("參考人像（筆電自動生的，會和影片一起存到所有作品）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        androidx.compose.foundation.Image(
+                            bitmap = bmp, contentDescription = "參考人像",
+                            modifier = Modifier.heightIn(max = 220.dp).clip(RoundedCornerShape(10.dp)),
+                        )
                     }
                     val phase = ev?.phase
                     val pct = ev?.pct

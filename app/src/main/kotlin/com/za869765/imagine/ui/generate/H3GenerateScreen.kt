@@ -173,6 +173,9 @@ fun H3GenerateScreen(
 
     // v3.1.0 換人(參考影片模式):照影片的動作換成角色／照片;秒數跟影片走
     var refVideo by rememberSaveable { mutableStateOf<String?>(null) }
+    // v3.2.6 一條龍:文生影時先讓筆電自動生一張參考人像
+    var autoRef by rememberSaveable { mutableStateOf(false) }
+    var autoRefText by rememberSaveable { mutableStateOf("") }
     var refVideoSec by rememberSaveable { mutableStateOf<Double?>(null) }
     val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri != null) {
@@ -199,6 +202,15 @@ fun H3GenerateScreen(
         }
         if (retry == null && sources.isEmpty() && subjectId == null && mode != "t2v") {
             Toast.makeText(ctx, if (mode == "first") "請先選擇首幀圖" else "請先選擇參考圖（1～9 張）", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val wantAutoRef = retry == null && autoRef && mode == "t2v" && extendBase == null && subjectId == null
+        if (wantAutoRef && tier != "low") {
+            Toast.makeText(ctx, "「先自動生參考人像」目前只在筆電畫質做，請把畫質改成筆電，或取消勾選", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (wantAutoRef && autoRefText.isBlank()) {
+            Toast.makeText(ctx, "請先寫人物長相（例如：25 歲韓國女性，黑長髮）", Toast.LENGTH_SHORT).show()
             return
         }
         val motion = mode == "motion" && extendBase == null
@@ -231,6 +243,7 @@ fun H3GenerateScreen(
             translate = translate,
             refVideo = if (motion) refVideo else null,
             refVideoSeconds = if (motion) refVideoSec else null,
+            autoRef = if (wantAutoRef) autoRefText.trim() else null,
         )
         estimating = true
         scope.launch {
@@ -449,6 +462,31 @@ fun H3GenerateScreen(
                     else "已選影片${refVideoSec?.let { "・%.1f 秒".format(it) } ?: ""}；輸出秒數跟影片走${if (tier == "low") "（筆電最多 8 秒）" else "（最多 15 秒）"}。人用上面的角色或下面的照片。",
                     fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            // v3.2.6 一條龍:不用自己先生圖,筆電先生一張參考人像再接著生影片
+            if (mode == "t2v" && extendBase == null && subjectId == null) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { autoRef = !autoRef },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = autoRef, onCheckedChange = { autoRef = it })
+                    Text("先自動生一張參考人像（筆電，多約 1 分鐘）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
+                if (autoRef) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = autoRefText,
+                        onValueChange = { autoRefText = it.take(600) },
+                        label = { Text("人物長相") },
+                        placeholder = { Text("例如：25 歲韓國女性，黑長直髮，白色背心，自然淡妝") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                    )
+                    Text(
+                        "筆電先照這段用 Turbo 生一張寫實半身人像，再拿它當參考圖生影片，一次送出、自動接續；臉會比純文字生影自然。人像做好會顯示在任務頁，並和影片一起存到所有作品。只在筆電畫質做；圖不滿意只能整支重做，想先看圖請改用「生圖 → 圖生影」。",
+                        fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             if (mode != "t2v" || extendBase != null) SourceSlot(
@@ -699,6 +737,7 @@ private fun H3ConfirmSheet(
             ConfirmLine("模型", H3Format.modelName(pending.route, pending.model))
             ConfirmLine("圖片", "${pending.sources.size} 張・${if (pending.mode == "first") "首幀" else if (pending.mode == "t2v") "文生影" else if (pending.mode == "motion") "換人（參考影片）" else "參考圖"}・${pending.aspect}")
             if (pending.segments > 1) ConfirmLine("長度", "${pending.segments} 段接續・每段 ${pending.seconds} 秒・約 ${pending.segments * pending.seconds} 秒")
+            pending.autoRef?.let { ConfirmLine("參考人像", "筆電先自動生一張（多約 1 分鐘，不含在上面的時間裡）：${it.take(40)}") }
             pending.subjectName?.let { ConfirmLine("角色", "$it（臉部模型＋聲音每段都鎖）") }
 
             if (block != null) {
