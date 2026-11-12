@@ -132,13 +132,17 @@ fun H3ImageJobScreen(
     var cancelling by remember { mutableStateOf(false) }
     val prompt = record?.prompt.orEmpty()
     // v2.5.6 同一組先前做好的圖（和這張並排）
-    val earlierUris = remember(runId) {
+    val groupOthers = remember(runId) {
         H3Jobs.all(ctx)
             .filter { !record?.groupId.isNullOrBlank() && it.groupId == record?.groupId && it.runId != runId }
             .sortedBy { it.createdAtMs }
-            .flatMap { it.savedUri.orEmpty().split('\n').filter { u -> u.isNotBlank() } }
     }
+    val earlierItems = groupOthers.flatMap { j -> j.savedUri.orEmpty().split('\n').filter { u -> u.isNotBlank() }.map { u -> u to modelLabel(j) } }
+    val earlierUris = earlierItems.map { it.first }
     val allUris = earlierUris + savedUris
+    // v3.2.4 同一組裡有不同模型（對照）時，每張圖左上角標是哪個模型做的
+    val allLabels = earlierItems.map { it.second } + savedUris.map { modelLabel(record) }
+    val showLabels = (groupOthers.map { modelLabel(it) } + modelLabel(record)).distinct().size > 1
     var repeating by remember { mutableStateOf(false) }
     var pickingSeed by remember { mutableStateOf(false) }
     var alwaysRandom by remember { mutableStateOf(prefs.h3RegenAlwaysRandom) }
@@ -324,16 +328,30 @@ fun H3ImageJobScreen(
                     allUris.withIndex().chunked(2).forEach { rowItems ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowItems.forEach { (i, uri) ->
-                                AsyncImage(
-                                    model = uri,
-                                    contentDescription = prompt,
-                                    contentScale = ContentScale.FillWidth,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                        .clickable { viewerIndex = i },
-                                )
+                                Box(modifier = Modifier.weight(1f)) {
+                                    AsyncImage(
+                                        model = uri,
+                                        contentDescription = prompt,
+                                        contentScale = ContentScale.FillWidth,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                            .clickable { viewerIndex = i },
+                                    )
+                                    if (showLabels) Text(
+                                        allLabels.getOrElse(i) { "" },
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = androidx.compose.ui.graphics.Color.White,
+                                        modifier = Modifier
+                                            .align(androidx.compose.ui.Alignment.TopStart)
+                                            .padding(6.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
                             }
                             if (rowItems.size == 1) Spacer(Modifier.weight(1f))
                         }
@@ -497,5 +515,16 @@ fun H3ImageJobScreen(
                 }
             }
         }
+    }
+}
+
+// v3.2.4 這張圖是哪個模型做的（對照並排時標在圖上）
+private fun modelLabel(j: H3Jobs.Job?): String {
+    val p = j?.repeat
+    val q = if (p?.mp == 4) "2K" else "1K"
+    return when {
+        p?.model == "h3image" -> "H3-Image 2K"
+        j?.route == "local" -> "Turbo $q"
+        else -> "${H3Format.routeShort(j?.route)} $q"
     }
 }

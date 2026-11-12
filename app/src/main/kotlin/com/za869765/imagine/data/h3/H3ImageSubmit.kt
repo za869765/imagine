@@ -108,7 +108,7 @@ object H3ImageSubmit {
                             estCu = r.value.estimate?.cu ?: est.cu,
                             createdAtMs = System.currentTimeMillis(),
                             kind = "image",
-                            meta = (if (pending.sheet) "多視角 ${pending.count * 4} 個角度" else "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張" + (if (pending.transparent) "・透明背景" else "")) + "・${H3Format.routeShort(route)}" + (if (pending.model == "h3image") "・H3-Image" else ""),
+                            meta = (if (pending.sheet) "多視角 ${pending.count * 4} 個角度" else "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張" + (if (pending.transparent) "・透明背景" else "")) + "・${H3Format.routeShort(route)}" + (if (pending.model == "h3image") "・H3-Image" else if (route == "local") "・Turbo" else ""),
                             estNtd = r.value.estimate?.ntd ?: est.ntd,
                             etaAt = r.value.estimate?.etaAt ?: est.etaAt,
                             keepInStudio = false,  // v2.5.5 存進手機後就請伺服器刪除
