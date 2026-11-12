@@ -68,7 +68,8 @@ private suspend fun saveH3AutoRef(ctx: android.content.Context, prefs: SecurePre
     val url = (H3Client.job(prefs, runId) as? H3Client.Result.Ok)?.value?.refImageUrl ?: return
     val dl = H3Client.downloadBytes(prefs, url) ?: return
     val uri = MediaSaver.saveImage(ctx, dl.first, H3_PROMPT_TAG + "參考人像：" + who, dl.second ?: "image/jpeg") ?: return
-    H3Jobs.update(ctx, runId) { it.copy(refImageUri = uri) }
+    // 存好後這件就當成「參考圖 1 張」的單：之後「再生成一次／調整後再生成」都用同一張人像（臉可重現），不再重生一張新的
+    H3Jobs.update(ctx, runId) { it.copy(refImageUri = uri, sources = listOf(uri), repeatVideo = it.repeatVideo?.copy(autoRef = null, mode = "ref", sources = listOf(uri))) }
 }
 
 /**

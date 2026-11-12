@@ -337,6 +337,8 @@ fun ImagineRoot() {
                             navController.navigate(Routes.GENERATE_IMAGE)
                         } else {
                             com.za869765.imagine.data.prefs.DraftStore.saveList(ctx, com.za869765.imagine.ui.generate.H3_SOURCES_DRAFT, job.sources)
+                            // v3.2.6 一條龍做出來的單：帶回那張自動生的參考人像，模式要切回參考圖才用得到
+                            if (job.refImageUri != null && job.sources.isNotEmpty()) prefs.h3Mode = "ref"
                             com.za869765.imagine.data.prefs.DraftStore.save(ctx, com.za869765.imagine.ui.generate.H3_ADJUST_SUBJECT, job.subjectId.orEmpty())
                             navController.currentBackStackEntry?.savedStateHandle?.apply {
                                 set(KEY_INIT_PROMPT, job.prompt)
