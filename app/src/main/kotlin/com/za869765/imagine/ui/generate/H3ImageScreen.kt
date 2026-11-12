@@ -157,6 +157,7 @@ fun H3ImageScreen(
     var count by rememberSaveable { mutableStateOf(1) }  // v2.5.6 一般圖固定 1 張（要更多按成品的「繼續做相同」）；只有多視角用來選角度數
     var route by rememberSaveable { mutableStateOf(prefs.h3ImgRoute) }
     var model by rememberSaveable { mutableStateOf(prefs.h3ImgModel) }  // v3.2.1 ""＝Turbo、"h3image"＝筆電 H3-Image
+    var compare by rememberSaveable { mutableStateOf(false) }  // v3.2.3 對照:Turbo 和 H3-Image 各做一張;每次開頁預設不勾
     var allowText by rememberSaveable { mutableStateOf(false) }
     // v2.8.3 提示詞出現引號或文字需求時自動打勾一次；之後使用者取消就照取消，文字需求消失時收回自動打的勾
     var hadTextWords by rememberSaveable { mutableStateOf(false) }
@@ -175,6 +176,7 @@ fun H3ImageScreen(
     // v3.2.1 H3-Image 只在筆電、一般生圖與參考圖模式用;一律 2K
     val sendModel = if (route == "local" && model == "h3image" && !isSheet && mode != "alpha") "h3image" else null
     val sendMp = if (isSheet || sendModel != null) 4 else mp
+    val canCompare = route == "local" && !isSheet && mode != "alpha"
     val sendCount = if (isSheet) count.coerceIn(1, 2) else 1
     // 預估時間:參數一變就向伺服器問一次(不花錢),依生成紀錄平均
     var preview by remember { mutableStateOf<H3ImageEstimate?>(null) }
@@ -264,6 +266,7 @@ fun H3ImageScreen(
             estimate = null,
             seed = prefs.h3SeedToSend,
             model = sendModel,
+            compare = compare && canCompare,
         )
         estimating = true
         scope.launch {
@@ -289,6 +292,35 @@ fun H3ImageScreen(
                     if (outcome.duplicate) "伺服器已有這筆任務（沒有重複建單）" else "H3 生圖已送出",
                     Toast.LENGTH_SHORT,
                 ).show()
+                // v3.2.3 對照:同一句再用另一個筆電模型送一張(同一組,做好後並排);Turbo 那張用 1K
+                if (pending.compare && !outcome.duplicate) {
+                    val toH3 = pending.model != "h3image"
+                    val other = pending.copy(
+                        model = if (toH3) "h3image" else null,
+                        mp = if (toH3) 4 else 1,
+                        clientRequestId = java.util.UUID.randomUUID().toString(),
+                        groupId = outcome.runId,
+                        compare = false,
+                        estimate = null,
+                    )
+                    val otherName = if (toH3) "H3-Image" else "Turbo"
+                    val app = ctx.applicationContext
+                    ImagineApp.appScope.launch {
+                        val failed = when (val est = H3Client.imageEstimate(prefs, other.mp, other.count, other.route, other.model)) {
+                            is H3Client.Result.Err -> est.message
+                            is H3Client.Result.Ok -> when (val o = runCatching { H3ImageSubmit.run(app, prefs, other.copy(estimate = est.value)) {} }.getOrNull()) {
+                                is H3Submit.Outcome.Created -> null
+                                is H3Submit.Outcome.Conflict -> o.message
+                                is H3Submit.Outcome.Rejected -> o.message
+                                is H3Submit.Outcome.LocalError -> o.message
+                                else -> "不確定有沒有送出，請看最近生圖"
+                            }
+                        }
+                        com.za869765.imagine.ui.component.AppNotice.show(
+                            if (failed == null) "對照的 $otherName 那張也送出了，做好後打開它會和這張並排" else "對照的 $otherName 那張沒送出：$failed",
+                        )
+                    }
+                }
                 onOpenJob(outcome.runId)
             }
             is H3Submit.Outcome.Conflict -> {
@@ -564,6 +596,24 @@ fun H3ImageScreen(
                     )
                 }
             }
+            if (canCompare) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { compare = !compare },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = compare, onCheckedChange = { compare = it })
+                    Column {
+                        Text("對照：Turbo 和 H3-Image 各做一張", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "同一句提示詞兩個筆電模型各做一張（都免費），做好後並排。Turbo 那張照你選的畫質，從 H3-Image 選項勾的話 Turbo 用 1K",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
             // v2.5.5 成品一律只留在手機，不再給勾選
             Text("成品只存手機、不進雲端硬碟：生成時短暫存放在伺服器，存進手機後立刻刪除；要上傳請在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -758,6 +808,7 @@ private fun H3ImageConfirmSheet(
                 }
             }
 
+            if (pending.compare) ConfirmLine("對照", "送出後會再用 ${if (pending.model == "h3image") "Turbo（1K）" else "H3-Image（2K）"} 做一張，同樣免費", strong = true)
             ConfirmLine(
                 "規格",
                 "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}（${H3Format.imageSize(pending.aspect, pending.mp)}）・${pending.count} 張" +
