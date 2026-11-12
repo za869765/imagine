@@ -438,6 +438,8 @@ fun ResultViewerDialog(
     var gone by remember { mutableStateOf(setOf<String>()) }
     var rev by remember { mutableStateOf(0) }  // 補上傳／移出 Studio 後重讀這件的最新狀態
     var editOpen by remember { mutableStateOf(false) }
+    var upJob by remember { mutableStateOf<H3Jobs.Job?>(null) }  // v3.2.5 放大 2 倍:要放大哪一件
+    var upKind by remember { mutableStateOf("7b") }
     var editJob by remember { mutableStateOf<H3Jobs.Job?>(null) }
     var editText by remember { mutableStateOf("") }
     var editEst by remember { mutableStateOf<com.za869765.imagine.data.h3.H3ImageEstimate?>(null) }
@@ -528,6 +530,8 @@ fun ResultViewerDialog(
             val acts = buildList<Pair<String, () -> Unit>> {
                 if (cur.kind == "image" && uri != null) add("圖改圖" to { editJob = cur; editText = ""; editEst = null; editRoute = prefs.h3ImgRoute; editRefs = emptyList()
                     editGrok = false; aspectMpOf(cur, prefs).let { (a, m) -> editAspect = a; editMp = m }; editCount = 1; editOpen = true })
+                // v3.2.5 放大 2 倍(筆電 SeedVR2):只給 1K 的圖,已經 2K 或放大過的不顯示
+                if (cur.kind == "image" && uri != null && "2K" !in cur.meta && "放大" !in cur.meta) add("放大 2 倍" to { upJob = cur })
                 // v2.7.0 存到相簿、補上傳 Studio 合併成「上傳」：點開選一種，按確定才執行
                 if (uri != null) add("上傳" to { uploadJob = cur; uploadPick = null })
                 if (onReusePrompt != null && cur.prompt.isNotBlank()) add("沿用提示詞" to { cur.seed?.let { reuseH3Seed(prefs, it) }; onReusePrompt(cur.prompt) })
@@ -708,6 +712,60 @@ fun ResultViewerDialog(
                     ) { Text(if (editGrok) "到 Grok 修圖" else if (busy == "圖改圖") "處理中…" else if (editEst == null) "估算" else "開始圖改圖") }
                 },
                 dismissButton = { androidx.compose.material3.TextButton(enabled = busy == null, onClick = { editOpen = false }) { Text("取消") } },
+            )
+        }
+        upJob?.let { uj ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { if (busy == null) upJob = null },
+                title = { Text("放大 2 倍") },
+                text = {
+                    Column {
+                        Text(
+                            "把這張 1K 圖放大成 2K：構圖、臉、姿勢不變，細節由放大模型補上。在筆電做、免費，約 1 分鐘，做好會和原圖並排。",
+                            fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        listOf("7b" to "自然（臉最接近原圖）", "3b" to "銳利（細節更明顯）").forEach { (id, label) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().clickable { upKind = id },
+                            ) {
+                                androidx.compose.material3.RadioButton(selected = upKind == id, onClick = { upKind = id })
+                                Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(enabled = busy == null, onClick = {
+                        val src = uj.firstUri() ?: return@TextButton
+                        val kind = upKind
+                        busy = "放大"
+                        val app = ctx.applicationContext
+                        ImagineApp.appScope.launch {
+                            val text = when (val est = H3Client.imageEstimate(prefs, 4, 1, "local", "upscale", kind)) {
+                                is H3Client.Result.Err -> "沒送出：${est.message}"
+                                is H3Client.Result.Ok -> {
+                                    val pending = com.za869765.imagine.data.h3.PendingH3Image(
+                                        prompt = uj.prompt, refs = listOf(src), aspect = aspectMpOf(uj, prefs).first, mp = 4, count = 1, route = "local", allowText = true,
+                                        clientRequestId = java.util.UUID.randomUUID().toString(), estimate = est.value,
+                                        groupId = uj.groupId.ifBlank { uj.runId }, model = "upscale", upscale = kind,
+                                    )
+                                    when (val out = runCatching { com.za869765.imagine.data.h3.H3ImageSubmit.run(app, prefs, pending) {} }
+                                        .getOrElse { com.za869765.imagine.data.h3.H3Submit.Outcome.Uncertain(it.message ?: "未預期錯誤") }) {
+                                        is com.za869765.imagine.data.h3.H3Submit.Outcome.Created -> "已送出放大，做好會和原圖並排（看最近成品）"
+                                        is com.za869765.imagine.data.h3.H3Submit.Outcome.Conflict -> "沒送出：${out.message}"
+                                        is com.za869765.imagine.data.h3.H3Submit.Outcome.Rejected -> "沒送出：${out.message}"
+                                        is com.za869765.imagine.data.h3.H3Submit.Outcome.Uncertain -> "不確定有沒有送出：${out.message}（看最近成品）"
+                                        is com.za869765.imagine.data.h3.H3Submit.Outcome.LocalError -> "沒送出：${out.message}"
+                                        else -> "沒送出，請再試一次"
+                                    }
+                                }
+                            }
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { msg = text; busy = null; upJob = null; onChanged() }
+                        }
+                    }) { Text(if (busy == "放大") "送出中…" else "開始放大") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(enabled = busy == null, onClick = { upJob = null }) { Text("取消") } },
             )
         }
         uploadJob?.let { uj ->

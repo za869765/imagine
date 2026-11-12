@@ -25,6 +25,7 @@ data class PendingH3Image(
     val seed: Long? = null,
     val model: String? = null,  // v3.2.1 "h3image"＝筆電 H3-Image
     val compare: Boolean = false,  // v3.2.3 對照:這張送出後,同一句再用另一個筆電模型做一張(同一組並排)
+    val upscale: String? = null,  // v3.2.5 放大 2 倍(model＝"upscale"):"7b"＝自然、"3b"＝銳利;refs 第 1 張就是要放大的圖
 )
 
 private val QUOTED = Regex("「([^」]{1,60})」|『([^』]{1,60})』|“([^”]{1,60})”|\"([^\"]{1,60})\"")
@@ -77,7 +78,7 @@ object H3ImageSubmit {
         onProgress("送出中…")
         val speech = if (pending.sheet || !pending.allowText) emptyList() else h3SpeechLines(pending.prompt)
         val req = H3ImageRequest(
-            prompt = if (speech.isEmpty()) pending.prompt else withSpeechBubbles(pending.prompt, speech),
+            prompt = if (pending.model == "upscale") "" else if (speech.isEmpty()) pending.prompt else withSpeechBubbles(pending.prompt, speech),  // 放大用不到提示詞,不送
             aspect = pending.aspect,
             mp = pending.mp,
             count = pending.count,
@@ -90,6 +91,7 @@ object H3ImageSubmit {
             clientRequestId = pending.clientRequestId,
             seed = pending.seed,
             model = pending.model,
+            upscale = pending.upscale,
         )
         return when (val r = H3Client.submitImage(prefs, req)) {
             is H3Client.Result.Ok -> {
@@ -108,7 +110,7 @@ object H3ImageSubmit {
                             estCu = r.value.estimate?.cu ?: est.cu,
                             createdAtMs = System.currentTimeMillis(),
                             kind = "image",
-                            meta = (if (pending.sheet) "多視角 ${pending.count * 4} 個角度" else "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張" + (if (pending.transparent) "・透明背景" else "")) + "・${H3Format.routeShort(route)}" + (if (pending.model == "h3image") "・H3-Image" else if (route == "local") "・Turbo" else ""),
+                            meta = if (pending.model == "upscale") "放大 2 倍・${if (pending.upscale == "3b") "銳利" else "自然"}・${H3Format.routeShort(route)}" else (if (pending.sheet) "多視角 ${pending.count * 4} 個角度" else "${pending.aspect}・${if (pending.mp == 4) "2K" else "1K"}・${pending.count} 張" + (if (pending.transparent) "・透明背景" else "")) + "・${H3Format.routeShort(route)}" + (if (pending.model == "h3image") "・H3-Image" else if (route == "local") "・Turbo" else ""),
                             estNtd = r.value.estimate?.ntd ?: est.ntd,
                             etaAt = r.value.estimate?.etaAt ?: est.etaAt,
                             keepInStudio = false,  // v2.5.5 存進手機後就請伺服器刪除

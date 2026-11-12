@@ -523,6 +523,7 @@ private fun modelLabel(j: H3Jobs.Job?): String {
     val p = j?.repeat
     val q = if (p?.mp == 4) "2K" else "1K"
     return when {
+        p?.model == "upscale" -> "放大 2 倍"
         p?.model == "h3image" -> "H3-Image 2K"
         j?.route == "local" -> "Turbo $q"
         else -> "${H3Format.routeShort(j?.route)} $q"

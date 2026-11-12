@@ -301,8 +301,10 @@ data class H3ImageRequest(
     val confirm: Boolean,
     @SerialName("client_request_id") val clientRequestId: String,
     val seed: Long? = null,
-    // v3.2.1 "h3image"＝筆電 MiniMax-H3-Image(2K、6 步);null＝原本的 Qwen
+    // v3.2.1 "h3image"＝筆電 MiniMax-H3-Image(2K、6 步);null＝原本的 Qwen;v3.2.5 "upscale"＝放大 2 倍
     val model: String? = null,
+    // v3.2.5 放大用哪個 SeedVR2 模型:"7b"＝自然、"3b"＝銳利(model＝"upscale" 時才有)
+    val upscale: String? = null,
 )
 
 @Serializable
