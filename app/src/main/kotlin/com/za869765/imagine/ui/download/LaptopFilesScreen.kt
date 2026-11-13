@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,11 +58,23 @@ fun LaptopFilesScreen(
     val tasks by Downloader.tasks.collectAsState()
     val files by Downloader.laptopList.collectAsState()
     val total by Downloader.laptopTotal.collectAsState()
+    val fetched by Downloader.laptopFetched.collectAsState()
+    val deleting by Downloader.laptopDeleting.collectAsState()
+    var confirmDelete by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    confirmDelete?.let { name ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("刪除筆電上的這個檔？") },
+            text = { Text("$name\n\n會從筆電的測試資料夾永久刪除（釋出空間、清單不再出現），刪了救不回來。手機上已經存好的那份不受影響。") },
+            confirmButton = { TextButton(onClick = { Downloader.deleteLaptop(ctx, name); confirmDelete = null }) { Text("刪除") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("取消") } },
+        )
+    }
     val loading by Downloader.laptopLoading.collectAsState()
     val error by Downloader.laptopError.collectAsState()
 
     fun reload(more: Boolean = false) = Downloader.reloadLaptop(ctx, more)
-    LaunchedEffect(Unit) { if (files == null) reload() }
+    LaunchedEffect(Unit) { Downloader.initLaptop(ctx); if (files == null) reload() }
 
     ImagineScreen(
         appBar = { ImagineTopAppBar(title = "筆電測試片", onSettingsClick = onSettingsClick) },
@@ -83,10 +96,11 @@ fun LaptopFilesScreen(
             )
             if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             files?.let { list ->
-                val todo = list.filter { f -> tasks.none { it.url == Downloader.laptopUrl(f.name) && (it.status == Status.RUNNING || it.status == Status.DONE) } }
+                val todo = list.filter { f -> f.name !in fetched && tasks.none { it.url == Downloader.laptopUrl(f.name) && (it.status == Status.RUNNING || it.status == Status.DONE) } }
+                Text("列出的 ${list.size} 個裡：已傳 ${list.size - todo.size} 個、未傳 ${todo.size} 個", fontSize = 13.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
                 if (todo.isNotEmpty()) {
                     OutlinedButton(onClick = { Downloader.startLaptopBatch(ctx, todo.map { it.name }) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("一鍵全部抓到手機（列出的 ${todo.size} 個，共 %.0f MB，一個接一個）".format(todo.sumOf { it.bytes } / 1e6))
+                        Text("一鍵抓未傳的 ${todo.size} 個（共 %.0f MB，一個接一個）".format(todo.sumOf { it.bytes } / 1e6))
                     }
                 }
             }
@@ -128,7 +142,7 @@ fun LaptopFilesScreen(
                             Text(f.name, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             val running = t != null && t.status == Status.RUNNING
                             val sub = when {
-                                t == null || t.status == Status.CANCELLED -> "%.1f MB・%s".format(f.bytes / 1e6, fmt.format(Date(f.mtime)))
+                                t == null || t.status == Status.CANCELLED -> (if (f.name in fetched) "已傳過・" else "") + "%.1f MB・%s".format(f.bytes / 1e6, fmt.format(Date(f.mtime)))
                                 t.status == Status.RUNNING -> t.stage + if (t.progress > 0f) " ${t.progress.toInt()}%" else ""
                                 t.status == Status.DONE -> "已存進所有作品"
                                 else -> "失敗：${t.error}"
@@ -146,15 +160,22 @@ fun LaptopFilesScreen(
                                 }
                             }
                         }
-                        if (t != null && t.status == Status.RUNNING) {
-                            TextButton(onClick = { Downloader.cancel(ctx, t.id) }) { Text("取消") }
-                        } else if (t != null && t.status == Status.DONE) {
-                            TextButton(onClick = { t.savedUri?.let(onOpenVideo) }) { Text(if (f.kind == "image") "看圖片" else "看影片") }
-                        } else {
-                            TextButton(onClick = {
-                                if (t != null) Downloader.remove(t.id)
-                                Downloader.start(ctx, Downloader.laptopUrl(f.name), audio = false, height = 1080, laptopName = f.name)
-                            }) { Text("抓到手機") }
+                        Column(horizontalAlignment = Alignment.End) {
+                            if (t != null && t.status == Status.RUNNING) {
+                                TextButton(onClick = { Downloader.cancel(ctx, t.id) }) { Text("取消") }
+                            } else if (t != null && t.status == Status.DONE) {
+                                TextButton(onClick = { t.savedUri?.let(onOpenVideo) }) { Text(if (f.kind == "image") "看圖片" else "看影片") }
+                            } else {
+                                TextButton(onClick = {
+                                    if (t != null) Downloader.remove(t.id)
+                                    Downloader.start(ctx, Downloader.laptopUrl(f.name), audio = false, height = 1080, laptopName = f.name)
+                                }) { Text(if (f.name in fetched) "再抓一次" else "抓到手機") }
+                            }
+                            if (t == null || t.status != Status.RUNNING) {
+                                TextButton(onClick = { confirmDelete = f.name }, enabled = f.name !in deleting) {
+                                    Text(if (f.name in deleting) "刪除中" else "刪除", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
                         }
                     }
                 }

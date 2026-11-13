@@ -63,6 +63,59 @@ object Downloader {
     /** 資料夾裡總共幾個(清單一頁只給 40 個) */
     val laptopTotal = MutableStateFlow(0)
 
+    /** v3.3.7 傳過的檔名記在手機(重開 APP 還在):清單標「已傳過」,一鍵全部只抓沒傳過的 */
+    val laptopFetched = MutableStateFlow<Set<String>>(emptySet())
+    private var fetchedLoaded = false
+    private fun fetchedPrefs(app: Context) = app.getSharedPreferences("laptop_fetched", Context.MODE_PRIVATE)
+    fun initLaptop(ctx: Context) {
+        if (fetchedLoaded) return
+        fetchedLoaded = true
+        laptopFetched.value = fetchedPrefs(ctx.applicationContext).getStringSet("names", emptySet()).orEmpty().toSet()
+    }
+    private fun setFetched(app: Context, f: (Set<String>) -> Set<String>) {
+        initLaptop(app)
+        laptopFetched.update(f)
+        fetchedPrefs(app).edit().putStringSet("names", laptopFetched.value).apply()
+    }
+
+    /** 正在請筆電刪除的檔名 */
+    val laptopDeleting = MutableStateFlow<Set<String>>(emptySet())
+    /** 刪掉筆電測試資料夾裡的一個檔(釋出空間、清單不再出現);手機上已經存好的那份不受影響 */
+    fun deleteLaptop(ctx: Context, name: String) {
+        if (name in laptopDeleting.value) return
+        val app = ctx.applicationContext
+        val prefs = SecurePrefs.get(app)
+        laptopDeleting.update { it + name }
+        laptopError.value = null
+        scope.launch {
+            var msg: String? = "筆電兩分鐘內沒有回應，檔案可能還沒刪"
+            val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = name, delete = true))
+            val runId = (created as? H3Client.Result.Ok)?.value?.runId
+            if (runId == null) {
+                msg = (created as? H3Client.Result.Err)?.message ?: "伺服器沒有回單號"
+            } else {
+                for (i in 0 until 60) {
+                    delay(1500)
+                    val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: continue
+                    if (s.status == "done" && s.deleted != null) {
+                        laptopList.update { l -> l?.filterNot { it.name == name } }
+                        laptopTotal.update { (it - 1).coerceAtLeast(0) }
+                        setFetched(app) { it - name }
+                        msg = null
+                    } else if (s.status == "done") {
+                        msg = "筆電工人版本還不會刪檔（手上的工作做完會自己更新），晚點再試"
+                    } else if (s.status == "failed" || s.status == "cancelled") {
+                        msg = "刪除失敗：" + (s.error?.take(160) ?: "")
+                    } else continue
+                    H3Client.forget(prefs, runId)
+                    break
+                }
+            }
+            if (msg != null) laptopError.value = msg
+            laptopDeleting.update { it - name }
+        }
+    }
+
     /** v3.3.6 讀清單跑在 APP 層級(切分頁、離開畫面不會中斷,也不會留下沒收尾的單);畫面只看這兩個狀態 */
     val laptopLoading = MutableStateFlow(false)
     val laptopError = MutableStateFlow<String?>(null)
@@ -86,8 +139,8 @@ object Downloader {
             is H3Client.Result.Ok -> created.value.runId
             is H3Client.Result.Err -> return created.message
         } ?: return "伺服器沒有回單號"
-        repeat(60) {
-            delay(2000)
+        repeat(120) {
+            delay(1000)
             val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: return@repeat
             when (s.status) {
                 "done" -> {
@@ -112,7 +165,7 @@ object Downloader {
         scope.launch {
             for (n in names) {
                 val u = laptopUrl(n)
-                if (tasks.value.any { it.url == u && (it.status == Status.RUNNING || it.status == Status.DONE) }) continue
+                if (n in laptopFetched.value || tasks.value.any { it.url == u && (it.status == Status.RUNNING || it.status == Status.DONE) }) continue
                 tasks.update { list -> list.filterNot { it.url == u } }
                 start(ctx, u, audio = false, height = 1080, laptopName = n)
                 while (tasks.value.any { it.url == u && it.status == Status.RUNNING }) delay(1500)
@@ -188,6 +241,7 @@ object Downloader {
             if (isCancelled(id)) return
             val saved = if (audio) saveAudio(app, tmp, title + ext) else saveVideo(app, tmp, title, url, ext)
             set(id) { it.copy(status = Status.DONE, progress = 100f, title = title, stage = "完成", savedUri = saved) }
+            if (url.startsWith(LAPTOP_PREFIX)) setFetched(app) { it + url.removePrefix(LAPTOP_PREFIX) }
             H3Client.forget(prefs, runId)
         } catch (e: Throwable) {
             fail(id, e.message ?: "存檔失敗")

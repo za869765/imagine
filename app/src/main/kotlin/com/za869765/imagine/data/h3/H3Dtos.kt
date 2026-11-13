@@ -216,6 +216,8 @@ data class H3DownloadRequest(
     val name: String = "",
     /** v3.3.5 清單一頁 40 個,從第幾個開始 */
     val offset: Int = 0,
+    /** v3.3.7 browse＋name＋delete＝刪掉筆電測試資料夾裡這個檔 */
+    val delete: Boolean = false,
 )
 
 @Serializable
@@ -238,6 +240,7 @@ data class H3DownloadStatus(
     val parts: List<String> = emptyList(),
     val files: List<H3LaptopFile>? = null,
     val total: Int? = null,
+    val deleted: String? = null,
 )
 
 /** GET /api/app/subjects — H3 Studio 資產庫角色(face_locked＝已建臉部模型;voice＝有參考音)。 */
