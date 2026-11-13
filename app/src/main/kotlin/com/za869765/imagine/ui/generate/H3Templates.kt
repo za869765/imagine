@@ -2,6 +2,7 @@ package com.za869765.imagine.ui.generate
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -111,8 +112,35 @@ private const val SOUND_ROOM = " Rustle of fabric, quiet room ambience, no music
 private fun prompt(light: String, place: String, refs: Int, body: String, sound: String): String =
     "$CAM $light, $place. " + host(refs) + look(refs) + LIVELY + lively(body) + TALK + END + livelySound(sound) + STAY_FAIR
 
+// v3.3.9 內衣試穿：2026-11-14 第 220 支（GPUtw 15 秒）實際送出的整段提示詞，使用者看過說「真的完美」，所以除了年齡用 WHO 以外一個字都不改。
+// 界線：把胸部托進罩杯與穿內褲都是她自己做；試穿師只碰肩帶、背帶與背扣。需要 2 張參考圖（臉＋頸部以下身材）；只有 1 張時身材那句改成文字描述。
+private fun braFitting(refs: Int): String {
+    val BRA_BODY = if (refs >= 2) " <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions, including her slim waist, with full, medium-sized natural breasts, one size smaller than in the picture."
+    else " Keep exactly her face from <Picture 1>; she has a slim waist and full, medium-sized natural breasts."
+    return "Raw candid documentary-style video shot on a full-frame camera in bright, soft, diffused daylight pouring in from large windows with sheer white curtains behind her, high-key and airy, low contrast, slightly overexposed, with bright cream-white surroundings, full-body front view, static camera, the bright fitting room of a lingerie boutique with a plain cream backdrop a small rack of bras behind her, and a low stool right beside her with a pair of matching pale pink lace briefs lying folded on it. " +
+        "<Picture 1> is the host, $WHO.$BRA_BODY Her bare tits are full, medium-sized and natural, softly rounded, with small pale pink nipples and small pale pink areolae. " +
+        "Her face is exactly the face in <Picture 1> for the whole video: the same eyes and eyelids, the same nose, lips and jawline, a natural bare face. " +
+        "Her fair skin is bright, clear and evenly toned with a faint healthy rosy undertone and a clean, soft, velvety matte finish, like freshly powdered skin, with fine natural skin texture. " +
+        "The camera stays wide and static for the whole video and always shows her entire body from head to feet; there is never a close-up of any body part. " +
+        "She is a warm, lively live-stream host with real personality: bright, smiling eyes, an easy genuine smile, expressive eyebrows, small natural head tilts and friendly, animated gestures; " +
+        "although she is a grown woman, her manner is youthful, bubbly and a little playful. " +
+        "The exact same woman as <Picture 1>, identical face and hairstyle, her long black hair worn loose exactly as in <Picture 1>, stands fully nude facing the camera, full frontal, relaxed and natural, her whole body from head to feet is in frame. " +
+        "A friendly adult woman in her thirties, the fitter, fully dressed in a black shirt and black trousers with a tape measure around her neck, stands just behind her. " +
+        "The fitter touches only the bra straps, the back band and the clasp, never the cups or her breasts. " +
+        "At first the host is a little bashful: she presses her lips into a shy smile and she glances down for a moment, then she laughs it off with a bright, bubbly little giggle and looks back up at the camera, cheerful again. " +
+        "In one continuous unhurried sequence, the fitter hands her a pale pink lace bra from behind and helps her slip her arms through the shoulder straps; " +
+        "the host leans forward slightly and, with her own hands, gathers her breasts into the cups and settles them; " +
+        "then the fitter pulls the back band snug and fastens the clasp behind her, and adjusts the length of both shoulder straps on her shoulders; " +
+        "the host straightens up, adjusts the cups once more herself, then picks up the matching pale pink lace briefs from the stool beside her, steps into them and pulls them up to her hips herself, turns her head to smile at the fitter, and the fitter nods approvingly. " +
+        "While the fitter is still adjusting the shoulder straps, the host looks into the camera, beams and says in a sweet, cheerful, inviting voice in Mandarin Chinese: \"這件承托力超好，穿起來好輕鬆！\" She keeps moving the whole time and speaks while the action is still going on; " +
+        "nobody stops or stands still to talk. " +
+        "Natural lip movement, realistic fair, translucent skin with fine visible pores, no beauty filter, no airbrushing, bare face with no makeup. " +
+        "Rustle of fabric, her light bubbly giggle, quiet boutique ambience, no music. " +
+        "Her skin stays fair, light ivory with a soft pink tint for the whole video, never tanned, never yellow or orange."
+}
+
 internal val H3_TEMPLATES: List<H3Template> = listOf(
-    H3Template("雙 11 直播", "自己穿上洋裝", "攝影棚。一開始全裸正面 → 從衣架拿香檳色緞面洋裝套上、撫平 → 邊整理邊說台詞。") { r ->
+    H3Template("雙 11 直播", "自己穿上洋裝", "攝影棚。一開始全裸正面 → 拿起身旁小桌上摺好的香檳色緞面洋裝套上、撫平 → 邊整理邊說台詞。") { r ->
         prompt(LIGHT_ROOM, STUDIO, r,
             "${she(r)} stands $NUDE, $FRAME. $FACING" +
                 "She picks up the folded champagne-colored satin evening dress from the side table beside her, shakes it open, slips it on over her head and smooths it down; " +
@@ -151,7 +179,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
                 "Unhurried, natural movements like real backstage dressers, warm, cheerful mood, everyone smiling.",
             SOUND_ROOM)
     },
-    H3Template("古裝武俠", "客棧：穿上白袍、拿劍", "古代客棧房間。全裸正面 → 從屏風拿白色寬袖長袍穿上、繫淺藍腰帶，邊繫邊說台詞 → 拿起靠在身旁的長劍。") { r ->
+    H3Template("古裝武俠", "客棧：穿上白袍、拿劍", "古代客棧房間。全裸正面 → 拿起身旁矮架上摺好的白色寬袖長袍穿上、繫淺藍腰帶，邊繫邊說台詞 → 拿起靠在身旁的長劍。") { r ->
         prompt(LIGHT_INN, INN, r,
             "${she(r)} stands $NUDE, $FRAME. $FACING" +
                 "She picks up the folded flowing white hanfu robe with wide sleeves from the low stand beside her with the hand nearest to it, shakes it open in front of her, slips her arms into it, closes it across her chest and ties a pale blue sash around her waist. " +
@@ -192,6 +220,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
                 "and while she is lifting it she smiles at the camera and says in Mandarin Chinese: \"換上這身新衣，再闖江湖！\"",
             " Rustle of fabric, soft lapping water, a distant bird, no music.")
     },
+    H3Template("內衣試穿", "試穿師幫穿胸罩", "內衣店試衣間。一開始全裸正面 → 試穿師從後面幫忙穿上淺粉蕾絲胸罩、扣背扣、調肩帶 → 她自己穿上成套內褲，邊調整邊說台詞。建議雲端 15 秒，放 2 張參考圖（臉＋頸部以下身材）。") { r -> braFitting(r) },
 )
 
 // ───────────────────────── v3.3.0 自己組 ─────────────────────────
@@ -269,7 +298,7 @@ internal fun H3TemplateSheet(refCount: Int, onApply: (String) -> Unit, onDismiss
                     },
                 fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 groups.forEach { g ->
                     val on = g == group
                     Text(
