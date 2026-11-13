@@ -96,9 +96,11 @@ private const val LIGHT_INN = "in bright, soft, diffused daylight pouring in thr
 private const val LIGHT_HALL = "in bright, soft, diffused daylight coming through open wooden doors and paper windows behind her, a snow-covered courtyard outside, high-key and airy, low contrast, slightly overexposed, with pale wood and white surroundings, full-body front view, static camera"
 private const val LIGHT_LAKE = "in bright, soft, overcast daylight with white mist drifting over a lake behind her, high-key and airy, low contrast, slightly overexposed, with pale stone and white mist surroundings, full-body front view, static camera"
 
-private const val STUDIO = "a softly lit photo studio with a plain light grey backdrop, a clothing rack right beside her and a few red and gold Double 11 shopping festival gift boxes and shopping bags on the floor (no readable text)"
+// v3.3.8 要穿的衣服一律寫成「摺好放在身旁伸手可及的小桌／矮架上，拿起來抖開再穿」：
+// 寫「從衣架上拿」模型會連衣架一起套上身（使用者 11/14 指出），寫「從屏風上拿」會變成往後伸手很不自然。11/14 第 219 支實測後使用者認可。
+private const val STUDIO = "a softly lit photo studio with a plain light grey backdrop, a low wooden side table right beside her, level with her and within easy reach of her hand, with her next outfit lying neatly folded on it, and a few red and gold Double 11 shopping festival gift boxes and shopping bags on the floor (no readable text)"
 private const val BACKSTAGE = "the backstage fitting area of a fashion showroom decorated for a Double 11 shopping festival sale with red and gold ribbons and gift boxes (no readable text), a clothing rack in the background"
-private const val INN = "a quiet upstairs room of an ancient Chinese inn with a wooden floor and a painted folding screen right beside her"
+private const val INN = "a quiet upstairs room of an ancient Chinese inn with a wooden floor, a painted folding screen behind her, and a low wooden stand right beside her, level with her and within easy reach of her hand, with a white robe lying neatly folded on it"
 private const val HALL = "the dressing hall of a mountain sword sect with wooden pillars and a rack of swords in the background"
 private const val LAKE = "an open pavilion of pale stone and light wood beside a misty lake, a wooden clothes stand right beside her within reach"
 
@@ -113,7 +115,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
     H3Template("雙 11 直播", "自己穿上洋裝", "攝影棚。一開始全裸正面 → 從衣架拿香檳色緞面洋裝套上、撫平 → 邊整理邊說台詞。") { r ->
         prompt(LIGHT_ROOM, STUDIO, r,
             "${she(r)} stands $NUDE, $FRAME. $FACING" +
-                "She takes a champagne-colored satin evening dress from the clothing rack beside her, slips it on over her head and smooths it down; " +
+                "She picks up the folded champagne-colored satin evening dress from the side table beside her, shakes it open, slips it on over her head and smooths it down; " +
                 "while she is still smoothing the dress and putting one hand on her hip, she smiles at the camera and says in Mandarin Chinese: \"雙十一購物節，洋裝特價中！\"",
             SOUND_ROOM)
     },
@@ -128,7 +130,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
         prompt(LIGHT_ROOM, STUDIO, r,
             "${she(r)} wearing a loose black slip dress, stands facing the camera, $FRAME. $FACING" +
                 "In one continuous unhurried sequence, she first slips the straps off her shoulders and lets the black dress slide down to the floor, and stands $NUDE; " +
-                "then she takes a white satin dress from the clothing rack beside her, slips it on over her head and smooths it down. " +
+                "then she picks up the folded white satin dress from the side table beside her, shakes it open, slips it on over her head and smooths it down. " +
                 "While she is still putting on the white dress and smoothing it, she smiles at the camera and says in Mandarin Chinese: \"下一件是這款洋裝，雙十一特價！\"",
             SOUND_ROOM)
     },
@@ -152,7 +154,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
     H3Template("古裝武俠", "客棧：穿上白袍、拿劍", "古代客棧房間。全裸正面 → 從屏風拿白色寬袖長袍穿上、繫淺藍腰帶，邊繫邊說台詞 → 拿起靠在身旁的長劍。") { r ->
         prompt(LIGHT_INN, INN, r,
             "${she(r)} stands $NUDE, $FRAME. $FACING" +
-                "She takes a flowing white hanfu robe with wide sleeves from the folding screen, slips her arms into it, closes it across her chest and ties a pale blue sash around her waist. " +
+                "She picks up the folded flowing white hanfu robe with wide sleeves from the low stand beside her with the hand nearest to it, shakes it open in front of her, slips her arms into it, closes it across her chest and ties a pale blue sash around her waist. " +
                 "While she is still tying the sash, she looks at the camera and says in Mandarin Chinese: \"江湖路遠，我們後會有期！\" " +
                 "As she finishes the line she takes a sheathed straight sword that leans against the screen beside her and holds it at her side.",
             " Rustle of silk, wind in the bamboo outside, no music.")
@@ -161,7 +163,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
         prompt(LIGHT_INN, INN, r,
             "${she(r)} wearing a loose black hanfu robe tied with a red sash, stands facing the camera, $FRAME. " +
                 "In one continuous unhurried sequence, she first unties the red sash and lets the black robe slide off her shoulders to the floor, and stands $NUDE; " +
-                "then she takes a flowing white hanfu robe with wide sleeves from the folding screen, slips her arms into it, closes it across her chest and ties a pale blue sash around her waist. " +
+                "then she picks up the folded flowing white hanfu robe with wide sleeves from the low stand beside her with the hand nearest to it, shakes it open in front of her, slips her arms into it, closes it across her chest and ties a pale blue sash around her waist. " +
                 "While she is still putting on the white robe and tying the sash, she looks at the camera and says in Mandarin Chinese: \"江湖路遠，我們後會有期！\"",
             " Rustle of silk, wind in the bamboo outside, no music.")
     },
