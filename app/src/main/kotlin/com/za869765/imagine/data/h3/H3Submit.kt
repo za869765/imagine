@@ -47,6 +47,8 @@ data class PendingH3(
 const val H3_LOCAL_V2_UNET = "Minimax-h3_Singularity_ref2va_v2_pruned_w4a8.safetensors"
 /** v2.9.5 雲端(GPUtw／Colab)的 V2 檔名(h3_worker.FILE_REPO 認得,11/3 兩邊都實測過) */
 const val H3_CLOUD_V2_UNET = "Minimax-h3_Singularity_ref2va_v2_pruned_int8_convrot_r2.safetensors"
+/** v3.2.9 筆電也可單選 PRISM(local_agent.LOCAL_PRISM;白皙用的是同一個檔) */
+const val H3_LOCAL_PRISM_UNET = "PRISM_DMAD_PDMD_w6a8_g32.safetensors"
 /** v2.9.6 GPUtw 可選 PRISM(Singularity×10Eros 合併,8 步烤入;已在 /vault) */
 const val H3_PRISM_UNET = "Minimax-h3_Singularity_x_10Eros-Max_PRISM_int8.safetensors"
 
@@ -126,12 +128,14 @@ object H3Submit {
                 val raw = pending.rawPrompt && pending.segments == 1  // 範本原樣送出:眨眼包與翻譯都會改提示詞,不加
                 if (pending.blink && !raw) put("blink", kotlinx.serialization.json.JsonPrimitive(true))
                 if (pending.translate && !raw) put("translate", kotlinx.serialization.json.JsonPrimitive(true))
-                // 白皙只有筆電會做(換人模式筆電端自動照一般設定);unet 照樣帶,筆電缺白皙的模型檔時退回用
-                if (pending.fair && pending.route == "local") put("fair", kotlinx.serialization.json.JsonPrimitive(true))
+                // v3.3.0 白皙三種機器都能做(筆電壓縮版 PRISM、GPUtw／Colab 完整 int8 版);換人、首幀模式機器端自動照一般設定
+                if (pending.fair) put("fair", kotlinx.serialization.json.JsonPrimitive(true))
                 if (pending.model == "prism" && pending.route == "gputw") {
                     put("unet", kotlinx.serialization.json.JsonPrimitive(H3_PRISM_UNET))
                     put("steps", kotlinx.serialization.json.JsonPrimitive(8))  // 8 步加速已燒進權重
-                } else if (pending.model == "v2" || pending.model == "prism") {  // PRISM 只在 GPUtw 測過，其他機器改用 V2
+                } else if (pending.model == "prism" && pending.route == "local") {
+                    put("unet", kotlinx.serialization.json.JsonPrimitive(H3_LOCAL_PRISM_UNET))  // v3.2.9 筆電單選 PRISM:8 步、不掛 LoRA、不調白
+                } else if (pending.model == "v2" || pending.model == "prism") {  // 雲端 Colab 沒有 PRISM，改用 V2
                     put("unet", kotlinx.serialization.json.JsonPrimitive(if (pending.route == "local") H3_LOCAL_V2_UNET else H3_CLOUD_V2_UNET))
                 }
             }.ifEmpty { null },

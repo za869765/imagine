@@ -85,7 +85,7 @@ object H3Format {
 
     /** v2.9.5 影片主模型顯示名:model＝"v2"(Singularity V2)或 "q4"(筆電 Q4／雲端官方)。 */
     fun modelName(route: String?, model: String?): String = when (route) {
-        "local" -> if (model == "v2" || model == "prism") "V2・8步HD" else "Q4・8步HD"
+        "local" -> when (model) { "prism" -> "PRISM・8步"; "v2" -> "V2・8步HD"; else -> "Q4・8步HD" }
         "gputw" -> when (model) { "prism" -> "PRISM・8步"; "v2" -> "V2・int8"; else -> "官方 int8" }
         "cloud" -> if (model == "v2" || model == "prism") "V2・int8" else "官方 bf16"
         else -> if (model == "v2" || model == "prism") "V2" else "官方"

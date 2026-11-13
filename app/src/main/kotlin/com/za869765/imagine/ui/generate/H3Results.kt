@@ -91,7 +91,7 @@ private fun H3Jobs.Job.machine(): String? =
         ?: meta.substringAfterLast("・", "").takeIf { it in listOf("筆電", "製圖機", "GPUtw 5090", "Colab", "5090", "GPUtw") }
 /** v2.9.1 影片用了哪個模型（舊任務沒記，筆電一律當官方 Q4） */
 private fun H3Jobs.Job.modelName(): String? =
-    if (kind == "image" || route !in listOf("local", "gputw", "cloud")) null else if (repeatVideo?.fair == true && route == "local") "白皙・PRISM 8步" else H3Format.modelName(route, repeatVideo?.model)
+    if (kind == "image" || route !in listOf("local", "gputw", "cloud")) null else if (repeatVideo?.fair == true) "白皙・PRISM 8步" else H3Format.modelName(route, repeatVideo?.model)
 private fun H3Jobs.Job.machineModel(): String? = listOfNotNull(machine(), modelName()).joinToString("・").ifBlank { null }
 
 /** v2.4.4 做完存進手機的進度：saving＝下載／串接中、failed＝上次失敗（不再自動重抓，等使用者點縮圖重試） */

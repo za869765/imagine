@@ -163,7 +163,7 @@ internal fun h3VideoSpec(r: H3Jobs.Job, liveRoute: String?): String {
     val secs = "${r.seconds} 秒" + (if ((p?.segments ?: 1) > 1) " ×${p!!.segments} 段" else "")
     return "🎬 影片・" + listOfNotNull(
         mode, secs, p?.aspect, route?.let { H3Format.routeName(it) },
-        p?.let { if (it.fair && route == "local") "白皙・PRISM 8步" else H3Format.modelName(route, it.model) }, p?.subjectName?.let { "角色 $it" },
+        p?.let { if (it.fair) "白皙・PRISM 8步" else H3Format.modelName(route, it.model) }, p?.subjectName?.let { "角色 $it" },
     ).joinToString("・")
 }
 

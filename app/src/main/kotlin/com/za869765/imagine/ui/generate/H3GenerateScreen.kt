@@ -247,7 +247,7 @@ fun H3GenerateScreen(
             refVideo = if (motion) refVideo else null,
             refVideoSeconds = if (motion) refVideoSec else null,
             autoRef = if (wantAutoRef) autoRefText.trim() else null,
-            fair = fair && tier == "low" && !motion,
+            fair = fair && !motion,
             rawPrompt = rawPrompt && !motion && extendBase == null && segCount == 1,
         )
         estimating = true
@@ -542,8 +542,8 @@ fun H3GenerateScreen(
                 selectedId = tier,
                 onSelect = { tier = it; prefs.h3VideoTier = it },
             )
-            // v3.2.7 白皙:筆電改用 PRISM 8 步＋胸部 LoRA＋672×1120,成品自動調白;調白後與原片都存到手機
-            if (tier == "low") {
+            // v3.2.7 白皙:PRISM 8 步＋胸部 LoRA,成品自動調白;調白後與原片都存到手機。v3.3.0 雲端(GPUtw／Colab)也能做
+            run {
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { fair = !fair; prefs.h3Fair = fair },
                     verticalAlignment = Alignment.CenterVertically,
@@ -552,18 +552,21 @@ fun H3GenerateScreen(
                     Column {
                         Text("白皙（膚色調白、乳暈小而粉）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            "改用 PRISM 8 步、672×1120，成品自動調白；調白後和原片都會存到手機。8 秒約 20 分。換人模式不適用。",
+                            if (tier == "low") "改用 PRISM 8 步、672×1120，成品自動調白；調白後和原片都會存到手機。8 秒約 20 分。換人模式不適用。"
+                            else "改用完整版 PRISM 8 步＋胸部 LoRA、768×1344，成品自動調白；調白後和原片都會存到手機。換人、首幀模式不適用。",
                             fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
             // v2.9.0 筆電主模型可選；v2.9.5 雲端兩種畫質也可選，預設都是 Singularity V2（白皙開著時筆電固定用 PRISM，不用選）
-            if (!(tier == "low" && fair)) ModePicker(
+            if (!fair) ModePicker(
                 label = "模型",
                 options = if (tier == "low") listOf(
                     ModeOption("v2", "V2・8步HD（預設）", "Singularity V2 社群微調版＋8 步 HD，臉和動作較自然"),
                     ModeOption("q4", "Q4・8步HD", "原本的 Q4＋8 步 HD"),
+                    // v3.2.9 單選 PRISM（不開白皙）：不掛胸部 LoRA、不調白、尺寸照原本的 544×928
+                    ModeOption("prism", "PRISM・8步", "Singularity＋10Eros 合併版，膚色較亮；不含白皙的 LoRA 與調白"),
                 ) else listOf(
                     ModeOption("v2", "V2・int8（預設）", "Singularity V2 社群微調版（剪枝 int8），臉和動作較自然"),
                     ModeOption("q4", if (tier == "ultra") "官方 bf16" else "官方 int8", "MiniMax 官方完整模型"),

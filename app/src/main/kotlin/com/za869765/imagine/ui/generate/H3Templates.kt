@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -24,9 +26,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.za869765.imagine.data.h3.H3Client
+import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.ui.component.ImagineCard
 import com.za869765.imagine.ui.component.TextActionButton
 import kotlinx.coroutines.launch
@@ -176,14 +181,59 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
     },
 )
 
-/** 生影頁「套用範本」的面板：選一張 → 整段填進輸入框（之後可以直接改引號裡的台詞或任何字）。 */
+// ───────────────────────── v3.3.0 自己組 ─────────────────────────
+// 使用者用中文填場景／服裝／分段動作／台詞 → 筆電 Gemma（或設定裡選的 AI）只把這幾欄翻成英文片語 →
+// 這裡把翻好的片語放進和上面範本同一副骨架。白皙、鏡頭、臉、邊做邊講那些測過的句子一律原樣，不交給 AI 改寫。
+
+private const val LIGHT_ANY = "in bright, soft, diffused daylight, high-key and airy, low contrast, slightly overexposed, with pale, bright surroundings, full-body front view, static camera"
+
+/** 給 AI 翻譯的原文：一行一欄「欄位名: 中文」。空白的動作不送。 */
+internal fun h3CustomSource(scene: String, wear: String, acts: List<String>): String =
+    (listOf("scene: ${scene.trim()}", "wear: ${wear.trim()}") + acts.map { it.trim() }.filter { it.isNotEmpty() }.mapIndexed { i, a -> "act${i + 1}: $a" }).joinToString("\n")
+
+/** 把 AI 回的「欄位名: 英文」組成整段提示詞；缺欄位回 null。lineAt＝台詞落在第幾個動作（1 起算）。 */
+internal fun h3CustomPrompt(translated: String, refs: Int, helpers: Boolean, period: Boolean, line: String, lineAt: Int): String? {
+    val map = translated.lines().mapNotNull { l ->
+        val i = l.indexOf(':')
+        if (i <= 0) null else l.substring(0, i).trim().lowercase() to l.substring(i + 1).trim().trim('"', '.', ' ')
+    }.toMap()
+    val scene = map["scene"]?.takeIf { it.isNotBlank() } ?: return null
+    val wear = map["wear"]?.takeIf { it.isNotBlank() } ?: return null
+    val acts = (1..4).mapNotNull { map["act$it"]?.takeIf { a -> a.isNotBlank() } }
+    if (acts.isEmpty()) return null
+    val center = if (helpers) "in the center " else ""
+    val start = if (wear.equals("nude", ignoreCase = true)) "${she(refs)} stands $center$NUDE, $FRAME. "
+    else "${she(refs)} $wear, stands ${center}facing the camera, $FRAME. "
+    val who = when {
+        !helpers -> FACING
+        period -> MAIDS
+        else -> ASSISTANTS
+    }
+    val said = line.trim().trim { it in "「」\"“”" }
+    val at = lineAt.coerceIn(1, acts.size)
+    val seq = acts.mapIndexed { i, a ->
+        val lead = if (acts.size == 1) "" else if (i == 0) "first " else "then "
+        lead + a + if (said.isNotEmpty() && i + 1 == at) ", and while this is still going on she looks at the camera, smiles and says in Mandarin Chinese: \"$said\"" else ""
+    }.joinToString("; ")
+    val body = start + who + (if (acts.size > 1) "In one continuous unhurried sequence, " else "") + seq + "." + (if (helpers) " Natural, unhurried movements, calm friendly mood." else "")
+    return "$CAM $LIGHT_ANY, $scene. " + host(refs) + look(refs) + body + (if (said.isNotEmpty()) TALK else "") + END + " Natural ambience that matches the scene, no music." + STAY_FAIR
+}
+
+/** 生影頁「套用範本」的面板：選一張現成的，或在「自己組」用中文填欄位 → 整段填進輸入框（之後可以直接改任何字）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun H3TemplateSheet(refCount: Int, onApply: (String) -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val groups = remember { H3_TEMPLATES.map { it.group }.distinct() }
+    val ctx = LocalContext.current
+    val prefs = remember { SecurePrefs.get(ctx) }
+    val custom = "自己組"
+    val groups = remember { H3_TEMPLATES.map { it.group }.distinct() + custom }
     var group by remember { mutableStateOf(groups.first()) }
+    fun use(text: String) {
+        onApply(text)
+        scope.launch { sheetState.hide(); onDismiss() }
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -222,17 +272,97 @@ internal fun H3TemplateSheet(refCount: Int, onApply: (String) -> Unit, onDismiss
                     )
                 }
             }
-            H3_TEMPLATES.filter { it.group == group }.forEach { t ->
-                ImagineCard(pad = 14) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(t.title, fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
-                            Text(t.desc, fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (group == custom) {
+                var scene by remember { mutableStateOf("") }
+                var wear by remember { mutableStateOf("") }
+                var acts by remember { mutableStateOf(listOf("", "", "")) }
+                var line by remember { mutableStateOf("") }
+                var lineAt by remember { mutableStateOf(3) }
+                var helpers by remember { mutableStateOf(false) }
+                var period by remember { mutableStateOf(false) }
+                var busy by remember { mutableStateOf(false) }
+                var error by remember { mutableStateOf<String?>(null) }
+                val hints = listOf("例：解開腰帶，讓長袍從肩膀滑落到地上，全裸站著", "例：從身旁的屏風拿起白色長袍穿上", "例：繫上淺藍腰帶", "例：拿起靠在旁邊的長劍")
+                Text(
+                    "用中文填，按「翻譯並產生」。只有你填的這幾欄會被翻成英文；白皙、鏡頭、臉、邊做邊講那些測過的句子會原樣加進去。" +
+                        "翻譯用設定裡「優化用哪個 AI」那一個（預設筆電 Gemma，內容不出筆電；筆電正在生影片時要等它做完）。",
+                    fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(value = scene, onValueChange = { scene = it }, label = { Text("場景") }, placeholder = { Text("例：竹林裡的茶亭，地上是淺色石板") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = wear, onValueChange = { wear = it }, label = { Text("一開始穿什麼") }, placeholder = { Text("例：青色寬袖長袍、繫白腰帶（或：全裸）") }, modifier = Modifier.fillMaxWidth())
+                Text("動作（照時間順序，一格一段；8 秒建議最多 3 段，太多會被壓縮或跳過）", fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                acts.forEachIndexed { i, a ->
+                    OutlinedTextField(
+                        value = a,
+                        onValueChange = { v -> acts = acts.toMutableList().also { it[i] = v } },
+                        label = { Text("第 ${i + 1} 段") },
+                        placeholder = { Text(hints[i]) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (acts.size < 4) TextActionButton(label = "＋加一段", onClick = { acts = acts + "" })
+                    if (acts.size > 1) TextActionButton(label = "－少一段", onClick = { acts = acts.dropLast(1); lineAt = lineAt.coerceAtMost(acts.size) })
+                }
+                OutlinedTextField(value = line, onValueChange = { line = it }, label = { Text("台詞（中文原樣，不翻；可留空）") }, placeholder = { Text("例：江湖路遠，我們後會有期！") }, modifier = Modifier.fillMaxWidth())
+                if (line.isNotBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("邊做哪一段邊講：", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        acts.indices.forEach { i ->
+                            val on = lineAt == i + 1
+                            Text(
+                                "第 ${i + 1} 段",
+                                fontSize = 13.sp,
+                                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest)
+                                    .clickable { lineAt = i + 1 }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
                         }
-                        TextActionButton(label = "使用", onClick = {
-                            onApply(t.build(refCount))
-                            scope.launch { sheetState.hide(); onDismiss() }
-                        })
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth().clickable { helpers = !helpers }, verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = helpers, onCheckedChange = { helpers = it })
+                    Text("旁邊有兩位幫忙穿脫的人（動作欄裡可以寫「助手幫她…」）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
+                if (helpers) {
+                    Row(modifier = Modifier.fillMaxWidth().clickable { period = !period }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = period, onCheckedChange = { period = it })
+                        Text("古裝（幫忙的人是穿灰藍漢服的侍女；不勾＝穿黑衣黑褲的助手）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+                Text("人物全程面向鏡頭效果最好：避免寫轉身、彎腰撿東西、又快又大的動作（後段臉會變、畫面會糊）。要拿的東西寫成「在身旁伸手可及」。", fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                error?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error) }
+                TextActionButton(
+                    label = if (busy) "翻譯中…（筆電忙的話要等一下）" else "翻譯並產生",
+                    enabled = scene.isNotBlank() && wear.isNotBlank() && acts.any { it.isNotBlank() } && !busy,
+                    onClick = {
+                        busy = true
+                        error = null
+                        scope.launch {
+                            when (val r = H3Client.optimizePrompt(prefs, "fields", h3CustomSource(scene, wear, acts), emptyMap(), prefs.h3OptimizeBrain)) {
+                                is H3Client.Result.Ok -> {
+                                    val p = h3CustomPrompt(r.value.optimized, refCount, helpers, period, line, lineAt)
+                                    if (p != null) use(p) else error = "AI 回的格式不對（少了場景、服裝或動作），請再按一次"
+                                }
+                                is H3Client.Result.Err -> error = "翻譯失敗：${r.message}"
+                            }
+                            busy = false
+                        }
+                    },
+                )
+            } else {
+                H3_TEMPLATES.filter { it.group == group }.forEach { t ->
+                    ImagineCard(pad = 14) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(t.title, fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                                Text(t.desc, fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextActionButton(label = "使用", onClick = { use(t.build(refCount)) })
+                        }
                     }
                 }
             }
