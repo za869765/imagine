@@ -525,6 +525,12 @@ fun H3GenerateScreen(
                     )
                 },
             )
+            // v3.3.4 中英對照:整段英文提示詞逐句看中文,改某一句再翻回英文,只換那一句
+            var showBilingual by remember { mutableStateOf(false) }
+            if (prompt.any { it in 'a'..'z' }) {
+                com.za869765.imagine.ui.component.TextActionButton(label = "中英對照（逐句看中文、只改其中一句）", onClick = { showBilingual = true })
+            }
+            if (showBilingual) H3BilingualSheet(prompt = prompt, onApply = { prompt = it }, onDismiss = { showBilingual = false })
             if (rawPrompt) {
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { rawPrompt = false },
