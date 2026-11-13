@@ -84,6 +84,8 @@ fun PromptInput(
     // 預設依 forVideo 決定。optimizeContext 給模板的額外資訊(長寬比、參考圖張數)
     optimizeKind: String? = if (forVideo) "video" else "image",
     optimizeContext: Map<String, String> = emptyMap(),
+    // v3.2.7 H3 生影頁:「套用範本」改開這個面板(onApply 填進輸入框、onDismiss 關閉);null＝原本的範本面板
+    templateSheet: (@Composable (onApply: (String) -> Unit, onDismiss: () -> Unit) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -486,7 +488,9 @@ fun PromptInput(
             )
         }
 
-        if (showApplyTemplate) {
+        if (showApplyTemplate && templateSheet != null) {
+            templateSheet({ template -> applyTemplate(template) }, { showApplyTemplate = false })
+        } else if (showApplyTemplate) {
             ApplyTemplateSheet(
                 forVideo = forVideo,
                 onDismiss = { showApplyTemplate = false },

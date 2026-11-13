@@ -49,6 +49,8 @@ object H3Jobs {
         val extendBase: String? = null,
         // v3.2.6 一條龍:筆電先生的參考人像存到手機後的本機 uri
         val refImageUri: String? = null,
+        // v3.2.7 白皙:調白前的原片存到手機後的本機 uri(savedUri 是調白後那支)
+        val rawUri: String? = null,
     )
 
     private const val PREFS = "imagine_h3_jobs"

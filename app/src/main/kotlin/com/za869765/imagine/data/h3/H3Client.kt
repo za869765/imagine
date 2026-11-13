@@ -136,8 +136,8 @@ object H3Client {
     }
 
     /** 不消耗 CU 的估算(同時拿餘額)。seconds 4..15、quality normal|fast。 */
-    suspend fun estimate(prefs: SecurePrefs, seconds: Int, quality: String, route: String = "cloud", segments: Int = 1): Result<H3Estimate> =
-        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route&segments=$segments")?.get()?.build())
+    suspend fun estimate(prefs: SecurePrefs, seconds: Int, quality: String, route: String = "cloud", segments: Int = 1, fair: Boolean = false): Result<H3Estimate> =
+        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route&segments=$segments" + (if (fair && route == "local") "&fair=1" else ""))?.get()?.build())
 
     /** v2.1.8 資產庫角色清單(綁角色＝臉部模型＋聲音每段都掛)。 */
     /** v2.1.9 機器看板(不花錢):各機器生成中／排隊／待機倒數／關機。 */

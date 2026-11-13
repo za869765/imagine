@@ -118,6 +118,9 @@ fun H3GenerateScreen(
     var tier by rememberSaveable { mutableStateOf(prefs.h3VideoTier) }
     var blink by rememberSaveable { mutableStateOf(true) }
     var localModel by rememberSaveable { mutableStateOf(prefs.h3LocalModel) }
+    var fair by rememberSaveable { mutableStateOf(prefs.h3Fair) }  // v3.2.7 白皙(只在筆電生效),預設開
+    // v3.2.7 套了範本＝提示詞原樣送給模型(不包裝、不翻譯、不加眨眼包);清空提示詞或自己按掉就回到一般
+    var rawPrompt by rememberSaveable { mutableStateOf(false) }
     var translate by rememberSaveable { mutableStateOf(prefs.h3Translate) }
     var colabGpus by rememberSaveable { mutableStateOf(prefs.h3ColabGpus) }
     // v2.1.8 長片段數(1～4,每段接續上一段)與每段內容(空白＝導演大腦從主描述拆);資產庫角色(鎖臉鎖聲)
@@ -244,10 +247,12 @@ fun H3GenerateScreen(
             refVideo = if (motion) refVideo else null,
             refVideoSeconds = if (motion) refVideoSec else null,
             autoRef = if (wantAutoRef) autoRefText.trim() else null,
+            fair = fair && tier == "low" && !motion,
+            rawPrompt = rawPrompt && !motion && extendBase == null && segCount == 1,
         )
         estimating = true
         scope.launch {
-            when (val r = H3Client.estimate(prefs, snapshot.seconds, snapshot.quality, snapshot.route, snapshot.segments)) {
+            when (val r = H3Client.estimate(prefs, snapshot.seconds, snapshot.quality, snapshot.route, snapshot.segments, snapshot.fair)) {
                 is H3Client.Result.Ok -> pendingConfirm = snapshot.copy(estimate = r.value)
                 is H3Client.Result.Err -> Toast.makeText(ctx, "估算失敗：${r.message}", Toast.LENGTH_LONG).show()
             }
@@ -504,13 +509,32 @@ fun H3GenerateScreen(
 
             PromptInput(
                 value = prompt,
-                onValueChange = { prompt = it },
+                onValueChange = { prompt = it; if (it.isBlank()) rawPrompt = false },
                 placeholder = "描述要怎麼動...",
                 minHeight = 88,
                 forVideo = true,
                 videoHasImage = mode != "t2v",
                 videoSourcePrompt = initialPrompt,
+                templateSheet = { onApply, onDismiss ->
+                    H3TemplateSheet(
+                        refCount = if (mode == "t2v") 0 else sourceStrings.size,
+                        onApply = { rawPrompt = true; if (tier == "low") seconds = 8; onApply(it) },  // 範本照 8 秒寫的（筆電上限）
+                        onDismiss = onDismiss,
+                    )
+                },
             )
+            if (rawPrompt) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { rawPrompt = false },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = true, onCheckedChange = { rawPrompt = it })
+                    Text(
+                        "範本模式：這段提示詞原樣送給模型（不自動包裝、不翻譯、不加眨眼包）。要改回一般寫法就取消勾選。" + (if (segCount > 1) "多段時不適用，會照一般方式處理。" else ""),
+                        fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             ModePicker(
                 label = "畫質",
@@ -518,8 +542,24 @@ fun H3GenerateScreen(
                 selectedId = tier,
                 onSelect = { tier = it; prefs.h3VideoTier = it },
             )
-            // v2.9.0 筆電主模型可選；v2.9.5 雲端兩種畫質也可選，預設都是 Singularity V2
-            ModePicker(
+            // v3.2.7 白皙:筆電改用 PRISM 8 步＋胸部 LoRA＋672×1120,成品自動調白;調白後與原片都存到手機
+            if (tier == "low") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { fair = !fair; prefs.h3Fair = fair },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = fair, onCheckedChange = { fair = it; prefs.h3Fair = it })
+                    Column {
+                        Text("白皙（膚色調白、乳暈小而粉）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "改用 PRISM 8 步、672×1120，成品自動調白；調白後和原片都會存到手機。8 秒約 20 分。換人模式不適用。",
+                            fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            // v2.9.0 筆電主模型可選；v2.9.5 雲端兩種畫質也可選，預設都是 Singularity V2（白皙開著時筆電固定用 PRISM，不用選）
+            if (!(tier == "low" && fair)) ModePicker(
                 label = "模型",
                 options = if (tier == "low") listOf(
                     ModeOption("v2", "V2・8步HD（預設）", "Singularity V2 社群微調版＋8 步 HD，臉和動作較自然"),

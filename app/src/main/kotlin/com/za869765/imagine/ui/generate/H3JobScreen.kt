@@ -72,6 +72,18 @@ private suspend fun saveH3AutoRef(ctx: android.content.Context, prefs: SecurePre
     H3Jobs.update(ctx, runId) { it.copy(refImageUri = uri, sources = listOf(uri), repeatVideo = it.repeatVideo?.copy(autoRef = null, mode = "ref", sources = listOf(uri))) }
 }
 
+/** v3.2.7 白皙:調白前的原片也存進所有作品(要在請伺服器刪除之前);不是白皙的單或已存過就不做,失敗不影響調白後的成品。 */
+private suspend fun saveH3Raw(ctx: android.content.Context, prefs: SecurePrefs, runId: String, prompt: String) {
+    val j = H3Jobs.find(ctx, runId) ?: return
+    if (j.rawUri != null || j.repeatVideo?.fair != true) return
+    val url = (H3Client.job(prefs, runId) as? H3Client.Result.Ok)?.value?.rawVideoUrl ?: return
+    val tag = H3_PROMPT_TAG + "（原片・未調白）" + prompt.ifBlank { "H3 Studio 影片" }
+    // 伺服器那份存完就刪,所以沒抓到就再試一次
+    val uri = H3Client.download(prefs, url) { stream -> MediaSaver.saveVideo(ctx, stream, tag) }
+        ?: H3Client.download(prefs, url) { stream -> MediaSaver.saveVideo(ctx, stream, tag) } ?: return
+    H3Jobs.update(ctx, runId) { it.copy(rawUri = uri) }
+}
+
 /**
  * 下載成品存進所有作品(標 [H3])。全域互斥 + 已存紀錄(H3Jobs / 記憶體)→ 同一任務只下載、只入庫一次。
  */
@@ -94,6 +106,7 @@ internal suspend fun saveH3ToHistory(
         h3SavedByRun[runId] = uri
         H3Jobs.update(ctx, runId) { it.copy(savedUri = uri) }
         runCatching { saveH3AutoRef(ctx, prefs, runId) }
+        runCatching { saveH3Raw(ctx, prefs, runId, prompt) }
         forgetInStudioIfAsked(ctx, prefs, runId)
     }
     uri
@@ -150,7 +163,7 @@ internal fun h3VideoSpec(r: H3Jobs.Job, liveRoute: String?): String {
     val secs = "${r.seconds} 秒" + (if ((p?.segments ?: 1) > 1) " ×${p!!.segments} 段" else "")
     return "🎬 影片・" + listOfNotNull(
         mode, secs, p?.aspect, route?.let { H3Format.routeName(it) },
-        p?.let { H3Format.modelName(route, it.model) }, p?.subjectName?.let { "角色 $it" },
+        p?.let { if (it.fair && route == "local") "白皙・PRISM 8步" else H3Format.modelName(route, it.model) }, p?.subjectName?.let { "角色 $it" },
     ).joinToString("・")
 }
 
@@ -184,7 +197,7 @@ fun H3JobScreen(runId: String, onBack: () -> Unit, onOpenRepeat: (String) -> Uni
         val spec = base.copy(seed = sameSeed)
         repeating = true
         ImagineApp.appScope.launch(Dispatchers.Main) {
-            val est = H3Client.estimate(prefs, spec.seconds, spec.quality, spec.route, spec.segments)
+            val est = H3Client.estimate(prefs, spec.seconds, spec.quality, spec.route, spec.segments, spec.fair)
             if (est is H3Client.Result.Err) {
                 repeating = false
                 AppNotice.show("送出失敗：${est.message}")
@@ -427,7 +440,10 @@ fun H3JobScreen(runId: String, onBack: () -> Unit, onOpenRepeat: (String) -> Uni
                 ImagineCard(pad = 0) {
                     Column {
                         // 已存到本機就播本機檔,否則帶權杖串流(只限站內 https 網址,其他不播、不帶權杖)
-                        val playUrl = savedUri ?: H3Client.absoluteUrl(prefs, videoPath)
+                        // v3.2.7 白皙:可切換看調白後(成品)或原片;原片存到手機後播本機檔
+                        val rawPlay = H3Jobs.find(ctx, runId)?.rawUri ?: s?.rawVideoUrl?.let { H3Client.absoluteUrl(prefs, it) }
+                        var showRaw by remember(runId) { mutableStateOf(false) }
+                        val playUrl = if (showRaw && rawPlay != null) rawPlay else savedUri ?: H3Client.absoluteUrl(prefs, videoPath)
                         if (playUrl != null) {
                             H3VideoPlayer(
                                 url = playUrl,
@@ -456,6 +472,13 @@ fun H3JobScreen(runId: String, onBack: () -> Unit, onOpenRepeat: (String) -> Uni
                                 }
                             }
                             H3SeedRow(s?.seed ?: record?.seed)
+                            if (rawPlay != null) {
+                                TextActionButton(
+                                    label = if (showRaw) "現在看的是：原片（未調白）　→ 切到調白後" else "現在看的是：調白後　→ 切到原片",
+                                    onClick = { showRaw = !showRaw },
+                                )
+                                Text("白皙的單兩支都會存到所有作品：調白後那支標記 H3，原片另外標「原片・未調白」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             Text(
                                 when {
                                     saving -> "正在存到所有作品…"
