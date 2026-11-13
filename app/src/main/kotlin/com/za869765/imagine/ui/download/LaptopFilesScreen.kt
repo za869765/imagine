@@ -26,10 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,7 +39,6 @@ import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
 import com.za869765.imagine.ui.component.NavTab
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,22 +54,13 @@ fun LaptopFilesScreen(
     onOpenVideo: (String) -> Unit,
 ) {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
     val tasks by Downloader.tasks.collectAsState()
     val files by Downloader.laptopList.collectAsState()
     val total by Downloader.laptopTotal.collectAsState()
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val loading by Downloader.laptopLoading.collectAsState()
+    val error by Downloader.laptopError.collectAsState()
 
-    fun reload(more: Boolean = false) {
-        if (loading) return
-        loading = true
-        error = null
-        scope.launch {
-            error = Downloader.loadLaptopFiles(ctx, more)
-            loading = false
-        }
-    }
+    fun reload(more: Boolean = false) = Downloader.reloadLaptop(ctx, more)
     LaunchedEffect(Unit) { if (files == null) reload() }
 
     ImagineScreen(

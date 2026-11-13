@@ -63,8 +63,22 @@ object Downloader {
     /** 資料夾裡總共幾個(清單一頁只給 40 個) */
     val laptopTotal = MutableStateFlow(0)
 
+    /** v3.3.6 讀清單跑在 APP 層級(切分頁、離開畫面不會中斷,也不會留下沒收尾的單);畫面只看這兩個狀態 */
+    val laptopLoading = MutableStateFlow(false)
+    val laptopError = MutableStateFlow<String?>(null)
+    fun reloadLaptop(ctx: Context, more: Boolean = false) {
+        if (laptopLoading.value) return
+        laptopLoading.value = true
+        laptopError.value = null
+        val app = ctx.applicationContext
+        scope.launch {
+            laptopError.value = runCatching { loadLaptopFiles(app, more) }.getOrElse { it.message ?: "讀取失敗" }
+            laptopLoading.value = false
+        }
+    }
+
     /** 向筆電要一次清單;成功回 null,失敗回給使用者看的訊息 */
-    suspend fun loadLaptopFiles(ctx: Context, more: Boolean = false): String? {
+    private suspend fun loadLaptopFiles(ctx: Context, more: Boolean = false): String? {
         val offset = if (more) laptopList.value?.size ?: 0 else 0
         val prefs = SecurePrefs.get(ctx.applicationContext)
         val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
