@@ -628,20 +628,24 @@ fun H3GenerateScreen(
                 }
             }
 
+            // v3.2.8 範本模式（單段）提示詞原樣送出，眨眼包與翻譯都不會套用：變灰並說明，免得看起來像有作用
+            val rawNow = rawPrompt && segCount == 1 && mode != "motion"
+            val offColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            if (rawNow) Text("範本模式：下面兩項不會套用（提示詞原樣送出）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { blink = !blink },
+                modifier = Modifier.fillMaxWidth().clickable(enabled = !rawNow) { blink = !blink },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(checked = blink, onCheckedChange = { blink = it })
-                Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                Checkbox(checked = blink && !rawNow, onCheckedChange = { blink = it }, enabled = !rawNow)
+                Text("眨眼包（3～5 秒自然眨一次，不呆視）", fontSize = 14.sp, color = if (rawNow) offColor else MaterialTheme.colorScheme.onSurface)
             }
             // v2.9.4 中文描述會被念出來：生成那台機器在本機把引號外的描述翻英文（台詞不動），任務頁看得到翻好的句子
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { translate = !translate; prefs.h3Translate = translate },
+                modifier = Modifier.fillMaxWidth().clickable(enabled = !rawNow) { translate = !translate; prefs.h3Translate = translate },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(checked = translate, onCheckedChange = { translate = it; prefs.h3Translate = it })
-                Text("描述自動翻英文（避免描述被念出來；引號內台詞不翻）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                Checkbox(checked = translate && !rawNow, onCheckedChange = { translate = it; prefs.h3Translate = it }, enabled = !rawNow)
+                Text("描述自動翻英文（避免描述被念出來；引號內台詞不翻）", fontSize = 14.sp, color = if (rawNow) offColor else MaterialTheme.colorScheme.onSurface)
             }
             // v2.5.3 影片一律只留在 APP，不再給勾選
             Text("成品只存手機、不進雲端硬碟：生成時短暫存放在伺服器，存進手機後立刻刪除；要上傳請在最近成品按「補上傳 Studio」", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
