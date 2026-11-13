@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import androidx.core.net.toUri
 import com.za869765.imagine.data.h3.H3Client
 import com.za869765.imagine.data.h3.H3DownloadRequest
+import com.za869765.imagine.data.h3.H3LaptopFile
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.PromptIndex
 import kotlinx.coroutines.CoroutineScope
@@ -54,15 +55,48 @@ object Downloader {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** v3.3.3 筆電測試片:任務的 url 用這個前綴 + 檔名,兩個畫面各自認得自己的任務 */
+    const val LAPTOP_PREFIX = "laptop:"
+    fun laptopUrl(name: String) = LAPTOP_PREFIX + name
+    /** 筆電測試資料夾的影片清單(新到舊);null＝還沒讀過。切分頁回來不用重讀 */
+    val laptopList = MutableStateFlow<List<H3LaptopFile>?>(null)
+
+    /** 向筆電要一次清單;成功回 null,失敗回給使用者看的訊息 */
+    suspend fun loadLaptopFiles(ctx: Context): String? {
+        val prefs = SecurePrefs.get(ctx.applicationContext)
+        val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true))
+        val runId = when (created) {
+            is H3Client.Result.Ok -> created.value.runId
+            is H3Client.Result.Err -> return created.message
+        } ?: return "伺服器沒有回單號"
+        repeat(60) {
+            delay(2000)
+            val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: return@repeat
+            when (s.status) {
+                "done" -> {
+                    laptopList.value = s.files.orEmpty()
+                    H3Client.forget(prefs, runId)
+                    return null
+                }
+                "failed", "cancelled" -> {
+                    H3Client.forget(prefs, runId)
+                    return s.error?.take(200) ?: "筆電沒有回清單"
+                }
+            }
+        }
+        H3Client.cancel(prefs, runId)
+        return "筆電兩分鐘內沒有回應，確認筆電開著、工人在跑後再試"
+    }
+
     /** @param height 影片最高畫質(1080 / 720);audio=true 時不用 */
-    fun start(ctx: Context, url: String, audio: Boolean, height: Int) {
+    fun start(ctx: Context, url: String, audio: Boolean, height: Int, laptopName: String? = null) {
         val app = ctx.applicationContext
         val prefs = SecurePrefs.get(app)
         val id = UUID.randomUUID().toString()
-        tasks.update { listOf(Task(id = id, url = url, audio = audio, title = url)) + it }
+        tasks.update { listOf(Task(id = id, url = url, audio = audio, title = laptopName ?: url)) + it }
         scope.launch {
             val mode = if (audio) "audio" else if (height == 720) "v720" else "v1080"
-            val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = url, mode = mode, clientRequestId = id))
+            val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = if (laptopName != null) "" else url, mode = mode, clientRequestId = id, browse = laptopName != null, name = laptopName.orEmpty()))
             val runId = when (created) {
                 is H3Client.Result.Ok -> created.value.runId
                 is H3Client.Result.Err -> return@launch fail(id, created.message)
@@ -166,7 +200,7 @@ object Downloader {
             src.copyTo(dst, overwrite = true)
         }
         // 所有作品點進去看得到來源
-        PromptIndex.put(app, dst.name, "下載：$title\n$url")
+        PromptIndex.put(app, dst.name, if (url.startsWith(LAPTOP_PREFIX)) "筆電測試片：$title" else "下載：$title\n$url")
         return dst.toUri().toString()
     }
 

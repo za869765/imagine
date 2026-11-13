@@ -33,10 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.za869765.imagine.data.download.Downloader
 import com.za869765.imagine.data.download.Downloader.Status
-import com.za869765.imagine.ui.component.ImagineBottomNav
 import com.za869765.imagine.ui.component.ImagineScreen
 import com.za869765.imagine.ui.component.ImagineTopAppBar
-import com.za869765.imagine.ui.component.NavTab
 
 /** 網址裡抓第一個 http(s) 連結(分享文字常是「標題 + 網址」) */
 fun firstUrl(text: String?): String? =
@@ -45,13 +43,13 @@ fun firstUrl(text: String?): String? =
 /** v3.2.0 下載分頁:貼網址 → 筆電代下載 → 影片存進所有作品、聲音存到手機「下載/Imagine」 */
 @Composable
 fun DownloadScreen(
-    onNavSelected: (NavTab) -> Unit,
+    onBack: () -> Unit,
     onSettingsClick: () -> Unit,
     onOpenVideo: (String) -> Unit,
 ) {
     val ctx = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    val tasks by Downloader.tasks.collectAsState()
+    val tasks = Downloader.tasks.collectAsState().value.filterNot { it.url.startsWith(Downloader.LAPTOP_PREFIX) }  // 筆電測試片的在它自己的分頁顯示
     val shared by Downloader.sharedUrl.collectAsState()
 
     var url by rememberSaveable { mutableStateOf("") }
@@ -66,8 +64,8 @@ fun DownloadScreen(
     }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "下載", onSettingsClick = onSettingsClick) },
-        bottomNav = { ImagineBottomNav(active = NavTab.DOWNLOAD, onTabSelected = onNavSelected) },
+        appBar = { ImagineTopAppBar(title = "下載", showBack = true, onBackClick = onBack, onSettingsClick = onSettingsClick) },
+        bottomNav = null,  // v3.3.3 從設定頁進來,不在底部分頁裡
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),

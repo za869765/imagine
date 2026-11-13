@@ -211,7 +211,13 @@ data class H3DownloadRequest(
     val mode: String,
     val confirm: Boolean = true,
     @SerialName("client_request_id") val clientRequestId: String,
+    /** v3.3.3 筆電測試片:browse=true 且 name 空＝列清單;name 有值＝把那一支傳回手機 */
+    val browse: Boolean = false,
+    val name: String = "",
 )
+
+@Serializable
+data class H3LaptopFile(val name: String = "", val bytes: Long = 0, val mtime: Long = 0)
 
 @Serializable
 data class H3DownloadCreated(@SerialName("run_id") val runId: String? = null)
@@ -227,6 +233,7 @@ data class H3DownloadStatus(
     val ext: String? = null,
     val bytes: Long? = null,
     val parts: List<String> = emptyList(),
+    val files: List<H3LaptopFile>? = null,
 )
 
 /** GET /api/app/subjects — H3 Studio 資產庫角色(face_locked＝已建臉部模型;voice＝有參考音)。 */

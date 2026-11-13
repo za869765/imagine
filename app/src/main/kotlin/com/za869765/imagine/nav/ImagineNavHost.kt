@@ -264,6 +264,17 @@ fun ImagineRoot() {
 
             composable(Routes.DOWNLOADER) {
                 com.za869765.imagine.ui.download.DownloadScreen(
+                    onBack = { navController.popBackStack() },
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onOpenVideo = { uri ->
+                        navController.currentBackStackEntry?.savedStateHandle?.set(KEY_HISTORY_URI, uri)
+                        navController.navigate(Routes.HISTORY_DETAIL)
+                    },
+                )
+            }
+
+            composable(Routes.LAPTOP_FILES) {
+                com.za869765.imagine.ui.download.LaptopFilesScreen(
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onOpenVideo = { uri ->
@@ -279,7 +290,7 @@ fun ImagineRoot() {
                     onBack = { navController.popBackStack() },
                     onNavSelected = { tab -> handleTabNav(navController, tab) },
                     title = "VidoGrid",
-                    tab = NavTab.VIDOGRID,
+                    tab = null,
                     homeUrl = VIDOGRID_URL,
                 )
             }
@@ -666,6 +677,8 @@ fun ImagineRoot() {
                     onLibraryClick = { navController.navigate(Routes.HISTORY) },
                     onReviewClick = { navController.navigate(Routes.MATERIAL_REVIEW) },
                     onTutorialClick = { navController.navigate(Routes.TUTORIAL) },
+                    onDownloadClick = { navController.navigate(Routes.DOWNLOADER) },
+                    onVidoGridClick = { navController.navigate(Routes.VIDOGRID_WEB) },
                     onClearedAndReset = {
                         prefs.clearAll()
                         // 清資料後回素材生成首頁 (整個 stack 清掉重來)
@@ -696,8 +709,7 @@ private fun handleTabNav(
 ) {
     val target = when (tab) {
         NavTab.MATERIAL -> Routes.MATERIAL_HUB
-        NavTab.VIDOGRID -> Routes.VIDOGRID_WEB
-        NavTab.DOWNLOAD -> Routes.DOWNLOADER
+        NavTab.LAPTOP -> Routes.LAPTOP_FILES
         NavTab.RESULTS -> Routes.H3_RESULTS
         NavTab.H3 -> Routes.H3_STUDIO
     }

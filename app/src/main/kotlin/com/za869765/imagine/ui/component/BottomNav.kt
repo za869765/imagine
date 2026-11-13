@@ -29,8 +29,8 @@ enum class NavTab(val id: String, val icon: String, val label: String) {
     MATERIAL("material", "auto_awesome", "素材生成"),
     // v3.1.4 長片組合移進生影頁(入口按鈕);最近成品左移;原位置改內嵌 VidoGrid 網頁
     RESULTS("h3_results", "photo_library", "最近成品"), // v2.5.4 取代教學範本分頁;教學範本移到設定
-    DOWNLOAD("downloader", "download", "下載"), // v3.1.9 貼網址下載影片/聲音(手機內建 yt-dlp)
-    VIDOGRID("vidogrid_web", "movie", "VidoGrid"),
+    // v3.3.3 下載與 VidoGrid 太少用,移到設定頁;原位置改放筆電測試片(手機直接看筆電測試輸出資料夾)
+    LAPTOP("laptop_files", "folder", "筆電測試片"),
     H3("h3_studio", "videocam", "H3 Studio"), // v2.0.5 內嵌 H3 Studio 網頁
 }
 

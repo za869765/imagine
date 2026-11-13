@@ -220,7 +220,7 @@ fun H3StudioWebScreen(
     onBack: () -> Unit,
     onNavSelected: (NavTab) -> Unit,
     title: String = "H3 Studio",
-    tab: NavTab = NavTab.H3,
+    tab: NavTab? = NavTab.H3,  // null＝不在底部分頁裡(VidoGrid 從設定頁進來):不畫底部導覽
     homeUrl: String? = null,
 ) {
     val ctx = LocalContext.current
@@ -294,7 +294,7 @@ fun H3StudioWebScreen(
             )
         },
         scroll = false,
-        bottomNav = { ImagineBottomNav(active = tab, onTabSelected = onNavSelected) },
+        bottomNav = if (tab != null) { { ImagineBottomNav(active = tab, onTabSelected = onNavSelected) } } else null,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AndroidView(

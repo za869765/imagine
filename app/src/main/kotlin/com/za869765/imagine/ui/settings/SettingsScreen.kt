@@ -81,6 +81,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onReviewClick: () -> Unit = {},
     onTutorialClick: () -> Unit = {},
+    onDownloadClick: () -> Unit = {},
+    onVidoGridClick: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
@@ -263,6 +265,9 @@ fun SettingsScreen(
                     SettingsEntry(icon = "photo_library", title = "儲存與資料", subtitle = "素材去留審查、歷史匯入、Keys 備份") { section = "data" }
                     SettingsEntry(icon = "settings", title = "進階與疑難排解", subtitle = "安全、背景任務、除錯、清除資料") { section = "adv" }
                     SettingsEntry(icon = "refresh", title = "關於與更新", subtitle = "APP 更新、super-i 教學／素材更新、版本資訊") { section = "about" }
+                    // v3.3.3 從底部分頁移過來(少用)
+                    SettingsEntry(icon = "download", title = "下載", subtitle = "貼網址，由筆電代下載影片或聲音", onClick = onDownloadClick)
+                    SettingsEntry(icon = "movie", title = "VidoGrid", subtitle = "內嵌 VidoGrid 網頁", onClick = onVidoGridClick)
                 }
             }
             if (section == "gen") {
