@@ -37,6 +37,10 @@ data class PendingH3(
     val refVideoSeconds: Double? = null,
     // v3.2.6 一條龍:人物長相(文生影＋筆電才有);筆電先生一張參考人像再生影片
     val autoRef: String? = null,
+    // v3.2.7 白皙(只在筆電):PRISM 8 步＋胸部 LoRA＋672×1120,成品調白;舊紀錄沒這欄＝沒開
+    val fair: Boolean = false,
+    // v3.2.7 範本:提示詞原樣送出(不包裝、不翻譯、不加眨眼包);舊紀錄沒這欄＝照原本的包裝
+    val rawPrompt: Boolean = false,
 )
 
 /** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */
@@ -85,7 +89,7 @@ object H3Submit {
         }
 
         onProgress("送出前重新估算…")
-        val fresh = when (val r = H3Client.estimate(prefs, pending.seconds, pending.quality, pending.route, pending.segments)) {
+        val fresh = when (val r = H3Client.estimate(prefs, pending.seconds, pending.quality, pending.route, pending.segments, pending.fair)) {
             is H3Client.Result.Ok -> r.value
             is H3Client.Result.Err -> return Outcome.LocalError("重新估算失敗，未送出：${r.message}")
         }
@@ -119,8 +123,11 @@ object H3Submit {
             route = pending.route,
             estNtd = confirmed.ntd,
             exp = buildMap<String, kotlinx.serialization.json.JsonElement> {
-                if (pending.blink) put("blink", kotlinx.serialization.json.JsonPrimitive(true))
-                if (pending.translate) put("translate", kotlinx.serialization.json.JsonPrimitive(true))
+                val raw = pending.rawPrompt && pending.segments == 1  // 範本原樣送出:眨眼包與翻譯都會改提示詞,不加
+                if (pending.blink && !raw) put("blink", kotlinx.serialization.json.JsonPrimitive(true))
+                if (pending.translate && !raw) put("translate", kotlinx.serialization.json.JsonPrimitive(true))
+                // 白皙只有筆電會做(換人模式筆電端自動照一般設定);unet 照樣帶,筆電缺白皙的模型檔時退回用
+                if (pending.fair && pending.route == "local") put("fair", kotlinx.serialization.json.JsonPrimitive(true))
                 if (pending.model == "prism" && pending.route == "gputw") {
                     put("unet", kotlinx.serialization.json.JsonPrimitive(H3_PRISM_UNET))
                     put("steps", kotlinx.serialization.json.JsonPrimitive(8))  // 8 步加速已燒進權重
@@ -138,6 +145,7 @@ object H3Submit {
             t2v = pending.mode == "t2v",
             autoRef = pending.autoRef?.trim()?.takeIf { it.isNotEmpty() && pending.mode == "t2v" && pending.route == "local" && pending.subjectId == null },
             refVideo = refVideo,
+            rawPrompt = (pending.rawPrompt && pending.segments == 1).takeIf { it },
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {

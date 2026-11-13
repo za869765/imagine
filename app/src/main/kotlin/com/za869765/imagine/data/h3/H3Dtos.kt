@@ -36,6 +36,9 @@ data class H3Estimate(
     // v2.1.9 排在該機器最後面的預計完成(分鐘、epoch ms)
     @SerialName("eta_min") val etaMin: Double? = null,
     @SerialName("eta_at") val etaAt: Long? = null,
+    // v3.2.7 白皙:筆電有沒有白皙要用的模型檔(沒有＝按鈕不能用);fair＝這次預估是不是照白皙算
+    @SerialName("fair_available") val fairAvailable: Boolean? = null,
+    val fair: Boolean = false,
 )
 
 @Serializable
@@ -89,6 +92,8 @@ data class H3JobRequest(
     @SerialName("auto_ref") val autoRef: String? = null,
     // v3.1.0 換人(mode=motion):先 POST /api/app/refvideo 拿到 file_id
     @SerialName("ref_video") val refVideo: H3RefVideo? = null,
+    // v3.2.7 範本:整段提示詞原樣送給模型(伺服器不轉對白標記、不包成官方格式);只在單段有效
+    @SerialName("raw_prompt") val rawPrompt: Boolean? = null,
 )
 
 @Serializable
@@ -146,6 +151,8 @@ data class H3JobStatus(
     val translated: String? = null,
     /** v3.2.6 一條龍:筆電先生的那張參考人像(站內路徑;還沒生好或不是一條龍＝null) */
     @SerialName("ref_image_url") val refImageUrl: String? = null,
+    /** v3.2.7 白皙:調白前的原片(站內路徑);video_url 是調白後。不是白皙的單＝null */
+    @SerialName("raw_video_url") val rawVideoUrl: String? = null,
 ) {
     val isFinished: Boolean get() = status == "done" || status == "failed" || status == "cancelled"
 
