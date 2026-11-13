@@ -1,6 +1,16 @@
 package com.za869765.imagine.ui.download
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,11 +26,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,16 +61,16 @@ fun LaptopFilesScreen(
     val scope = rememberCoroutineScope()
     val tasks by Downloader.tasks.collectAsState()
     val files by Downloader.laptopList.collectAsState()
+    val total by Downloader.laptopTotal.collectAsState()
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var shown by rememberSaveable { mutableIntStateOf(40) }
 
-    fun reload() {
+    fun reload(more: Boolean = false) {
         if (loading) return
         loading = true
         error = null
         scope.launch {
-            error = Downloader.loadLaptopFiles(ctx)
+            error = Downloader.loadLaptopFiles(ctx, more)
             loading = false
         }
     }
@@ -78,19 +86,27 @@ fun LaptopFilesScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = { reload() }, enabled = !loading) { Text(if (loading) "讀取中…" else "重新整理") }
-                files?.let { Text("共 ${it.size} 支", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                files?.let { Text("共 $total 個，已列出 ${it.size} 個", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             Text(
-                "筆電測試輸出資料夾裡的影片，新的在上面。點「抓到手機」才會由筆電經 Cloudflare 暫存傳過來，存進「所有作品」後暫存就刪掉，不經雲端硬碟。" +
+                "筆電測試輸出資料夾裡的影片與圖片，新的在上面，一次列 40 個。點「抓到手機」才會由筆電經 Cloudflare 暫存傳過來，存進「所有作品」後暫存就刪掉，不經雲端硬碟。" +
                     "筆電要開著、工人要在跑；筆電正在生影時也能抓。",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            files?.let { list ->
+                val todo = list.filter { f -> tasks.none { it.url == Downloader.laptopUrl(f.name) && (it.status == Status.RUNNING || it.status == Status.DONE) } }
+                if (todo.isNotEmpty()) {
+                    OutlinedButton(onClick = { Downloader.startLaptopBatch(ctx, todo.map { it.name }) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("一鍵全部抓到手機（列出的 ${todo.size} 個，共 %.0f MB，一個接一個）".format(todo.sumOf { it.bytes } / 1e6))
+                    }
+                }
+            }
             error?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error) }
 
             val fmt = remember { SimpleDateFormat("MM/dd HH:mm", Locale.TAIWAN) }
-            files?.take(shown)?.forEach { f ->
+            files?.forEach { f ->
                 val t = tasks.firstOrNull { it.url == Downloader.laptopUrl(f.name) }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -99,8 +115,29 @@ fun LaptopFilesScreen(
                     Row(
                         modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        val isVideo = f.kind != "image"
+                        val bmp = remember(f.thumb) {
+                            runCatching {
+                                val b = android.util.Base64.decode(f.thumb, android.util.Base64.DEFAULT)
+                                android.graphics.BitmapFactory.decodeByteArray(b, 0, b.size)?.asImageBitmap()
+                            }.getOrNull()
+                        }
+                        Box(
+                            modifier = Modifier.size(width = 54.dp, height = 96.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (bmp != null) Image(bitmap = bmp, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(width = 54.dp, height = 96.dp))
+                            else Text(if (isVideo) "影片" else "圖片", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            // 種類標籤:影片紫底帶秒數,圖片綠底
+                            Text(
+                                if (isVideo) "影片" + (if (f.dur > 0) "・%.0f 秒".format(f.dur) else "") else "圖片",
+                                fontSize = 11.sp, fontWeight = FontWeight.W700, color = Color.White,
+                                modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(if (isVideo) Color(0xFF5B3FA8) else Color(0xFF1E7A4C)).padding(horizontal = 7.dp, vertical = 2.dp),
+                            )
                             Text(f.name, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             val running = t != null && t.status == Status.RUNNING
                             val sub = when {
@@ -125,7 +162,7 @@ fun LaptopFilesScreen(
                         if (t != null && t.status == Status.RUNNING) {
                             TextButton(onClick = { Downloader.cancel(ctx, t.id) }) { Text("取消") }
                         } else if (t != null && t.status == Status.DONE) {
-                            TextButton(onClick = { t.savedUri?.let(onOpenVideo) }) { Text("看影片") }
+                            TextButton(onClick = { t.savedUri?.let(onOpenVideo) }) { Text(if (f.kind == "image") "看圖片" else "看影片") }
                         } else {
                             TextButton(onClick = {
                                 if (t != null) Downloader.remove(t.id)
@@ -136,8 +173,8 @@ fun LaptopFilesScreen(
                 }
             }
             files?.let {
-                if (it.isEmpty() && !loading) Text("資料夾裡目前沒有影片", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (it.size > shown) OutlinedButton(onClick = { shown += 40 }, modifier = Modifier.fillMaxWidth()) { Text("再顯示 40 支（還有 ${it.size - shown} 支）") }
+                if (it.isEmpty() && !loading) Text("資料夾裡目前沒有檔案", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (it.size < total) OutlinedButton(onClick = { reload(more = true) }, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("再列出 40 個（還有 ${total - it.size} 個）") }
             }
         }
     }

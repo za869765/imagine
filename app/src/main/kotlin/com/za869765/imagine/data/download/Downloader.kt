@@ -60,11 +60,14 @@ object Downloader {
     fun laptopUrl(name: String) = LAPTOP_PREFIX + name
     /** 筆電測試資料夾的影片清單(新到舊);null＝還沒讀過。切分頁回來不用重讀 */
     val laptopList = MutableStateFlow<List<H3LaptopFile>?>(null)
+    /** 資料夾裡總共幾個(清單一頁只給 40 個) */
+    val laptopTotal = MutableStateFlow(0)
 
     /** 向筆電要一次清單;成功回 null,失敗回給使用者看的訊息 */
-    suspend fun loadLaptopFiles(ctx: Context): String? {
+    suspend fun loadLaptopFiles(ctx: Context, more: Boolean = false): String? {
+        val offset = if (more) laptopList.value?.size ?: 0 else 0
         val prefs = SecurePrefs.get(ctx.applicationContext)
-        val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true))
+        val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
         val runId = when (created) {
             is H3Client.Result.Ok -> created.value.runId
             is H3Client.Result.Err -> return created.message
@@ -74,7 +77,9 @@ object Downloader {
             val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: return@repeat
             when (s.status) {
                 "done" -> {
-                    laptopList.value = s.files.orEmpty()
+                    val page = s.files.orEmpty()
+                    laptopList.value = if (more) laptopList.value.orEmpty().filterNot { old -> page.any { it.name == old.name } } + page else page
+                    laptopTotal.value = s.total ?: laptopList.value.orEmpty().size
                     H3Client.forget(prefs, runId)
                     return null
                 }
@@ -86,6 +91,19 @@ object Downloader {
         }
         H3Client.cancel(prefs, runId)
         return "筆電兩分鐘內沒有回應，確認筆電開著、工人在跑後再試"
+    }
+
+    /** v3.3.5 一次抓好幾個筆電測試檔:一個接一個(前一個結束才送下一個),免得同時上傳把筆電網路塞住 */
+    fun startLaptopBatch(ctx: Context, names: List<String>) {
+        scope.launch {
+            for (n in names) {
+                val u = laptopUrl(n)
+                if (tasks.value.any { it.url == u && (it.status == Status.RUNNING || it.status == Status.DONE) }) continue
+                tasks.update { list -> list.filterNot { it.url == u } }
+                start(ctx, u, audio = false, height = 1080, laptopName = n)
+                while (tasks.value.any { it.url == u && it.status == Status.RUNNING }) delay(1500)
+            }
+        }
     }
 
     /** @param height 影片最高畫質(1080 / 720);audio=true 時不用 */
@@ -154,7 +172,7 @@ object Downloader {
                 if (ok != true) throw IllegalStateException("從伺服器接回第 ${i + 1} 段失敗，再試一次")
             }
             if (isCancelled(id)) return
-            val saved = if (audio) saveAudio(app, tmp, title + ext) else saveVideo(app, tmp, title, url)
+            val saved = if (audio) saveAudio(app, tmp, title + ext) else saveVideo(app, tmp, title, url, ext)
             set(id) { it.copy(status = Status.DONE, progress = 100f, title = title, stage = "完成", savedUri = saved) }
             H3Client.forget(prefs, runId)
         } catch (e: Throwable) {
@@ -192,10 +210,12 @@ object Downloader {
         tasks.update { list -> list.map { if (it.id == id && it.status == Status.RUNNING) f(it) else it } } // 取消後不再被進度蓋掉
     }
 
-    private fun saveVideo(app: Context, src: File, title: String, url: String): String {
+    private fun saveVideo(app: Context, src: File, title: String, url: String, ext: String = ".mp4"): String {
         val dir = File(app.filesDir, "media").apply { mkdirs() }
         val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val dst = File(dir, "imagine_${ts}_dl.mp4")
+        // 圖片(筆電測試片分頁才會有)照原本的副檔名存,所有作品才認得是圖;其他一律 mp4
+        val keep = ext.lowercase().takeIf { it in listOf(".png", ".jpg", ".jpeg", ".webp") } ?: ".mp4"
+        val dst = File(dir, "imagine_${ts}_dl$keep")
         if (!src.renameTo(dst)) {
             src.copyTo(dst, overwrite = true)
         }

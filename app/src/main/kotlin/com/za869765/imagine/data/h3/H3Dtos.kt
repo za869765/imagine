@@ -214,10 +214,13 @@ data class H3DownloadRequest(
     /** v3.3.3 筆電測試片:browse=true 且 name 空＝列清單;name 有值＝把那一支傳回手機 */
     val browse: Boolean = false,
     val name: String = "",
+    /** v3.3.5 清單一頁 40 個,從第幾個開始 */
+    val offset: Int = 0,
 )
 
 @Serializable
-data class H3LaptopFile(val name: String = "", val bytes: Long = 0, val mtime: Long = 0)
+/** kind＝video／image;dur＝影片秒數;thumb＝小縮圖(JPEG 的 base64),舊版工人沒有這三欄 */
+data class H3LaptopFile(val name: String = "", val bytes: Long = 0, val mtime: Long = 0, val kind: String = "video", val dur: Double = 0.0, val thumb: String = "")
 
 @Serializable
 data class H3DownloadCreated(@SerialName("run_id") val runId: String? = null)
@@ -234,6 +237,7 @@ data class H3DownloadStatus(
     val bytes: Long? = null,
     val parts: List<String> = emptyList(),
     val files: List<H3LaptopFile>? = null,
+    val total: Int? = null,
 )
 
 /** GET /api/app/subjects — H3 Studio 資產庫角色(face_locked＝已建臉部模型;voice＝有參考音)。 */
