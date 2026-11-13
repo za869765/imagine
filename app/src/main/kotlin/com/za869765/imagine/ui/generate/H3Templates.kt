@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
  */
 internal data class H3Template(val group: String, val title: String, val desc: String, val build: (refCount: Int) -> String)
 
-private const val WHO = "an adult woman in her late twenties with fair, translucent light-ivory skin with a soft peach-pink tint"  // 明寫年齡：只寫 adult woman 時，束馬尾的武俠題目臉會偏稚氣
+private const val WHO = "a 21-year-old adult woman with fair, translucent light-ivory skin with a soft peach-pink tint"  // 11/13 使用者定 21 歲（「太老裝年輕也很奇怪，確保成年就可以」）：一定保留 adult，不用 girl／少女／學生這類字；成品樣貌若不像成年人就不能用
 
 private fun host(refs: Int): String = when {
     refs >= 2 -> "<Picture 1> is the host, $WHO. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. "
@@ -75,7 +75,7 @@ private fun she(refs: Int): String =
 // v3.3.1 人物的個性與情緒：使用者說原本的成品「表情動作姿勢都死氣沉沉」，定位是「正向陽光、青春活潑親切俏皮、像真人」。
 // 這段與下面 lively() 的寫法是 11/13 實測後使用者選定的程度（e2e_lively12b）。有全裸畫面，所以同句明寫她是成年女性，只有舉止與笑聲青春。
 private const val LIVELY = "She is a warm, lively live-stream host with real personality: bright, smiling eyes, an easy genuine smile that comes and goes, expressive eyebrows, small natural head tilts and nods, and friendly, animated gestures; " +
-    "she keeps eye contact with the viewers and talks to them like regulars she is happy to see, with cheerful energy. Although she is a grown woman in her late twenties, her manner is youthful, bubbly, friendly and a little playful: " +
+    "she keeps eye contact with the viewers and talks to them like regulars she is happy to see, with cheerful energy. She is a grown adult woman with an adult figure, and her manner is youthful, bubbly, friendly and a little playful: " +
     "she bounces lightly on her toes, tilts her head, gives a quick wink, and breaks into a bright, light, bubbly giggle. She is never stiff, blank-faced or mechanical. "
 
 /** 講台詞那一句改成先笑出來、用開朗親切的語氣說；聲音描述補上笑聲（笑聲要寫在人物、動作、聲音三處才比較會真的出來）。 */
