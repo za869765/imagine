@@ -46,12 +46,12 @@ import kotlinx.coroutines.launch
  */
 internal data class H3Template(val group: String, val title: String, val desc: String, val build: (refCount: Int) -> String)
 
-private const val WHO = "an adult woman with fair, translucent light-ivory skin with a soft peach-pink tint"
+private const val WHO = "an adult woman in her late twenties with fair, translucent light-ivory skin with a soft peach-pink tint"  // 明寫年齡：只寫 adult woman 時，束馬尾的武俠題目臉會偏稚氣
 
 private fun host(refs: Int): String = when {
     refs >= 2 -> "<Picture 1> is the host, $WHO. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. "
     refs == 1 -> "<Picture 1> is the host, $WHO; keep exactly her face, body shape and proportions. "
-    else -> "The host is $WHO, in her twenties, with long black hair and a slim figure with long legs; keep exactly this body shape and proportions. "
+    else -> "The host is $WHO, with long black hair and a slim figure with long legs; keep exactly this body shape and proportions. "
 }
 
 private fun look(refs: Int): String =
