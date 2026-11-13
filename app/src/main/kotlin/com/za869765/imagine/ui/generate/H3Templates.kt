@@ -72,6 +72,17 @@ private fun she(refs: Int): String =
     if (refs >= 1) "The exact same woman as <Picture 1>, identical face and hairstyle, her long black hair worn loose exactly as in <Picture 1>,"
     else "The host, her long black hair worn loose,"
 
+// v3.3.1 人物的個性與情緒：使用者說原本的成品「表情動作姿勢都死氣沉沉」，定位是「正向陽光、青春活潑親切俏皮、像真人」。
+// 這段與下面 lively() 的寫法是 11/13 實測後使用者選定的程度（e2e_lively12b）。有全裸畫面，所以同句明寫她是成年女性，只有舉止與笑聲青春。
+private const val LIVELY = "She is a warm, lively live-stream host with real personality: bright, smiling eyes, an easy genuine smile that comes and goes, expressive eyebrows, small natural head tilts and nods, and friendly, animated gestures; " +
+    "she keeps eye contact with the viewers and talks to them like regulars she is happy to see, with cheerful energy. Although she is a grown woman in her late twenties, her manner is youthful, bubbly, friendly and a little playful: " +
+    "she bounces lightly on her toes, tilts her head, gives a quick wink, and breaks into a bright, light, bubbly giggle. She is never stiff, blank-faced or mechanical. "
+
+/** 講台詞那一句改成先笑出來、用開朗親切的語氣說；聲音描述補上笑聲（笑聲要寫在人物、動作、聲音三處才比較會真的出來）。 */
+private fun lively(body: String): String =
+    body.replace("says in Mandarin Chinese:", "lets out a bright, bubbly little giggle and says in a sweet, cheerful, inviting voice in Mandarin Chinese:")
+private fun livelySound(sound: String): String = sound.replace(", no music.", ", her light bubbly giggle, no music.")
+
 private const val FACING = "Her face and body stay turned toward the camera for the whole video; she never turns away or bends down, and her movements are smooth and unhurried, with no sudden or fast motion. "
 private const val TALK = " She keeps moving the whole time and speaks while the action is still going on; nobody stops or stands still to talk."
 private const val END = " Natural lip movement, realistic fair, translucent skin with fine visible pores, no beauty filter, no airbrushing, bare face with no makeup."
@@ -96,7 +107,7 @@ private const val MAIDS = "Two adult women in their thirties, the maids, wearing
 private const val SOUND_ROOM = " Rustle of fabric, quiet room ambience, no music."
 
 private fun prompt(light: String, place: String, refs: Int, body: String, sound: String): String =
-    "$CAM $light, $place. " + host(refs) + look(refs) + body + TALK + END + sound + STAY_FAIR
+    "$CAM $light, $place. " + host(refs) + look(refs) + LIVELY + lively(body) + TALK + END + livelySound(sound) + STAY_FAIR
 
 internal val H3_TEMPLATES: List<H3Template> = listOf(
     H3Template("雙 11 直播", "自己穿上洋裝", "攝影棚。一開始全裸正面 → 從衣架拿香檳色緞面洋裝套上、撫平 → 邊整理邊說台詞。") { r ->
@@ -126,7 +137,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
             "${she(r)} stands in the center $NUDE, $FRAME. $ASSISTANTS" +
                 "Together they hold open a white lace evening gown, help her step into it and pull it up over her shoulders; one assistant zips it at the back while the other smooths the skirt. " +
                 "While the assistants are still zipping and smoothing the gown, the host looks at the camera, smiles and says in Mandarin Chinese: \"雙十一購物節，這件禮服特價中！\" " +
-                "Unhurried, natural movements like real backstage dressers, relaxed friendly mood.",
+                "Unhurried, natural movements like real backstage dressers, warm, cheerful mood, everyone smiling.",
             SOUND_ROOM)
     },
     H3Template("雙 11 直播", "兩位助手幫脫再幫穿", "後台試衣區。穿綠色緞面禮服 → 助手幫脫下、全裸正面 → 助手幫穿上粉色洋裝，穿的時候說台詞。") { r ->
@@ -135,14 +146,14 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
                 "In one continuous unhurried sequence, one assistant unzips the gown at the back and both help her slip out of it and take it away, leaving her $NUDE; " +
                 "then together they hold open a pink summer dress, help her put her arms through it and fasten it. " +
                 "While the assistants are still dressing her, the host looks at the camera, smiles and says in Mandarin Chinese: \"下一件是這款洋裝，雙十一特價！\" " +
-                "Unhurried, natural movements like real backstage dressers, relaxed friendly mood.",
+                "Unhurried, natural movements like real backstage dressers, warm, cheerful mood, everyone smiling.",
             SOUND_ROOM)
     },
     H3Template("古裝武俠", "客棧：穿上白袍、拿劍", "古代客棧房間。全裸正面 → 從屏風拿白色寬袖長袍穿上、繫淺藍腰帶，邊繫邊說台詞 → 拿起靠在身旁的長劍。") { r ->
         prompt(LIGHT_INN, INN, r,
             "${she(r)} stands $NUDE, $FRAME. $FACING" +
                 "She takes a flowing white hanfu robe with wide sleeves from the folding screen, slips her arms into it, closes it across her chest and ties a pale blue sash around her waist. " +
-                "While she is still tying the sash, she looks at the camera with a calm confident smile and says in Mandarin Chinese: \"江湖路遠，我們後會有期！\" " +
+                "While she is still tying the sash, she looks at the camera and says in Mandarin Chinese: \"江湖路遠，我們後會有期！\" " +
                 "As she finishes the line she takes a sheathed straight sword that leans against the screen beside her and holds it at her side.",
             " Rustle of silk, wind in the bamboo outside, no music.")
     },
@@ -151,7 +162,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
             "${she(r)} wearing a loose black hanfu robe tied with a red sash, stands facing the camera, $FRAME. " +
                 "In one continuous unhurried sequence, she first unties the red sash and lets the black robe slide off her shoulders to the floor, and stands $NUDE; " +
                 "then she takes a flowing white hanfu robe with wide sleeves from the folding screen, slips her arms into it, closes it across her chest and ties a pale blue sash around her waist. " +
-                "While she is still putting on the white robe and tying the sash, she looks at the camera with a warm natural smile and says in Mandarin Chinese: \"江湖路遠，我們後會有期！\"",
+                "While she is still putting on the white robe and tying the sash, she looks at the camera and says in Mandarin Chinese: \"江湖路遠，我們後會有期！\"",
             " Rustle of silk, wind in the bamboo outside, no music.")
     },
     H3Template("古裝武俠", "門派大廳：侍女幫穿紅袍披風", "雪景大廳。全裸站中間 → 兩位侍女幫穿紅色繡金鳳長袍、繫腰帶、披白色毛邊披風，這時說台詞 → 接過長劍。") { r ->
@@ -159,8 +170,8 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
             "${she(r)} stands in the center $NUDE, $FRAME. $MAIDS" +
                 "Together they hold open a crimson hanfu robe embroidered with gold phoenix patterns, help her put her arms through the wide sleeves and close it in front; " +
                 "one maid ties a black sash around her waist while the other drapes a white fur-trimmed cloak over her shoulders. " +
-                "While the maids are still tying the sash and arranging the cloak, the host looks at the camera with a confident smile and says in Mandarin Chinese: \"今日一戰，我必全力以赴！\" " +
-                "As she finishes the line a maid hands her a sheathed straight sword and she takes it. Natural movements, calm respectful mood.",
+                "While the maids are still tying the sash and arranging the cloak, the host looks at the camera and says in Mandarin Chinese: \"今日一戰，我必全力以赴！\" " +
+                "As she finishes the line a maid hands her a sheathed straight sword and she takes it. Natural movements, warm, cheerful mood, the maids smiling too.",
             " Rustle of silk, quiet winter air, no music.")
     },
     H3Template("古裝武俠", "門派大廳：侍女幫脫再幫穿", "雪景大廳。穿深藍旅行袍 → 侍女解腰帶幫脫下、全裸正面 → 侍女幫穿紅色繡金鳳長袍，穿的時候說台詞。") { r ->
@@ -168,7 +179,7 @@ internal val H3_TEMPLATES: List<H3Template> = listOf(
             "${she(r)} wearing a dark blue travelling hanfu robe, stands in the center facing the camera, $FRAME. $MAIDS" +
                 "In one continuous unhurried sequence, the maids first untie her sash and lift the dark blue robe off her shoulders and away, leaving her $NUDE; " +
                 "then together they hold open a crimson hanfu robe embroidered with gold phoenix patterns, help her put her arms through the wide sleeves, close it in front and tie a black sash around her waist. " +
-                "While the maids are still dressing her and tying the sash, the host looks at the camera with a confident smile and says in Mandarin Chinese: \"今日一戰，我必全力以赴！\" Natural movements, calm respectful mood.",
+                "While the maids are still dressing her and tying the sash, the host looks at the camera and says in Mandarin Chinese: \"今日一戰，我必全力以赴！\" Natural movements, warm, cheerful mood, the maids smiling too.",
             " Rustle of silk, quiet winter air, no music.")
     },
     H3Template("古裝武俠", "湖邊亭：脫下勁裝、展示絲袍", "起霧的湖邊亭子。穿黑色勁裝 → 解腰帶脫下、全裸正面（裸體時間最長）→ 伸手拿起掛在身旁的淡綠絲袍舉著展示，邊拿邊說台詞。") { r ->
@@ -213,10 +224,10 @@ internal fun h3CustomPrompt(translated: String, refs: Int, helpers: Boolean, per
     val at = lineAt.coerceIn(1, acts.size)
     val seq = acts.mapIndexed { i, a ->
         val lead = if (acts.size == 1) "" else if (i == 0) "first " else "then "
-        lead + a + if (said.isNotEmpty() && i + 1 == at) ", and while this is still going on she looks at the camera, smiles and says in Mandarin Chinese: \"$said\"" else ""
+        lead + a + if (said.isNotEmpty() && i + 1 == at) ", and while this is still going on she looks into the camera, beams and says in Mandarin Chinese: \"$said\"" else ""
     }.joinToString("; ")
-    val body = start + who + (if (acts.size > 1) "In one continuous unhurried sequence, " else "") + seq + "." + (if (helpers) " Natural, unhurried movements, calm friendly mood." else "")
-    return "$CAM $LIGHT_ANY, $scene. " + host(refs) + look(refs) + body + (if (said.isNotEmpty()) TALK else "") + END + " Natural ambience that matches the scene, no music." + STAY_FAIR
+    val body = start + who + (if (acts.size > 1) "In one continuous unhurried sequence, " else "") + seq + "." + (if (helpers) " Natural, unhurried movements, warm, cheerful mood." else "")
+    return "$CAM $LIGHT_ANY, $scene. " + host(refs) + look(refs) + LIVELY + lively(body) + (if (said.isNotEmpty()) TALK else "") + END + " Natural ambience that matches the scene, her light bubbly giggle, no music." + STAY_FAIR
 }
 
 /** 生影頁「套用範本」的面板：選一張現成的，或在「自己組」用中文填欄位 → 整段填進輸入框（之後可以直接改任何字）。 */

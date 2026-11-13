@@ -121,6 +121,7 @@ fun H3GenerateScreen(
     var fair by rememberSaveable { mutableStateOf(prefs.h3Fair) }  // v3.2.7 白皙(只在筆電生效),預設開
     // v3.2.7 套了範本＝提示詞原樣送給模型(不包裝、不翻譯、不加眨眼包);清空提示詞或自己按掉就回到一般
     var rawPrompt by rememberSaveable { mutableStateOf(false) }
+    var fairMale by rememberSaveable { mutableStateOf(false) }  // v3.3.1 畫面裡有裸體男性:白皙多掛男性 LoRA;套雙主播範本時自動勾
     var translate by rememberSaveable { mutableStateOf(prefs.h3Translate) }
     var colabGpus by rememberSaveable { mutableStateOf(prefs.h3ColabGpus) }
     // v2.1.8 長片段數(1～4,每段接續上一段)與每段內容(空白＝導演大腦從主描述拆);資產庫角色(鎖臉鎖聲)
@@ -248,6 +249,7 @@ fun H3GenerateScreen(
             refVideoSeconds = if (motion) refVideoSec else null,
             autoRef = if (wantAutoRef) autoRefText.trim() else null,
             fair = fair && !motion,
+            fairMale = fair && fairMale && !motion,
             rawPrompt = rawPrompt && !motion && extendBase == null && segCount == 1,
         )
         estimating = true
@@ -518,7 +520,7 @@ fun H3GenerateScreen(
                 templateSheet = { onApply, onDismiss ->
                     H3TemplateSheet(
                         refCount = if (mode == "t2v") 0 else sourceStrings.size,
-                        onApply = { rawPrompt = true; if (tier == "low") seconds = 8; onApply(it) },  // 範本照 8 秒寫的（筆電上限）
+                        onApply = { rawPrompt = true; if (tier == "low") seconds = 8; fairMale = it.contains("HMPenis"); onApply(it) },  // 範本照 8 秒寫的（筆電上限）
                         onDismiss = onDismiss,
                     )
                 },
@@ -554,6 +556,21 @@ fun H3GenerateScreen(
                         Text(
                             if (tier == "low") "改用 PRISM 8 步、672×1120，成品自動調白；調白後和原片都會存到手機。8 秒約 20 分。換人模式不適用。"
                             else "改用完整版 PRISM 8 步＋胸部 LoRA、768×1344，成品自動調白；調白後和原片都會存到手機。換人、首幀模式不適用。",
+                            fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            if (fair) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { fairMale = !fairMale },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = fairMale, onCheckedChange = { fairMale = it })
+                    Column {
+                        Text("畫面裡有裸體男性（多掛男性 LoRA）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "男女雙主播或男主播的題材才勾；只有女性時不要勾，會影響畫面。套用雙主播範本時會自動勾上。",
                             fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

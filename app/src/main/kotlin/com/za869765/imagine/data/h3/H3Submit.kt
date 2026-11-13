@@ -41,6 +41,8 @@ data class PendingH3(
     val fair: Boolean = false,
     // v3.2.7 範本:提示詞原樣送出(不包裝、不翻譯、不加眨眼包);舊紀錄沒這欄＝照原本的包裝
     val rawPrompt: Boolean = false,
+    // v3.3.1 白皙＋畫面裡有裸體男性:多掛男性人體部位 LoRA(舊紀錄沒這欄＝沒掛)
+    val fairMale: Boolean = false,
 )
 
 /** 筆電工人認得的 V2 檔名(local_agent.LOCAL_V2) */
@@ -130,6 +132,7 @@ object H3Submit {
                 if (pending.translate && !raw) put("translate", kotlinx.serialization.json.JsonPrimitive(true))
                 // v3.3.0 白皙三種機器都能做(筆電壓縮版 PRISM、GPUtw／Colab 完整 int8 版);換人、首幀模式機器端自動照一般設定
                 if (pending.fair) put("fair", kotlinx.serialization.json.JsonPrimitive(true))
+                if (pending.fair && pending.fairMale) put("fair_male", kotlinx.serialization.json.JsonPrimitive(true))
                 if (pending.model == "prism" && pending.route == "gputw") {
                     put("unet", kotlinx.serialization.json.JsonPrimitive(H3_PRISM_UNET))
                     put("steps", kotlinx.serialization.json.JsonPrimitive(8))  // 8 步加速已燒進權重
