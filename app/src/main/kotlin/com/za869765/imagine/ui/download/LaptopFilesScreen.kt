@@ -113,6 +113,7 @@ fun LaptopFilesScreen(
     val total by Downloader.laptopTotal.collectAsState()
     val fetched by Downloader.laptopFetched.collectAsState()
     val deleting by Downloader.laptopDeleting.collectAsState()
+    val recipeBusy by Downloader.laptopRecipeBusy.collectAsState()
     val loading by Downloader.laptopLoading.collectAsState()
     val error by Downloader.laptopError.collectAsState()
     var confirmDelete by remember { mutableStateOf<String?>(null) }
@@ -337,6 +338,15 @@ fun LaptopFilesScreen(
                                 Text(f.base, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 val st = statusText(f)
                                 Text(st.first, fontSize = 12.sp, color = if (st.second) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                                // v3.5.1 有配方的片:抓到手機後可以加進最近成品,在那裡再生成一次／調整後再生成／往後續做
+                                if (f.recipe && f.base in fetched) {
+                                    TextButton(
+                                        onClick = { Downloader.addRecipeToResults(ctx, f) { m -> android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_LONG).show() } },
+                                        enabled = f.name !in recipeBusy,
+                                    ) { Text(if (f.name in recipeBusy) "加入中…" else "加入最近成品（再做／微調／續做）", fontSize = 12.sp) }
+                                } else if (f.recipe) {
+                                    Text("有配方：抓到手機後可加入最近成品再做", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                }
                                 val t = taskOf(f)
                                 if (t != null && t.status == Status.RUNNING) {
                                     if (t.progress > 0f) {
@@ -359,7 +369,7 @@ fun LaptopFilesScreen(
                 OutlinedButton(onClick = { shown += 60 }, modifier = Modifier.fillMaxWidth()) { Text("再顯示 60 個（還有 ${list.size - shown} 個）") }
             }
             Text(
-                "清單會存在手機裡，開分頁立刻顯示，再自動向筆電補上新檔。筆電上刪過檔或改過名，按「整份重讀」。" +
+                "清單會存在手機裡，開分頁立刻顯示，再自動向筆電補上新檔。筆電上刪過檔或改過名，按「整份重讀」。標「有配方」的片（清單檢視才看得到按鈕）抓到手機後可以加進「最近成品」，在那裡再生成、微調或往後續做。" +
                     "點「抓到手機」才由筆電經 Cloudflare 暫存傳過來，存進「所有作品」後暫存就刪掉，不經雲端硬碟。筆電要開著、工人要在跑。",
                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

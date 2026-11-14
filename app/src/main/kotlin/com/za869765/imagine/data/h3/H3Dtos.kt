@@ -220,13 +220,17 @@ data class H3DownloadRequest(
     val delete: Boolean = false,
     /** v3.4.9 測試片來源:"desk"＝桌機、"local"＝筆電;不帶＝伺服器決定(桌機在線就桌機) */
     val source: String? = null,
+    /** v3.5.1 browse＋name＋recipe＝只要這支片的配方(提示詞、秒數、種子、參考圖檔名) */
+    val recipe: Boolean = false,
 )
 
 @Serializable
 /** kind＝video／image;dur＝影片秒數;thumb＝小縮圖(JPEG 的 base64),舊版工人沒有這三欄 */
 data class H3LaptopFile(val name: String = "", val bytes: Long = 0, val mtime: Long = 0, val kind: String = "video", val dur: Double = 0.0, val thumb: String = "",
                         /** v3.4.5 所在的日期資料夾(YYYY-MM-DD);name 可能帶「日期/」前綴 */
-                        val day: String = "") {
+                        val day: String = "",
+                        /** v3.5.1 這支片有留配方(可加進最近成品再做、微調、續做) */
+                        val recipe: Boolean = false) {
     /** 不含日期資料夾的檔名(顯示、比對「已傳」用) */
     val base: String get() = name.substringAfterLast('/')
 }
@@ -248,6 +252,25 @@ data class H3DownloadStatus(
     val files: List<H3LaptopFile>? = null,
     val total: Int? = null,
     val deleted: String? = null,
+    val recipe: H3Recipe? = null,
+)
+
+/** v3.5.1 測試片的配方:送件當下的設定。refs＝參考圖檔名(到測試資料夾的 _recipes/refs/ 拿) */
+@Serializable
+data class H3Recipe(
+    val prompt: String = "",
+    val beats: List<String> = emptyList(),
+    val seconds: Int = 5,
+    val segments: Int = 1,
+    val quality: String = "normal",
+    val mode: String = "ref",
+    val aspect: String = "9:16",
+    val seed: Long? = null,
+    @SerialName("raw_prompt") val rawPrompt: Boolean = false,
+    val fair: Boolean = false,
+    @SerialName("fair_male") val fairMale: Boolean = false,
+    val route: String = "desk",
+    val refs: List<String> = emptyList(),
 )
 
 /** GET /api/app/subjects — H3 Studio 資產庫角色(face_locked＝已建臉部模型;voice＝有參考音)。 */

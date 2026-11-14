@@ -9,7 +9,10 @@ import android.provider.MediaStore
 import androidx.core.net.toUri
 import com.za869765.imagine.data.h3.H3Client
 import com.za869765.imagine.data.h3.H3DownloadRequest
+import com.za869765.imagine.data.h3.H3Jobs
 import com.za869765.imagine.data.h3.H3LaptopFile
+import com.za869765.imagine.data.h3.H3Recipe
+import com.za869765.imagine.data.h3.PendingH3
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.PromptIndex
 import kotlinx.coroutines.CoroutineScope
@@ -117,6 +120,106 @@ object Downloader {
         if (gone.isNotEmpty()) setFetched(app) { s -> s.filterNot { it in gone || it.substringBeforeLast('.') in gone }.toSet() }
         tasks.update { l -> l.filterNot { it.status == Status.DONE && it.url.startsWith(LAPTOP_PREFIX) && it.url.removePrefix(LAPTOP_PREFIX).substringAfterLast('/') !in keep } }
         return n to bytes
+    }
+
+    /** v3.5.1 正在把哪幾支測試片加進最近成品 */
+    val laptopRecipeBusy = MutableStateFlow<Set<String>>(emptySet())
+
+    /** 手機上這支測試片存在哪(所有作品裡的 file uri);沒抓過回 null */
+    private fun phoneCopy(app: Context, base: String): String? {
+        val stem = base.substringBeforeLast('.')
+        return File(app.filesDir, "media").listFiles()?.firstOrNull { f ->
+            val t = PromptIndex.get(app, f.name)?.takeIf { it.startsWith("筆電測試片：") }?.removePrefix("筆電測試片：")?.trim()
+            t != null && (t == stem || t == base)
+        }?.toUri()?.toString()
+    }
+
+    /** 向測試片那台要一個小檔(配方的參考圖):回傳內容,失敗回 null;用完請伺服器刪暫存 */
+    private suspend fun fetchSmall(prefs: SecurePrefs, name: String): ByteArray? {
+        val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = name, source = src()))
+        val runId = (created as? H3Client.Result.Ok)?.value?.runId ?: return null
+        try {
+            for (i in 0 until 80) {
+                delay(1500)
+                val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: continue
+                if (s.status == "failed" || s.status == "cancelled") return null
+                if (s.status == "done" && s.parts.isNotEmpty()) {
+                    val out = java.io.ByteArrayOutputStream()
+                    for (p in s.parts) {
+                        val ok = H3Client.download(prefs, p) { input -> input.copyTo(out); true }
+                        if (ok != true) return null
+                    }
+                    return out.toByteArray()
+                }
+            }
+            return null
+        } finally {
+            H3Client.forget(prefs, runId)
+        }
+    }
+
+    /**
+     * v3.5.1 把一支有配方的測試片加進「最近成品」:之後就能比照自己生成的成品「再生成一次／調整後再生成／往後續做」。
+     * 要先把這支片抓到手機(最近成品要顯示它)。配方與參考圖從測試片那台取回,參考圖存在手機。onDone 回一句結果(在主執行緒)。
+     */
+    fun addRecipeToResults(ctx: Context, f: H3LaptopFile, onDone: (String) -> Unit) {
+        if (f.name in laptopRecipeBusy.value) return
+        val app = ctx.applicationContext
+        val prefs = SecurePrefs.get(app)
+        laptopRecipeBusy.update { it + f.name }
+        scope.launch {
+            var msg = "取配方失敗，稍後再試"
+            try {
+                val saved = phoneCopy(app, f.base)
+                if (saved == null) {
+                    msg = "請先把這支片抓到手機，再加入最近成品"
+                } else {
+                    val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = f.name, recipe = true, source = src()))
+                    val runId = (created as? H3Client.Result.Ok)?.value?.runId
+                    var rec: H3Recipe? = null
+                    if (runId == null) {
+                        msg = (created as? H3Client.Result.Err)?.message ?: msg
+                    } else {
+                        for (i in 0 until 60) {
+                            delay(1500)
+                            val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: continue
+                            if (s.status == "done") { rec = s.recipe; if (rec == null) msg = "那台的工人還沒更新到會給配方的版本，晚點再試"; break }
+                            if (s.status == "failed" || s.status == "cancelled") { msg = "取配方失敗：" + (s.error?.take(120) ?: ""); break }
+                        }
+                        H3Client.forget(prefs, runId)
+                    }
+                    val r = rec
+                    if (r != null) {
+                        val dir = File(app.filesDir, "recipe_refs").apply { mkdirs() }
+                        val sources = mutableListOf<String>()
+                        for (name in r.refs) {
+                            val dst = File(dir, name.substringAfterLast('/'))
+                            if (!dst.exists() || dst.length() == 0L) {
+                                val bytes = fetchSmall(prefs, "_recipes/refs/" + dst.name) ?: throw IllegalStateException("參考圖抓不回來")
+                                dst.writeBytes(bytes)
+                            }
+                            sources += dst.toUri().toString()
+                        }
+                        val stem = f.base.substringBeforeLast('.')
+                        val pending = PendingH3(
+                            prompt = r.prompt, sources = sources, seconds = r.seconds, quality = r.quality, mode = r.mode, aspect = r.aspect, route = r.route,
+                            segments = r.segments, beats = r.beats, clientRequestId = UUID.randomUUID().toString(), estimate = null, seed = r.seed,
+                            fair = r.fair, rawPrompt = r.rawPrompt, fairMale = r.fairMale,
+                        )
+                        H3Jobs.add(app, H3Jobs.Job(
+                            runId = "clip_" + Integer.toHexString(stem.hashCode()), prompt = r.prompt, quality = r.quality, seconds = r.seconds * r.segments, estCu = 0.0,
+                            createdAtMs = f.mtime, status = "done", savedUri = saved, kind = "video", meta = "測試片：$stem", keepInStudio = false, forgotten = true,
+                            route = r.route, seed = r.seed, finishedAtMs = f.mtime, sources = sources, repeatVideo = pending,
+                        ))
+                        msg = "已加入「最近成品」，可以再生成一次、調整後再生成、往後續做"
+                    }
+                }
+            } catch (e: Throwable) {
+                msg = "加入失敗：" + (e.message ?: "")
+            }
+            laptopRecipeBusy.update { it - f.name }
+            kotlinx.coroutines.withContext(Dispatchers.Main) { onDone(msg) }
+        }
     }
 
     /** 正在請筆電刪除的檔名 */
