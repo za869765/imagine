@@ -667,18 +667,18 @@ private const val T16_0 =
     "in the centre of the frame between the tubs, on a small wooden stool, stands a large white bottle of body wash, in sharp focus, with a big, bold, " +
     "shiny gold crown emblem on its front as the brand logo, clearly visible for the whole video. <Picture 1> is the princess, " +
     "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
-    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is the prince, her twin brother, " +
-    "an adult man of the same age with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is the prince, her fiancé, " +
+    "an adult man in his late twenties with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
     "<Picture 4> shows his body from the neck down; keep exactly this athletic body shape. " +
     "The princess sits upright in the left tub and the prince sits upright in the right tub, " +
     "each nude in their own tub with the foam and water covering them from the waist down, shoulders, backs and arms wet and bare. " +
-    "They are brother and sister, cheerful and teasing like siblings; each stays in their own tub and they never touch each other. " +
+    "They are a young engaged couple with no family relation, happy and playful together, glancing at each other with soft, adoring smiles; each stays in their own tub. " +
     "Her long black hair is pinned up in a loose bun. Two adult servants in their thirties, " +
     "fully dressed in plain linen servant clothes with rolled-up sleeves, " +
     "attend them: a maid kneels behind the princess's tub and a manservant kneels behind the prince's tub. " +
     "The servants touch only their backs and shoulders. In one continuous unhurried sequence, " +
     "each servant works creamy body wash into a sea sponge and scrubs their back and shoulders with slow, round strokes, " +
-    "white foam sliding down their skin; the twins glance at each other, the princess scoops up a handful of foam and blows it toward her brother, " +
+    "white foam sliding down their skin; the couple glance at each other, the princess scoops up a handful of foam and blows it toward him, " +
     "he ducks and flicks a little foam back, and both burst out laughing. While the servants are still scrubbing, " +
     "the princess points at the bottle with the gold crown, looks into the camera and says in a sweet, " +
     "cheerful voice in Mandarin Chinese: \"皇冠沐浴乳，洗完香一整天！\" and right after her the prince grins and says in Mandarin Chinese: \"我也要多擠一點！\" Everyone takes their time; " +
@@ -829,7 +829,7 @@ internal val H3_TEMPLATES_MORE: List<H3Template> = listOf(
     H3Template("沐浴廣告", "城堡公主：女僕洗頭（洗髮精）", "女僕把洗髮精搓進濕髮、按摩頭皮，泡沫堆滿頭。建議 12 秒。放 2 張參考圖。") { _ -> T13_0 },
     H3Template("沐浴廣告", "城堡公主：僕人服侍沐浴全程（四段）", "站在淺銅盆裡全裸。第 1 段淋水、洗肩背手臂；第 2 段洗小腿膝蓋大腿外側與腳趾；第 3 段她自己洗胸口肚子與私處（帶過）、僕人沖水；第 4 段僕人幫圍浴巾、拿起皇冠標誌的瓶子講台詞。泡沫薄、不遮身體。建議每段 12 秒、雲端。放 2 張參考圖。", beats = { _ -> listOf(T14_0, T14_1, T14_2, T14_3) }) { _ -> T14_0 },
     H3Template("沐浴廣告", "城堡新婚夫妻：同一個大浴池", "大圓形石砌浴池，兩人並肩泡著、僕人各在身後搓背；點泡沫、摟肩、親太陽穴。前景有皇冠標誌的瓶子。建議 12 秒。放 4 張參考圖：女臉、女身材、男臉、男身材。") { _ -> T15_0 },
-    H3Template("沐浴廣告", "城堡龍鳳胎：各泡各的浴缸", "兩個銅浴缸並排，兄妹各自被僕人搓背、互相吹泡沫打鬧。前景有皇冠標誌的瓶子。建議 12 秒。放 4 張參考圖：女臉、女身材、男臉、男身材。") { _ -> T16_0 },
+    H3Template("沐浴廣告", "城堡訂婚情侶：各泡各的浴缸", "兩個銅浴缸並排，一對沒有親屬關係的訂婚情侶各自被僕人搓背、互相吹泡沫打鬧（尚未實測）。前景有皇冠標誌的瓶子。建議 12 秒。放 4 張參考圖：女臉、女身材、男臉、男身材。") { _ -> T16_0 },
     H3Template("溫泉", "新婚夫妻：全裸下水、上岸穿浴衣（兩段）", "戶外溫泉、黃昏、清湯。第 1 段兩人全裸走進池子、並肩泡著、摟肩親額頭；第 2 段牽手上岸、輕吻、各自穿上浴衣、摟腰。建議每段 10 秒、雲端。放 4 張參考圖：女臉、女身材、男臉、男身材。", beats = { _ -> listOf(T17_0, T17_1) }) { _ -> T17_0 },
     H3Template("溫泉", "兄妹：泡湯、上岸喝牛奶（兩段）", "清湯、寬景，兩人各在池子一邊、水到肩膀聊天；第 2 段穿浴衣在木平台喝牛奶。建議每段 10 秒。放 4 張參考圖：女臉、女身材、男臉、男身材。", beats = { _ -> listOf(T18_0, T18_1) }) { _ -> T18_0 },
     H3Template("溫泉", "父女：泡湯、上岸喝牛奶（兩段）", "同上，人物是父親與成年的女兒。建議每段 10 秒。放 2 張參考圖（女兒的臉＋頸部以下身材），父親由文字描述。", beats = { _ -> listOf(T19_0, T19_1) }) { _ -> T19_0 },
