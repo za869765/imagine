@@ -170,10 +170,20 @@ object Downloader {
     /** 向筆電要一頁清單(40 個);回(這一頁, 資料夾總數, 錯誤訊息) */
     private suspend fun fetchPage(ctx: Context, offset: Int): Triple<List<H3LaptopFile>, Int, String?> {
         val prefs = SecurePrefs.get(ctx.applicationContext)
-        val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
-        val runId = when (created) {
-            is H3Client.Result.Ok -> created.value.runId
-            is H3Client.Result.Err -> return Triple(emptyList(), 0, created.message)
+        // 列清單可以放心重送:剛切回 APP 或剛換網路時,第一次連線常常失敗(送出用的連線不會自動重試),所以連不上就隔一下再試,最多三次
+        var created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
+        var tries = 0
+        while (tries < 2) {
+            val err = created as? H3Client.Result.Err ?: break
+            if (!err.uncertain || err.code != 0) break
+            tries++
+            delay(1500)
+            created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
+        }
+        val made = created
+        val runId = when (made) {
+            is H3Client.Result.Ok -> made.value.runId
+            is H3Client.Result.Err -> return Triple(emptyList(), 0, made.message)
         } ?: return Triple(emptyList(), 0, "伺服器沒有回單號")
         for (i in 0 until 120) {
             delay(1000)
