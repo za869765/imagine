@@ -276,7 +276,13 @@ data class H3Machine(
 )
 
 @Serializable
-data class H3MachineBoard(val machines: List<H3Machine> = emptyList(), val alerts: List<String> = emptyList())
+data class H3MachineBoard(
+    val machines: List<H3Machine> = emptyList(),
+    val alerts: List<String> = emptyList(),
+    // v3.4.8 標題列燈號用：Colab 剩幾 CU、GPUtw 剩幾元（伺服器不知道時是 null）
+    @SerialName("cu_balance") val cuBalance: Double? = null,
+    @SerialName("ntd_balance") val ntdBalance: Double? = null,
+)
 
 // ── v2.0.7 H3 Studio 生圖(Qwen-Image 2.1)與 ✨ 優化提示詞。欄位對齊 [[path]].js 的 app/images 與 app/prompt/optimize ──
 

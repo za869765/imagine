@@ -171,7 +171,7 @@ fun MachineChips(board: List<H3Machine>, routes: List<String>, highlight: String
     val list = routes.mapNotNull { r -> board.firstOrNull { it.route == r } }
     if (list.isEmpty()) return
     var open by remember { mutableStateOf(false) }
-    val short = mapOf("local" to "筆電", "gputw" to "影片機", "gputw_image" to "製圖機", "cloud" to "Colab")
+    val short = mapOf("local" to "筆電", "desk" to "桌機", "gputw" to "影片機", "gputw_image" to "製圖機", "cloud" to "Colab")
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         FlowRow(
             modifier = Modifier.clickable { open = !open },

@@ -50,6 +50,7 @@ fun ImagineTopAppBar(
                 .weight(1f)
                 .padding(start = 4.dp),
         )
+        MachineLightsRow()  // v3.4.8 四台機器的燈號與餘額
         if (trailing != null) {
             trailing()
         } else {

@@ -95,6 +95,7 @@ object H3Format {
     fun routeName(r: String?): String = when (r) {
         "auto" -> "自動"
         "local" -> "筆電 3070"
+        "desk" -> "桌機 5080"
         "gputw_image" -> "製圖機（GPUtw 5090）"
         "gputw" -> "GPUtw 5090（影片機）"
         "cloud" -> "Colab A100"
@@ -104,6 +105,7 @@ object H3Format {
     fun routeShort(r: String?): String = when (r) {
         "auto" -> "自動"
         "local" -> "筆電"
+        "desk" -> "桌機"
         "gputw_image" -> "製圖機"
         "gputw" -> "GPUtw 5090"
         "cloud" -> "Colab"
