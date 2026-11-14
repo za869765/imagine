@@ -677,6 +677,8 @@ fun ImagineRoot() {
                             "use_prompt" -> {
                                 navController.currentBackStackEntry?.savedStateHandle?.apply {
                                     set(KEY_INIT_PROMPT, p)
+                                    // v3.5.7 測試片是 H3 做的:套用後直接開 H3 引擎,不要落在 Grok
+                                    if (com.za869765.imagine.data.download.Downloader.clipTitleOf(ctx, e.displayName) != null) set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3)
                                 }
                                 navController.navigate(if (e.isVideo) Routes.GENERATE_VIDEO else Routes.GENERATE_IMAGE)
                             }

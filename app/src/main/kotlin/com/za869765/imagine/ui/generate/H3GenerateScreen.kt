@@ -150,7 +150,7 @@ fun H3GenerateScreen(
         DraftStore.save(ctx, com.za869765.imagine.data.download.Downloader.RECIPE_APPLY_DRAFT, "")
         val a = runCatching { H3Client.json.decodeFromString(com.za869765.imagine.data.h3.H3RecipeApply.serializer(), raw) }.getOrNull() ?: return@LaunchedEffect
         val segs = a.beats.ifEmpty { listOf(a.prompt) }
-        tier = "desk"
+        tier = if (a.route == "local") "low" else "desk"
         if (a.sources.isNotEmpty()) { sourceStrings = a.sources; mode = "ref" } else mode = "t2v"
         segCount = segs.size.coerceIn(1, 4)
         beats = (segs + List(4) { "" }).take(4)
@@ -159,7 +159,7 @@ fun H3GenerateScreen(
         fairMale = a.fairMale
         prompt = segs[0]
         rawPrompt = true
-        android.widget.Toast.makeText(ctx, "已照測試片配方設好：${segs.size} 段、每段 ${a.seconds} 秒、參考圖 ${a.sources.size} 張", android.widget.Toast.LENGTH_LONG).show()
+        android.widget.Toast.makeText(ctx, "已照測試片配方設好：${segs.size} 段、每段 ${a.seconds} 秒、參考圖 ${a.sources.size} 張、機器 " + (if (a.route == "local") "筆電" else "桌機") + (if (a.note.isNotBlank()) "。" + a.note else ""), android.widget.Toast.LENGTH_LONG).show()
     }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 

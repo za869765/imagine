@@ -144,7 +144,9 @@ fun HistoryDetailScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionHeader("測試片配方")
                     Text(clipTitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (r == null) {
+                    if (r == null && com.za869765.imagine.data.download.Downloader.clipHasNoRecipe(ctx, entry.displayName)) {
+                        Text("這支片沒有配方（較早的片或不是用腳本送的），只能看影片。", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else if (r == null) {
                         val busy = entry.displayName in recipeBusy
                         androidx.compose.material3.OutlinedButton(
                             enabled = !busy,
@@ -155,7 +157,7 @@ fun HistoryDetailScreen(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text(if (busy) "讀取中…（桌機或筆電要開著）" else "讀取這支片的配方（提示詞、段數、參考圖）") }
+                        ) { Text(if (busy) "讀取中…（會自動重試，桌機或筆電要開著）" else "重新讀取配方（下載時會自動讀，讀不到才需要按）") }
                     } else {
                         val segs = r.beats.ifEmpty { listOf(r.prompt) }
                         Text("${segs.size} 段・每段 ${r.seconds} 秒・參考圖 ${r.refs.size} 張（AI 生成的人物）" + (if (r.fair) "・白皙" else "") + (if (r.fairMale) "（含男性）" else "") + (r.seed?.let { "・種子 $it" } ?: ""),
@@ -164,7 +166,7 @@ fun HistoryDetailScreen(
                             enabled = !applying,
                             onClick = {
                                 applying = true
-                                com.za869765.imagine.data.download.Downloader.prepareRecipeApply(ctx, r) { err ->
+                                com.za869765.imagine.data.download.Downloader.prepareRecipeApply(ctx, r, clipTitle) { err ->
                                     applying = false
                                     if (err != null) android.widget.Toast.makeText(ctx, err, android.widget.Toast.LENGTH_LONG).show() else onAction("apply_recipe")
                                 }

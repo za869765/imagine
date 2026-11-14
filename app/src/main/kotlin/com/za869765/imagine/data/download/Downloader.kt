@@ -83,6 +83,7 @@ object Downloader {
         if (fetchedLoaded) return
         fetchedLoaded = true
         laptopFetched.value = fetchedPrefs(ctx.applicationContext).getStringSet("names", emptySet()).orEmpty().toSet()
+        backfillClipRecipes(ctx)
         if (laptopList.value == null) {
             runCatching { H3Client.json.decodeFromString(ListSerializer(H3LaptopFile.serializer()), cacheFile(ctx.applicationContext).readText()) }.getOrNull()
                 ?.takeIf { it.isNotEmpty() }?.let { laptopList.value = it; laptopTotal.value = it.size }
@@ -136,42 +137,94 @@ object Downloader {
     }
     val clipRecipeBusy = MutableStateFlow<Set<String>>(emptySet())
     /** 向測試片那台要這支片的配方,存起來;onDone(有沒有拿到, 訊息) 在主執行緒 */
+    /** 這支片確定沒有配方(早期沒編號的片):詳情頁直接寫,不放按鈕 */
+    fun clipHasNoRecipe(ctx: Context, displayName: String): Boolean {
+        if (clipPrefs(ctx.applicationContext).getBoolean("n:$displayName", false)) return true
+        val title = clipTitleOf(ctx, displayName) ?: return false
+        val hit = laptopList.value?.firstOrNull { it.base.substringBeforeLast('.') == title }
+        return hit != null && !hit.recipe
+    }
+    /** 原片是哪台做的(檔名第二段的第一個字:L 筆電、R 桌機、C Colab、G GPUtw) */
+    fun machineOf(title: String): Char? = title.split('_').getOrNull(1)?.firstOrNull()?.uppercaseChar()
+    fun reproduceRoute(title: String?): Pair<String, String> = when (title?.let { machineOf(it) }) {
+        'L' -> "local" to ""
+        'R' -> "desk" to ""
+        'C' -> "desk" to "原片是 Colab 做的，換到桌機不會一模一樣；要重現請把機器改成超高畫質（Colab，會花 CU）"
+        'G' -> "desk" to "原片是 GPUtw 做的，換到桌機不會一模一樣；要重現請把機器改成高畫質（GPUtw，會花台幣）"
+        else -> "desk" to ""
+    }
+
+    /** 一次取配方:回 1＝拿到、0＝確定沒有、-1＝這次沒拿到(機器忙、版本舊、逾時),可以再試 */
+    private suspend fun tryRecipeOnce(app: Context, prefs: SecurePrefs, displayName: String, clipName: String, source: String?): Pair<Int, String> {
+        val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = clipName, recipe = true, source = source))
+        val runId = (created as? H3Client.Result.Ok)?.value?.runId ?: return -1 to ((created as? H3Client.Result.Err)?.message ?: "伺服器沒有回單號")
+        try {
+            for (i in 0 until 60) {
+                delay(1500)
+                val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: continue
+                if (s.status == "done") {
+                    val r = s.recipe ?: return -1 to "那台的工人還沒更新到會給配方的版本"
+                    clipPrefs(app).edit().putString("r:$displayName", H3Client.json.encodeToString(H3Recipe.serializer(), r)).remove("n:$displayName").apply()
+                    PromptIndex.put(app, displayName, recipeText(r))
+                    return 1 to "已讀到配方"
+                }
+                if (s.status == "failed" || s.status == "cancelled") {
+                    val e = s.error.orEmpty()
+                    return if ("沒有留下配方" in e) 0 to "這支片沒有配方（較早的片或不是用腳本送的）" else -1 to (e.take(120).ifBlank { "取配方失敗" })
+                }
+            }
+            return -1 to "那台兩分鐘內沒有回應"
+        } finally {
+            H3Client.forget(prefs, runId)
+        }
+    }
+
+    /** 取這支片的配方:先問目前的來源(自動＝桌機優先),沒拿到再問筆電;都沒拿到就隔一分鐘再試,最多三輪 */
     fun fetchClipRecipe(ctx: Context, displayName: String, clipName: String, onDone: ((Boolean, String) -> Unit)? = null) {
         val app = ctx.applicationContext
         if (displayName in clipRecipeBusy.value) return
         clipRecipeBusy.update { it + displayName }
         scope.launch {
             var ok = false
-            var msg = "這支片沒有留下配方（較早的片或不是用腳本送的）"
+            var msg = "讀不到配方，稍後再試"
             try {
                 val prefs = SecurePrefs.get(app)
-                val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = clipName, recipe = true, source = src()))
-                val runId = (created as? H3Client.Result.Ok)?.value?.runId
-                if (runId == null) msg = (created as? H3Client.Result.Err)?.message ?: "伺服器沒有回單號"
-                else {
-                    for (i in 0 until 60) {
-                        delay(1500)
-                        val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: continue
-                        if (s.status == "done") {
-                            val r = s.recipe
-                            if (r != null) {
-                                clipPrefs(app).edit().putString("r:$displayName", H3Client.json.encodeToString(H3Recipe.serializer(), r)).apply()
-                                PromptIndex.put(app, displayName, recipeText(r))
-                                ok = true; msg = "已讀到配方"
-                            }
-                            break
-                        }
-                        if (s.status == "failed" || s.status == "cancelled") { msg = s.error?.take(120) ?: msg; break }
+                val sources = listOf(src(), "local", "desk").distinct()
+                rounds@ for (round in 0 until 3) {
+                    var definitiveNone = 0
+                    for (s in sources) {
+                        val (code, m) = tryRecipeOnce(app, prefs, displayName, clipName, s)
+                        msg = m
+                        if (code == 1) { ok = true; break@rounds }
+                        if (code == 0) definitiveNone++
                     }
-                    H3Client.forget(prefs, runId)
+                    if (definitiveNone == sources.size) { clipPrefs(app).edit().putBoolean("n:$displayName", true).apply(); break }
+                    if (round < 2) delay(60_000)
                 }
             } catch (e: Throwable) { msg = "讀配方失敗：" + (e.message ?: "") }
             clipRecipeBusy.update { it - displayName }
             if (onDone != null) kotlinx.coroutines.withContext(Dispatchers.Main) { onDone(ok, msg) }
         }
     }
+
+    /** v3.5.7 手機上已經有、還沒有配方的測試片:背景一支一支補讀(每次開 APP 跑一輪) */
+    private var backfillStarted = false
+    fun backfillClipRecipes(ctx: Context) {
+        if (backfillStarted) return
+        backfillStarted = true
+        val app = ctx.applicationContext
+        scope.launch {
+            val files = File(app.filesDir, "media").listFiles().orEmpty()
+            for (f in files) {
+                val title = clipTitleOf(app, f.name) ?: continue
+                if (clipRecipeOf(app, f.name) != null || clipHasNoRecipe(app, f.name)) continue
+                fetchClipRecipe(app, f.name, "$title.mp4")
+                while (f.name in clipRecipeBusy.value) delay(2000)
+            }
+        }
+    }
     /** 整組套用:參考圖抓到手機後寫進草稿,生影頁一打開就照配方設好(段數、每段原文、秒數、參考圖、白皙),機器先放桌機 */
-    fun prepareRecipeApply(ctx: Context, r: H3Recipe, onReady: (String?) -> Unit) {
+    fun prepareRecipeApply(ctx: Context, r: H3Recipe, title: String?, onReady: (String?) -> Unit) {
         val app = ctx.applicationContext
         scope.launch {
             var err: String? = null
@@ -187,7 +240,8 @@ object Downloader {
                     }
                     sources += dst.toUri().toString()
                 }
-                val a = H3RecipeApply(prompt = r.prompt, beats = r.beats, seconds = r.seconds, fair = r.fair, fairMale = r.fairMale, sources = sources)
+                val (route, note) = reproduceRoute(title)
+                val a = H3RecipeApply(prompt = r.prompt, beats = r.beats, seconds = r.seconds, fair = r.fair, fairMale = r.fairMale, sources = sources, route = route, note = note)
                 com.za869765.imagine.data.prefs.DraftStore.save(app, RECIPE_APPLY_DRAFT, H3Client.json.encodeToString(H3RecipeApply.serializer(), a))
             } catch (e: Throwable) { err = e.message ?: "準備失敗" }
             kotlinx.coroutines.withContext(Dispatchers.Main) { onReady(err) }
@@ -277,14 +331,14 @@ object Downloader {
                         val pending = PendingH3(
                             prompt = r.prompt, sources = sources, seconds = r.seconds, quality = r.quality, mode = r.mode, aspect = r.aspect,
                             // v3.5.2 舊片的配方可能是筆電／GPUtw／Colab 做的:再做一律先放桌機(主力、免費),其他機器由使用者自己改選
-                            route = "desk",
+                            route = reproduceRoute(stem).first,
                             segments = r.segments, beats = r.beats, clientRequestId = UUID.randomUUID().toString(), estimate = null, seed = r.seed,
                             fair = r.fair, rawPrompt = r.rawPrompt, fairMale = r.fairMale,
                         )
                         H3Jobs.add(app, H3Jobs.Job(
                             runId = "clip_" + Integer.toHexString(stem.hashCode()), prompt = r.prompt, quality = r.quality, seconds = r.seconds * r.segments, estCu = 0.0,
                             createdAtMs = f.mtime, status = "done", savedUri = saved, kind = "video", meta = "測試片：$stem", keepInStudio = false, forgotten = true,
-                            route = "desk", seed = r.seed, finishedAtMs = f.mtime, sources = sources, repeatVideo = pending,
+                            route = reproduceRoute(stem).first, seed = r.seed, finishedAtMs = f.mtime, sources = sources, repeatVideo = pending,
                         ))
                         msg = "已加入「最近成品」，可以再生成一次、調整後再生成、往後續做"
                     }

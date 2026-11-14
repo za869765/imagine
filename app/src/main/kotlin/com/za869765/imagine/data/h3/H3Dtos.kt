@@ -264,6 +264,9 @@ data class H3RecipeApply(
     val fair: Boolean = false,
     @SerialName("fair_male") val fairMale: Boolean = false,
     val sources: List<String> = emptyList(),
+    /** v3.5.7 預設機器:原片是筆電做的→local、桌機→desk;Colab／GPUtw 要花錢,不自動選→desk 並附說明 */
+    val route: String = "desk",
+    val note: String = "",
 )
 
 /** v3.5.1 測試片的配方:送件當下的設定。refs＝參考圖檔名(到測試資料夾的 _recipes/refs/ 拿) */
