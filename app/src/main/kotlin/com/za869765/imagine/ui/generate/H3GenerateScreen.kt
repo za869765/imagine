@@ -531,6 +531,8 @@ fun H3GenerateScreen(
                 com.za869765.imagine.ui.component.TextActionButton(label = "中英對照（逐句看中文、只改其中一句）", onClick = { showBilingual = true })
             }
             if (showBilingual) H3BilingualSheet(prompt = prompt, onApply = { prompt = it }, onDismiss = { showBilingual = false })
+            // v3.4.0 鏡頭:取景(全身／七分身／半身／特寫)與運鏡一鍵選,直接改提示詞裡的鏡頭句子
+            if (prompt.any { it in 'a'..'z' }) H3CameraPicker(prompt = prompt, onPrompt = { prompt = it })
             if (rawPrompt) {
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { rawPrompt = false },
