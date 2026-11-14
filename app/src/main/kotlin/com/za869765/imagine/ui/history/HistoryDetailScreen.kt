@@ -142,8 +142,8 @@ fun HistoryDetailScreen(
             if (clipTitle != null) {
                 val r = recipe
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionHeader("測試片配方")
-                    Text(clipTitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SectionHeader("Prompt")
+                    Text("測試片：$clipTitle", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (r == null && com.za869765.imagine.data.download.Downloader.clipHasNoRecipe(ctx, entry.displayName)) {
                         Text("這支片沒有配方（較早的片或不是用腳本送的），只能看影片。", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else if (r == null) {
@@ -172,7 +172,7 @@ fun HistoryDetailScreen(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text(if (applying) "準備參考圖中…" else "整組套用到生影（${segs.size} 段、參考圖、白皙一起帶過去）") }
+                        ) { Text(if (applying) "準備參考圖中…" else "套用提示詞（整組：${segs.size} 段、每段原文、參考圖、白皙一起帶到生影）") }
                         segs.forEachIndexed { i, s ->
                             ImagineCard(pad = 14) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -191,7 +191,7 @@ fun HistoryDetailScreen(
                 }
             }
 
-            if (clipTitle == null || recipe == null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (clipTitle == null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("Prompt")
                 ImagineCard(pad = 14) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
