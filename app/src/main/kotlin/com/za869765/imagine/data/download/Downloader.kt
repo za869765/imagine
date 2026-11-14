@@ -19,6 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,6 +72,10 @@ object Downloader {
         if (fetchedLoaded) return
         fetchedLoaded = true
         laptopFetched.value = fetchedPrefs(ctx.applicationContext).getStringSet("names", emptySet()).orEmpty().toSet()
+        if (laptopList.value == null) {
+            runCatching { H3Client.json.decodeFromString(ListSerializer(H3LaptopFile.serializer()), cacheFile(ctx.applicationContext).readText()) }.getOrNull()
+                ?.takeIf { it.isNotEmpty() }?.let { laptopList.value = it; laptopTotal.value = it.size }
+        }
     }
     private fun setFetched(app: Context, f: (Set<String>) -> Set<String>) {
         initLaptop(app)
@@ -100,6 +105,7 @@ object Downloader {
                     if (s.status == "done" && s.deleted != null) {
                         laptopList.update { l -> l?.filterNot { it.name == name } }
                         laptopTotal.update { (it - 1).coerceAtLeast(0) }
+                        saveCache(app)
                         setFetched(app) { it - name }
                         msg = null
                     } else if (s.status == "done") {
@@ -119,45 +125,71 @@ object Downloader {
     /** v3.3.6 讀清單跑在 APP 層級(切分頁、離開畫面不會中斷,也不會留下沒收尾的單);畫面只看這兩個狀態 */
     val laptopLoading = MutableStateFlow(false)
     val laptopError = MutableStateFlow<String?>(null)
-    fun reloadLaptop(ctx: Context, more: Boolean = false) {
+    /** v3.4.1 清單存在手機(含縮圖):開分頁立刻顯示上次的清單,再到筆電補最新的一頁;full＝整份重讀(筆電上刪過、改過名時用) */
+    private fun cacheFile(app: Context) = File(app.filesDir, "laptop_list.json")
+    private fun saveCache(app: Context) {
+        runCatching { cacheFile(app).writeText(H3Client.json.encodeToString(ListSerializer(H3LaptopFile.serializer()), laptopList.value.orEmpty())) }
+    }
+
+    fun reloadLaptop(ctx: Context, full: Boolean = false) {
         if (laptopLoading.value) return
         laptopLoading.value = true
         laptopError.value = null
         val app = ctx.applicationContext
         scope.launch {
-            laptopError.value = runCatching { loadLaptopFiles(app, more) }.getOrElse { it.message ?: "讀取失敗" }
+            laptopError.value = runCatching {
+                val cached = laptopList.value.orEmpty()
+                if (full || cached.isEmpty()) {
+                    var acc = emptyList<H3LaptopFile>()
+                    var err: String? = null
+                    while (true) {
+                        val (page, total, e) = fetchPage(app, acc.size)
+                        if (e != null) { err = e; break }
+                        acc = acc.filterNot { o -> page.any { it.name == o.name } } + page
+                        laptopList.value = acc
+                        laptopTotal.value = total
+                        if (page.isEmpty() || acc.size >= total) break
+                    }
+                    if (acc.isNotEmpty()) saveCache(app)
+                    err
+                } else {
+                    val (page, total, e) = fetchPage(app, 0)
+                    if (e == null) {
+                        val fresh = page.filter { n -> cached.none { it.name == n.name } }
+                        laptopList.value = fresh + cached
+                        laptopTotal.value = maxOf(total, fresh.size + cached.size)
+                        saveCache(app)
+                    }
+                    e
+                }
+            }.getOrElse { it.message ?: "讀取失敗" }
             laptopLoading.value = false
         }
     }
 
-    /** 向筆電要一次清單;成功回 null,失敗回給使用者看的訊息 */
-    private suspend fun loadLaptopFiles(ctx: Context, more: Boolean = false): String? {
-        val offset = if (more) laptopList.value?.size ?: 0 else 0
+    /** 向筆電要一頁清單(40 個);回(這一頁, 資料夾總數, 錯誤訊息) */
+    private suspend fun fetchPage(ctx: Context, offset: Int): Triple<List<H3LaptopFile>, Int, String?> {
         val prefs = SecurePrefs.get(ctx.applicationContext)
         val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
         val runId = when (created) {
             is H3Client.Result.Ok -> created.value.runId
-            is H3Client.Result.Err -> return created.message
-        } ?: return "伺服器沒有回單號"
-        repeat(120) {
+            is H3Client.Result.Err -> return Triple(emptyList(), 0, created.message)
+        } ?: return Triple(emptyList(), 0, "伺服器沒有回單號")
+        for (i in 0 until 120) {
             delay(1000)
-            val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: return@repeat
-            when (s.status) {
-                "done" -> {
-                    val page = s.files.orEmpty()
-                    laptopList.value = if (more) laptopList.value.orEmpty().filterNot { old -> page.any { it.name == old.name } } + page else page
-                    laptopTotal.value = s.total ?: laptopList.value.orEmpty().size
-                    H3Client.forget(prefs, runId)
-                    return null
-                }
-                "failed", "cancelled" -> {
-                    H3Client.forget(prefs, runId)
-                    return s.error?.take(200) ?: "筆電沒有回清單"
-                }
+            val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: continue
+            if (s.status == "done") {
+                H3Client.forget(prefs, runId)
+                val page = s.files.orEmpty()
+                return Triple(page, s.total ?: (offset + page.size), null)
+            }
+            if (s.status == "failed" || s.status == "cancelled") {
+                H3Client.forget(prefs, runId)
+                return Triple(emptyList(), 0, s.error?.take(200) ?: "筆電沒有回清單")
             }
         }
         H3Client.cancel(prefs, runId)
-        return "筆電兩分鐘內沒有回應，確認筆電開著、工人在跑後再試"
+        return Triple(emptyList(), 0, "筆電兩分鐘內沒有回應，確認筆電開著、工人在跑後再試")
     }
 
     /** v3.3.5 一次抓好幾個筆電測試檔:一個接一個(前一個結束才送下一個),免得同時上傳把筆電網路塞住 */
