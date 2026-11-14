@@ -5,99 +5,109 @@ package com.za869765.imagine.ui.generate
 // 參考圖張數是固定的（寫在說明裡），不像舊範本會依張數改句子。
 
 private const val T0_0 =
-    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key lighting, " +
-    "warm amber light from paper lanterns on her skin, cool blue night light coming through the lattice windows behind, drifting steam, " +
-    "shallow depth of field with a softly blurred background, natural film grain, real skin texture with fine pores and tiny water droplets, " +
-    "natural motion blur on fast movement. " +
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key background lighting with warm amber paper lanterns, " +
+    "cool blue night light coming through the lattice windows behind, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores, natural motion blur on fast movement. " +
     "The place is the wooden bathhouse of an ancient Chinese inn at night: dark timber walls and floor planks wet with water, " +
-    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. <Picture 1> is the woman, " +
-    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
-    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
-    "Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, a few wet strands clinging to her cheeks. " +
-    "At the start she is nude in the bath; by the end she is wrapped in a large white cotton bath towel. Medium-wide shot from the knees up, eye level, " +
-    "static camera. She stands up slowly out of the milky bath water, fully nude, full frontal, water streaming down her body, relaxed and unhurried; " +
-    "she steps over the edge of the tub onto the wet wooden floor, takes a large white cotton bath towel from the wooden stand beside the tub, " +
-    "wraps it around her chest, tucks it in above her bust and smooths it down to her mid-thighs, " +
-    "then brushes her wet bangs aside with her fingers and breathes out. Dripping water, soft footsteps on wet wood, crackle of a lantern flame, no music. " +
-    "Her skin stays fair, light ivory with a soft pink tint under the warm lantern light."
+    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. " +
+    "Her skin is the brightest thing in the frame: a large, soft, warm-white key light from just beside the camera lights her face and body evenly, " +
+    "so her skin reads as fair, luminous porcelain-ivory with a soft pink tint, clean and dry with a soft matte, velvety finish and gentle soft shadows, " +
+    "while the room behind her stays dark and moody. <Picture 1> is the woman, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1> for the whole video, a natural bare face. <Picture 2> shows her body from the neck down; " +
+    "keep exactly this body shape and proportions. Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, " +
+    "a few wet strands clinging to her cheeks. At the start she is nude in the bath; by the end she is wrapped in a large white cotton bath towel. " +
+    "Medium-wide shot from the knees up, eye level, static camera. She stands up slowly out of the milky bath water, fully nude, full frontal, " +
+    "water streaming down her body, relaxed and unhurried; she steps over the edge of the tub onto the wet wooden floor, " +
+    "takes a large white cotton bath towel from the wooden stand beside the tub, wraps it around her chest, " +
+    "tucks it in above her bust and smooths it down to her mid-thighs, then brushes her wet bangs aside with her fingers and breathes out. Dripping water, " +
+    "soft footsteps on wet wood, crackle of a lantern flame, no music. Her skin stays fair, " +
+    "bright porcelain-ivory with a soft pink tint for the whole video."
 
 private const val T1_0 =
-    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key lighting, " +
-    "warm amber light from paper lanterns on her skin, cool blue night light coming through the lattice windows behind, drifting steam, " +
-    "shallow depth of field with a softly blurred background, natural film grain, real skin texture with fine pores and tiny water droplets, " +
-    "natural motion blur on fast movement. " +
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key background lighting with warm amber paper lanterns, " +
+    "cool blue night light coming through the lattice windows behind, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores, natural motion blur on fast movement. " +
     "The place is the wooden bathhouse of an ancient Chinese inn at night: dark timber walls and floor planks wet with water, " +
-    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. <Picture 1> is the woman, " +
-    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
-    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
-    "Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, a few wet strands clinging to her cheeks. " +
-    "She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, falling to her mid-thighs, her shoulders, " +
-    "arms and legs bare; the towel stays securely wrapped for the whole video. Medium close-up, camera at water level, static with a very slow push-in. " +
-    "She sits in the milky bath water up to her collarbones, eyes closed, calm, steam drifting around her; she slowly opens her eyes, her gaze sharpens, " +
-    "and she turns her head a little to one side, listening, lips slightly parted, a drop of water running down her temple. Quiet dripping water, " +
-    "soft crackle of a lantern flame, distant night insects, no music. Her skin stays fair, light ivory with a soft pink tint under the warm lantern light."
+    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. " +
+    "Her skin is the brightest thing in the frame: a large, soft, warm-white key light from just beside the camera lights her face and body evenly, " +
+    "so her skin reads as fair, luminous porcelain-ivory with a soft pink tint, clean and dry with a soft matte, velvety finish and gentle soft shadows, " +
+    "while the room behind her stays dark and moody. <Picture 1> is the woman, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1> for the whole video, a natural bare face. <Picture 2> shows her body from the neck down; " +
+    "keep exactly this body shape and proportions. Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, " +
+    "a few wet strands clinging to her cheeks. She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, " +
+    "falling to her mid-thighs, her shoulders, arms and legs bare; the towel stays securely wrapped for the whole video. Medium close-up, " +
+    "camera at water level, static with a very slow push-in. She sits in the milky bath water up to her collarbones, eyes closed, calm, " +
+    "steam drifting around her; she slowly opens her eyes, her gaze sharpens, and she turns her head a little to one side, listening, lips slightly parted, " +
+    "a drop of water running down her temple. Quiet dripping water, soft crackle of a lantern flame, distant night insects, no music. Her skin stays fair, " +
+    "bright porcelain-ivory with a soft pink tint for the whole video."
 
 private const val T2_0 =
-    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key lighting, " +
-    "warm amber light from paper lanterns on her skin, cool blue night light coming through the lattice windows behind, drifting steam, " +
-    "shallow depth of field with a softly blurred background, natural film grain, real skin texture with fine pores and tiny water droplets, " +
-    "natural motion blur on fast movement. " +
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key background lighting with warm amber paper lanterns, " +
+    "cool blue night light coming through the lattice windows behind, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores, natural motion blur on fast movement. " +
     "The place is the wooden bathhouse of an ancient Chinese inn at night: dark timber walls and floor planks wet with water, " +
-    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. <Picture 1> is the woman, " +
-    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
-    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
-    "Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, a few wet strands clinging to her cheeks. " +
-    "She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, falling to her mid-thighs, her shoulders, " +
-    "arms and legs bare; the towel stays securely wrapped for the whole video. Medium shot from the waist up, eye level, " +
-    "handheld with a slight natural sway. She rises quickly out of the milky bath water, water streaming off her shoulders, " +
+    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. " +
+    "Her skin is the brightest thing in the frame: a large, soft, warm-white key light from just beside the camera lights her face and body evenly, " +
+    "so her skin reads as fair, luminous porcelain-ivory with a soft pink tint, clean and dry with a soft matte, velvety finish and gentle soft shadows, " +
+    "while the room behind her stays dark and moody. <Picture 1> is the woman, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1> for the whole video, a natural bare face. <Picture 2> shows her body from the neck down; " +
+    "keep exactly this body shape and proportions. Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, " +
+    "a few wet strands clinging to her cheeks. She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, " +
+    "falling to her mid-thighs, her shoulders, arms and legs bare; the towel stays securely wrapped for the whole video. Medium shot from the waist up, " +
+    "eye level, handheld with a slight natural sway. She rises quickly out of the milky bath water, water streaming off her shoulders, " +
     "one hand clutching the towel closed at her chest, the other arm raised in a guard; she steps back against the edge of the tub, breathing fast, " +
     "eyes fixed on something off-screen to the right, wary and alert, then narrows her eyes with resolve. Splashing water, her quick breathing, " +
-    "creaking floorboards, no music. Her skin stays fair, light ivory with a soft pink tint under the warm lantern light."
+    "creaking floorboards, no music. Her skin stays fair, bright porcelain-ivory with a soft pink tint for the whole video."
 
 private const val T3_0 =
-    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key lighting, " +
-    "warm amber light from paper lanterns on her skin, cool blue night light coming through the lattice windows behind, drifting steam, " +
-    "shallow depth of field with a softly blurred background, natural film grain, real skin texture with fine pores and tiny water droplets, " +
-    "natural motion blur on fast movement. " +
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key background lighting with warm amber paper lanterns, " +
+    "cool blue night light coming through the lattice windows behind, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores, natural motion blur on fast movement. " +
     "The place is the wooden bathhouse of an ancient Chinese inn at night: dark timber walls and floor planks wet with water, " +
-    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. <Picture 1> is the woman, " +
-    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
-    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
-    "Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, a few wet strands clinging to her cheeks. " +
-    "She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, falling to her mid-thighs, her shoulders, " +
-    "arms and legs bare; the towel stays securely wrapped for the whole video. Wide low-angle shot from floor level, static camera, " +
-    "her whole body in frame. She stands barefoot on the wet wooden floor beside the tub; in one fluid motion she pivots on her left foot, " +
-    "sweeps her right leg up in a high side kick with her arms balancing, the towel hem flaring, " +
+    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. " +
+    "Her skin is the brightest thing in the frame: a large, soft, warm-white key light from just beside the camera lights her face and body evenly, " +
+    "so her skin reads as fair, luminous porcelain-ivory with a soft pink tint, clean and dry with a soft matte, velvety finish and gentle soft shadows, " +
+    "while the room behind her stays dark and moody. <Picture 1> is the woman, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1> for the whole video, a natural bare face. <Picture 2> shows her body from the neck down; " +
+    "keep exactly this body shape and proportions. Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, " +
+    "a few wet strands clinging to her cheeks. She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, " +
+    "falling to her mid-thighs, her shoulders, arms and legs bare; the towel stays securely wrapped for the whole video. " +
+    "Wide low-angle shot from floor level, static camera, her whole body in frame. She stands barefoot on the wet wooden floor beside the tub; " +
+    "in one fluid motion she pivots on her left foot, sweeps her right leg up in a high side kick with her arms balancing, the towel hem flaring, " +
     "drops of water flying from her wet hair and skin in an arc, then lands lightly in a low fighting stance, one hand on the floor, " +
     "looking up toward the camera with fierce eyes. Whoosh of the kick, water drops hitting the floor, her sharp exhale, no music. Her skin stays fair, " +
-    "light ivory with a soft pink tint under the warm lantern light."
+    "bright porcelain-ivory with a soft pink tint for the whole video."
 
 private const val T4_0 =
-    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key lighting, " +
-    "warm amber light from paper lanterns on her skin, cool blue night light coming through the lattice windows behind, drifting steam, " +
-    "shallow depth of field with a softly blurred background, natural film grain, real skin texture with fine pores and tiny water droplets, " +
-    "natural motion blur on fast movement. " +
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key background lighting with warm amber paper lanterns, " +
+    "cool blue night light coming through the lattice windows behind, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores, natural motion blur on fast movement. " +
     "The place is the wooden bathhouse of an ancient Chinese inn at night: dark timber walls and floor planks wet with water, " +
-    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. <Picture 1> is the woman, " +
-    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
-    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
-    "Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, a few wet strands clinging to her cheeks. " +
-    "She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, falling to her mid-thighs, her shoulders, " +
-    "arms and legs bare; the towel stays securely wrapped for the whole video. Medium shot, eye level, handheld with a slight natural sway. " +
-    "She stands by the tub in her towel, catching her breath after the fight; she straightens up, tightens the towel at her chest with one hand, " +
-    "wipes a drop of water from her cheek with the back of the other hand, looks straight into the camera, and the tension in her face melts into a small, " +
-    "relieved, slightly cheeky smile. Her slowing breath, dripping water, distant night insects, no music. Her skin stays fair, " +
-    "light ivory with a soft pink tint under the warm lantern light."
+    "a large round wooden bathtub filled with milky white bath water, paper lattice windows, hanging lanterns. " +
+    "Her skin is the brightest thing in the frame: a large, soft, warm-white key light from just beside the camera lights her face and body evenly, " +
+    "so her skin reads as fair, luminous porcelain-ivory with a soft pink tint, clean and dry with a soft matte, velvety finish and gentle soft shadows, " +
+    "while the room behind her stays dark and moody. <Picture 1> is the woman, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1> for the whole video, a natural bare face. <Picture 2> shows her body from the neck down; " +
+    "keep exactly this body shape and proportions. Her black hair is cut in a short chin-length bob with full straight bangs, damp from the bath, " +
+    "a few wet strands clinging to her cheeks. She wears only a large white cotton bath towel wrapped snugly around her chest and tucked in above her bust, " +
+    "falling to her mid-thighs, her shoulders, arms and legs bare; the towel stays securely wrapped for the whole video. Medium shot, eye level, " +
+    "handheld with a slight natural sway. She stands by the tub in her towel, catching her breath after the fight; she straightens up, " +
+    "tightens the towel at her chest with one hand, wipes a drop of water from her cheek with the back of the other hand, looks straight into the camera, " +
+    "and the tension in her face melts into a small, relieved, slightly cheeky smile. Her slowing breath, dripping water, distant night insects, no music. " +
+    "Her skin stays fair, bright porcelain-ivory with a soft pink tint for the whole video."
 
 private const val T5_0 =
-    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key lighting, " +
-    "warm amber light from paper lanterns and candles on her skin, cool blue moonlight coming through the paper lattice windows behind, " +
-    "shallow depth of field with a softly blurred background, natural film grain, real skin texture with fine pores, natural motion blur. " +
-    "The place is a quiet upstairs room of an ancient Chinese inn at night: dark timber walls, a wooden floor, a painted folding screen behind her, " +
-    "hanging paper lanterns, and a low wooden stand right beside her, within easy reach of her hand, with a white robe lying neatly folded on it. " +
-    "Three-quarter front view framed from the knees up, handheld camera with a slight natural sway. <Picture 1> is the woman, " +
-    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
-    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Cinematic film still quality, " +
+    "shot on a full-frame cinema camera with a fast prime lens: low-key background lighting with warm amber paper lanterns and candles, " +
+    "cool blue moonlight coming through the paper lattice windows behind, shallow depth of field with a softly blurred background, natural film grain, " +
+    "real skin texture with fine pores, natural motion blur. The place is a quiet upstairs room of an ancient Chinese inn at night: dark timber walls, " +
+    "a wooden floor, a painted folding screen behind her, hanging paper lanterns, and a low wooden stand right beside her, within easy reach of her hand, " +
+    "with a white robe lying neatly folded on it. Three-quarter front view framed from the knees up, handheld camera with a slight natural sway. " +
+    "Her skin is the brightest thing in the frame: a large, soft, warm-white key light from just beside the camera lights her face and body evenly, " +
+    "so her skin reads as fair, luminous porcelain-ivory with a soft pink tint, clean and dry with a soft matte, velvety finish and gentle soft shadows, " +
+    "while the room behind her stays dark and moody. <Picture 1> is the woman, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1> for the whole video, a natural bare face. <Picture 2> shows her body from the neck down; " +
+    "keep exactly this body shape and proportions. " +
     "Her long black hair is dressed in an ancient Chinese wuxia style: the top half gathered into a small high knot held by a plain wooden hairpin, " +
     "the rest hanging long and straight down her back, with two thin strands framing her face. She has a calm, " +
     "warm presence with a hint of playfulness: soft eyes, a small private smile that comes and goes, unhurried movements. " +
@@ -106,17 +116,21 @@ private const val T5_0 =
     "slides the black robe off her shoulders, catches it in her hands and lays it over the stand beside her, and stands fully nude facing the camera, " +
     "full frontal, relaxed and natural, the lantern light warm on her skin; she tucks a loose strand of hair behind her ear and breathes out. " +
     "The shot ends with her standing nude, calm, looking toward the window. She takes her time; nothing is rushed. Natural lip movement. Rustle of silk, " +
-    "a soft crackle of candle flame, distant night insects, no music. Her skin stays fair, light ivory with a soft pink tint under the warm lantern light."
+    "a soft crackle of candle flame, distant night insects, no music. Her skin stays fair, " +
+    "bright porcelain-ivory with a soft pink tint for the whole video."
 
 private const val T5_1 =
-    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: low-key lighting, " +
-    "warm amber light from paper lanterns and candles on her skin, cool blue moonlight coming through the paper lattice windows behind, " +
-    "shallow depth of field with a softly blurred background, natural film grain, real skin texture with fine pores, natural motion blur. " +
-    "The place is a quiet upstairs room of an ancient Chinese inn at night: dark timber walls, a wooden floor, a painted folding screen behind her, " +
-    "hanging paper lanterns, and a low wooden stand right beside her, within easy reach of her hand, with a white robe lying neatly folded on it. " +
-    "Three-quarter front view framed from the knees up, handheld camera with a slight natural sway. <Picture 1> is the woman, " +
-    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
-    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Cinematic film still quality, " +
+    "shot on a full-frame cinema camera with a fast prime lens: low-key background lighting with warm amber paper lanterns and candles, " +
+    "cool blue moonlight coming through the paper lattice windows behind, shallow depth of field with a softly blurred background, natural film grain, " +
+    "real skin texture with fine pores, natural motion blur. The place is a quiet upstairs room of an ancient Chinese inn at night: dark timber walls, " +
+    "a wooden floor, a painted folding screen behind her, hanging paper lanterns, and a low wooden stand right beside her, within easy reach of her hand, " +
+    "with a white robe lying neatly folded on it. Three-quarter front view framed from the knees up, handheld camera with a slight natural sway. " +
+    "Her skin is the brightest thing in the frame: a large, soft, warm-white key light from just beside the camera lights her face and body evenly, " +
+    "so her skin reads as fair, luminous porcelain-ivory with a soft pink tint, clean and dry with a soft matte, velvety finish and gentle soft shadows, " +
+    "while the room behind her stays dark and moody. <Picture 1> is the woman, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1> for the whole video, a natural bare face. <Picture 2> shows her body from the neck down; " +
+    "keep exactly this body shape and proportions. " +
     "Her long black hair is dressed in an ancient Chinese wuxia style: the top half gathered into a small high knot held by a plain wooden hairpin, " +
     "the rest hanging long and straight down her back, with two thin strands framing her face. She has a calm, " +
     "warm presence with a hint of playfulness: soft eyes, a small private smile that comes and goes, unhurried movements. " +
@@ -126,7 +140,7 @@ private const val T5_1 =
     "so that she is covered from her shoulders to her ankles; she smooths the collar, looks into the camera, " +
     "and her small smile widens as she says in a soft, warm voice in Mandarin Chinese: \"這樣，舒服多了。\" She takes her time; nothing is rushed. " +
     "Natural lip movement. Rustle of silk, a soft crackle of candle flame, distant night insects, no music. Her skin stays fair, " +
-    "light ivory with a soft pink tint under the warm lantern light."
+    "bright porcelain-ivory with a soft pink tint for the whole video."
 
 private const val T6_0 =
     "Raw candid documentary-style video shot on a full-frame camera in bright, soft, " +
@@ -419,7 +433,7 @@ private const val T10_0 =
     "a soft crinkle of foil, quiet sunny room ambience, no music. Her skin stays fair, light ivory with a soft pink tint for the whole video."
 
 internal val H3_TEMPLATES_MORE: List<H3Template> = listOf(
-    H3Template("古風澡堂", "出浴：起身、圍上浴巾", "夜晚木造澡堂、燈籠暖光。從乳白浴桶站起（全裸正面）→ 跨出 → 拿浴巾圍好 → 撥瀏海。建議 10 秒。放 2 張參考圖（臉＋頸部以下身材）。") { _ -> T0_0 },
+    H3Template("古風澡堂", "出浴：起身、圍上浴巾", "夜晚木造澡堂，背景低調、人物用柔和主光打亮（膚色白）。從乳白浴桶站起（全裸正面）→ 跨出 → 拿浴巾圍好 → 撥瀏海。建議 10 秒。放 2 張參考圖（臉＋頸部以下身材）。") { _ -> T0_0 },
     H3Template("古風澡堂", "近景：察覺動靜", "圍著浴巾坐在浴桶邊閉目 → 睜眼、眼神變銳利 → 側頭聽動靜。建議 8 秒。放 2 張參考圖。") { _ -> T1_0 },
     H3Template("古風澡堂", "中景：起身抓緊浴巾", "從浴桶快速起身、一手抓緊胸口浴巾、一手舉起防備，警戒看向畫面外。建議 8 秒。放 2 張參考圖。") { _ -> T2_0 },
     H3Template("古風澡堂", "全景：轉身踢腿", "低角度全身。赤腳在濕木地板上轉身高踢、落地成低姿勢抬眼看鏡頭。建議 8 秒。放 2 張參考圖。") { _ -> T3_0 },
