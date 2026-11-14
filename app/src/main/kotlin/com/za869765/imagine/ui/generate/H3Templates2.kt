@@ -183,16 +183,17 @@ private const val T6_0 =
     "full and heavy with a well-defined shape, the foreskin retracted and a rounded mushroom-shaped glans clearly wider than the shaft, " +
     "with a tight scrotum behind it; it sways naturally with his body as he moves; " +
     "for a moment they are both a little bashful: she presses her lips into a shy smile and glances down, he scratches the back of his head and grins, " +
-    "they catch each other's eye and both burst out laughing. The shot ends with both of them standing nude side by side, laughing. They take their time; " +
-    "nothing is rushed. Natural lip movement, realistic fair, translucent skin with fine visible pores, no beauty filter, no airbrushing, " +
-    "bare faces with no makeup. Rustle of fabric, their light laughter, quiet sunny room ambience, no music. Their skin stays fair, " +
-    "light ivory with a soft pink tint for the whole video, never tanned, never yellow or orange. " +
-    "Both of them stay in the picture together from the first second to the last. " +
+    "they catch each other's eye and both burst out laughing; he slips an arm around her waist and she leans against him. " +
+    "The shot ends with both of them standing nude side by side, close together, laughing. They take their time; nothing is rushed. Natural lip movement, " +
+    "realistic fair, translucent skin with fine visible pores, no beauty filter, no airbrushing, bare faces with no makeup. Rustle of fabric, " +
+    "their light laughter, quiet sunny room ambience, no music. Their skin stays fair, light ivory with a soft pink tint for the whole video, never tanned, " +
+    "never yellow or orange. Both of them stay in the picture together from the first second to the last. " +
     "Throughout every moment in which both of them are dressed they behave like a couple deeply and happily in love: fingers intertwined, " +
     "shoulders and hips touching, she leans into him and rests her head on his shoulder, he brushes a strand of hair behind her ear and kisses her temple, " +
     "they whisper and laugh with their faces close together, noses almost touching, and they keep glancing at each other with soft, adoring smiles. " +
-    "During the nude moment they stay in their own places but keep smiling into each other's eyes, " +
-    "teasing each other with playful looks and laughing together. Everything looks like real, unpolished phone footage of two real people, " +
+    "During the nude moment they stay close like the couple they are: standing side by side, he slips an arm around her waist, " +
+    "she leans against his shoulder, they hold hands, touch foreheads and share a quick, tender kiss on the lips, laughing together. " +
+    "Everything looks like real, unpolished phone footage of two real people, " +
     "never like a studio advertisement or a computer-generated image: natural skin with visible pores, fine body hair, " +
     "a few small moles and slight unevenness of tone, relaxed imperfect posture, weight shifting from one foot to the other, tiny unplanned movements, " +
     "a strand of hair out of place, natural blinking, glances away from the camera and back, laughter that interrupts a sentence, " +
@@ -249,8 +250,9 @@ private const val T6_1 =
     "Throughout every moment in which both of them are dressed they behave like a couple deeply and happily in love: fingers intertwined, " +
     "shoulders and hips touching, she leans into him and rests her head on his shoulder, he brushes a strand of hair behind her ear and kisses her temple, " +
     "they whisper and laugh with their faces close together, noses almost touching, and they keep glancing at each other with soft, adoring smiles. " +
-    "During the nude moment they stay in their own places but keep smiling into each other's eyes, " +
-    "teasing each other with playful looks and laughing together. Everything looks like real, unpolished phone footage of two real people, " +
+    "During the nude moment they stay close like the couple they are: standing side by side, he slips an arm around her waist, " +
+    "she leans against his shoulder, they hold hands, touch foreheads and share a quick, tender kiss on the lips, laughing together. " +
+    "Everything looks like real, unpolished phone footage of two real people, " +
     "never like a studio advertisement or a computer-generated image: natural skin with visible pores, fine body hair, " +
     "a few small moles and slight unevenness of tone, relaxed imperfect posture, weight shifting from one foot to the other, tiny unplanned movements, " +
     "a strand of hair out of place, natural blinking, glances away from the camera and back, laughter that interrupts a sentence, " +
@@ -432,6 +434,384 @@ private const val T10_0 =
     "translucent skin with fine visible pores, no beauty filter, no airbrushing, bare face with no makeup. Rustle of silk, her light bubbly giggle, " +
     "a soft crinkle of foil, quiet sunny room ambience, no music. Her skin stays fair, light ivory with a soft pink tint for the whole video."
 
+private const val T11_0 =
+    "Raw candid documentary-style video shot on a full-frame camera in bright, warm, soft daylight from large windows with sheer white curtains, " +
+    "high-key and airy, low contrast, with bright cream-white surroundings, medium close front view framed from the waist up, " +
+    "static camera with a very slight handheld sway, as if a friend were filming them, a bright, sunny bedroom: a bed with white linen, " +
+    "and a low wooden bench at the foot of the bed in front of them with a realistic, skin-toned silicone anatomical condom training model, " +
+    "an ordinary hand-sized teaching aid standing upright on a round base, with a smooth straight shaft and a clearly shaped rounded head, " +
+    "like the anatomical models used in medical sex-education classes, and a few sealed condom packets beside it. <Picture 1> is the female host, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>, her long black hair worn loose. " +
+    "<Picture 2> is the male host, an adult man in his late twenties with fair skin and short black hair; his face is exactly the face in <Picture 2>. " +
+    "<Picture 3> shows her body from the neck down and <Picture 4> shows his body from the neck down; keep exactly these body shapes and proportions. " +
+    "They have just stepped out of the shower, their hair slightly damp and their skin fresh. The shot is a three-quarter view from the knees up, " +
+    "handheld with a slight natural sway. Both of them stand beside the bed fully nude facing the camera, full frontal, relaxed and natural, " +
+    "smiling at each other; only while he is nude his genitals are visible: HMPenis, his penis hangs straight down between his thighs, thick, " +
+    "full and heavy with a well-defined shape, the foreskin retracted and a rounded mushroom-shaped glans clearly wider than the shaft, " +
+    "with a tight scrotum behind it; it sways naturally with his body as he moves. Then, unhurried, " +
+    "each of them picks up a small white bath towel from the bed: she wraps hers snugly around her chest, " +
+    "tucks it in above her bust and smooths it down to her upper thighs; he wraps his low around his hips and tucks it in at the side. " +
+    "They look at each other, laugh, and she says in a sweet, " +
+    "cheerful voice in Mandarin Chinese: \"擦乾了，來上課囉！\" Then they sit down side by side on the edge of the bed, close together. " +
+    "The shot ends with both of them sitting in their towels, smiling at the camera. They take their time; nothing is rushed. Natural lip movement, " +
+    "realistic fair skin with fine visible pores, no beauty filter, no airbrushing, bare faces with no makeup. Light laughter, a soft crinkle of foil, " +
+    "quiet sunny room ambience, no music. Their skin stays fair, light ivory with a soft pink tint for the whole video. " +
+    "For the whole video they behave like a couple deeply and happily in love: his arm stays around her, " +
+    "she nestles against his side and rests her head on his shoulder between steps, their free hands find each other and their fingers intertwine, " +
+    "he brushes a strand of hair behind her ear and kisses her temple, they whisper and laugh with their faces close together, noses almost touching, " +
+    "and they keep glancing at each other with soft, adoring smiles."
+
+private const val T11_1 =
+    "Raw candid documentary-style video shot on a full-frame camera in bright, warm, soft daylight from large windows with sheer white curtains, " +
+    "high-key and airy, low contrast, with bright cream-white surroundings, medium close front view framed from the waist up, " +
+    "static camera with a very slight handheld sway, as if a friend were filming them, a bright, sunny bedroom: a bed with white linen, " +
+    "and a low wooden bench at the foot of the bed in front of them with a realistic, skin-toned silicone anatomical condom training model, " +
+    "an ordinary hand-sized teaching aid standing upright on a round base, with a smooth straight shaft and a clearly shaped rounded head, " +
+    "like the anatomical models used in medical sex-education classes, and a few sealed condom packets beside it. <Picture 1> is the female host, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>, her long black hair worn loose. " +
+    "<Picture 2> is the male host, an adult man in his late twenties with fair skin and short black hair; his face is exactly the face in <Picture 2>. " +
+    "<Picture 3> shows her body from the neck down and <Picture 4> shows his body from the neck down; keep exactly these body shapes and proportions. " +
+    "The shot begins exactly where the previous one ended: both of them sitting side by side on the edge of the bed in their towels. " +
+    "They have just stepped out of the shower, " +
+    "their hair slightly damp and their skin fresh: she wears only a small white bath towel wrapped snugly around her chest and tucked in above her bust, " +
+    "its hem ending high on her upper thighs, her shoulders, collarbones, arms and legs bare; " +
+    "he wears only a small white bath towel wrapped low on his hips, his chest, shoulders and abdominal muscles bare. " +
+    "Both towels stay securely wrapped for the whole video. They sit side by side on the edge of the bed facing the camera, pressed close together, " +
+    "thigh against thigh, he on the left and she on the right, shown from the knees up at a natural conversational distance; " +
+    "the training model is an ordinary hand-sized teaching aid about fifteen centimetres tall, standing on the low surface in front of them at knee height, " +
+    "well below their faces, clearly visible but small in the frame. They sit upright the whole time, " +
+    "keeping their faces well above and away from the model, looking at the camera while she work with her hands. " +
+    "They sit close together like a loving couple: he has one arm around her shoulders, she leans into him while she works, " +
+    "and with his other hand he steadies the round base of the model. She is the one who demonstrates every step with her own hands; " +
+    "he only watches closely, nods and reacts. They are warm, lively hosts with real personality, like two good friends sharing useful tips: bright, " +
+    "smiling eyes, easy genuine smiles, expressive eyebrows, friendly animated gestures, and they glance at each other, tease each other and laugh. " +
+    "They start confident and matter-of-fact, like a friendly health teacher and her curious student. " +
+    "He has never done this before: for the whole video he is the inexperienced learner, following every step with wide, curious eyes, leaning in, " +
+    "nodding slowly as he understands. Her hand movements are large, slow and clear so that every step is easy to follow. " +
+    "In one continuous unhurried sequence, she picks up a sealed condom packet, holds it toward the camera, " +
+    "points at the printed expiry date with her fingertip and says in a clear, " +
+    "friendly voice in Mandarin Chinese: \"先看保存期限，沒有過期才能用喔！\" while he leans in to look; " +
+    "then she carefully tears the packet open along its edge with her fingers and takes out a rolled, bright blue, translucent condom, " +
+    "its blue colour clearly visible; she pinches the small tip of the blue condom between two fingers of one hand, holds it on top of the training model, " +
+    "and with her other hand slowly rolls the blue condom all the way down the model until the blue covers the whole shaft down to the base; " +
+    "while she is rolling it down she turns girlishly shy: she gives a small bashful smile with her lips closed, " +
+    "glances away to the side for a moment and lets out a soft embarrassed giggle and says in a quiet, " +
+    "sweet voice in Mandarin Chinese: \"捏住前端，再慢慢往下，套到底…\"; when the blue condom is fully on, he raises his eyebrows, breaks into an amazed grin, " +
+    "nods and says in Mandarin Chinese: \"喔——原來是這樣！\" she looks up at the camera with a shy, proud smile, " +
+    "and he pulls her a little closer and gives her a quick kiss on the cheek, which makes her giggle. " +
+    "They keep moving the whole time and speak while the action is still going on; nobody stops or stands still to talk. Natural lip movement, " +
+    "realistic fair skin with fine visible pores, no beauty filter, no airbrushing, bare faces with no makeup. Light laughter, a soft crinkle of foil, " +
+    "quiet sunny room ambience, no music. Their skin stays fair, light ivory with a soft pink tint for the whole video. " +
+    "For the whole video they behave like a couple deeply and happily in love: his arm stays around her, " +
+    "she nestles against his side and rests her head on his shoulder between steps, their free hands find each other and their fingers intertwine, " +
+    "he brushes a strand of hair behind her ear and kisses her temple, they whisper and laugh with their faces close together, noses almost touching, " +
+    "and they keep glancing at each other with soft, adoring smiles."
+
+private const val T12_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores and water droplets. Medium-wide front view from the knees up, " +
+    "static camera with a very slow push-in. A large round copper bathtub stands in the middle, filled with warm water and thick white foam, " +
+    "with a glass bottle of creamy white body wash and a natural sea sponge on a small wooden stool beside it. <Picture 1> is the princess, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
+    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Her long black hair is pinned up loosely in a soft bun with a few damp strands on her neck. She sits upright in the tub, nude, " +
+    "the foam and water covering her from the waist down, her shoulders, back and arms wet and bare, relaxed and smiling. " +
+    "Two adult servants in their thirties, fully dressed in plain linen servant clothes with rolled-up sleeves, " +
+    "attend her: a maid kneels behind the tub and a manservant kneels at the foot of the tub. The servants touch only her back, shoulders and feet. " +
+    "In one continuous unhurried sequence, the maid pours a little creamy body wash onto the sea sponge, " +
+    "works it into a rich lather and washes the princess's back and shoulders with slow, round strokes, white foam sliding down her skin; " +
+    "the princess lifts one foot out of the water and rests her heel on the rim of the tub, and the manservant gently washes her foot with his hands, " +
+    "lathering between her toes, which makes her wiggle her toes and laugh. While they are still washing her, " +
+    "she closes her eyes for a moment with a contented sigh, then looks into the camera, smiles and says in a soft, " +
+    "happy voice in Mandarin Chinese: \"好香，好舒服喔。\" Everyone takes their time; nothing is rushed. Natural lip movement. Water lapping, soft squelch of foam, " +
+    "her light laugh, quiet stone-room ambience, no music. Her skin stays fair, light ivory with a soft pink tint for the whole video."
+
+private const val T13_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores and water droplets. Medium-wide front view from the knees up, " +
+    "static camera with a very slow push-in. A large round copper bathtub stands in the middle, filled with warm water and thick white foam, " +
+    "with a glass bottle of pearly shampoo and a copper jug on a small wooden stool beside it. <Picture 1> is the princess, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, " +
+    "a natural bare face. <Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Her long black hair is wet and loose, hanging down her back. She sits upright in the tub, nude, the foam and water covering her from the chest down, " +
+    "her shoulders and arms wet and bare, relaxed and smiling. One adult maid in her thirties, " +
+    "fully dressed in plain linen servant clothes with rolled-up sleeves, kneels behind the tub. The maid touches only her hair, scalp and shoulders. " +
+    "In one continuous unhurried sequence, the maid pours pearly shampoo into her palm, rubs her hands together and works it into the princess's wet hair, " +
+    "massaging her scalp with slow circular movements of her fingertips until a thick white lather piles up on her head; the princess closes her eyes, " +
+    "tilts her head back into the maid's hands with a contented sigh, " +
+    "a blob of foam slides down by her ear and she laughs and blows a little foam off her fingertips. While the maid is still lathering her hair, " +
+    "she opens her eyes, looks into the camera, smiles and says in a soft, happy voice in Mandarin Chinese: \"頭皮好清爽，好舒服。\" Everyone takes their time; " +
+    "nothing is rushed. Natural lip movement. Water lapping, soft squelch of foam, a light laugh, quiet stone-room ambience, no music. Her skin stays fair, " +
+    "light ivory with a soft pink tint for the whole video."
+
+private const val T14_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores and water droplets. In the middle of the room stands a wide, " +
+    "shallow copper bathing basin on the stone floor, with copper jugs of warm water beside it, " +
+    "and on a small wooden stool in the foreground a large white bottle of body wash with a big, bold, " +
+    "shiny gold crown emblem on its front as the brand logo. <Picture 1> is the princess, a 21-year-old adult woman with fair, " +
+    "translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, a natural bare face. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Her long black hair is pinned up in a loose bun with a few damp strands on her neck. She is relaxed, cheerful and a little ticklish, " +
+    "smiling and laughing easily. Two adult servants in their thirties, fully dressed in plain linen servant clothes with rolled-up sleeves, " +
+    "attend her: a maid and a manservant. The lather is thin and sheer, in streaks and small patches that leave her body fully visible; " +
+    "foam never hides her body. Full-body front view, static camera. The princess stands fully nude in the shallow basin facing the camera, full frontal, " +
+    "relaxed and natural. The manservant slowly pours warm water from a copper jug over her shoulders so that it runs down her body; " +
+    "the maid works creamy body wash into a sea sponge and washes her shoulders, back and arms with slow, round strokes, " +
+    "then lifts each of her hands in turn and lathers her fingers; the princess shivers happily and laughs. The servants touch only her shoulders, back, " +
+    "arms and hands. She looks into the camera, smiles and says in a soft, " +
+    "happy voice in Mandarin Chinese: \"每天最期待的，就是這一刻。\" The shot ends with her standing in the basin, her upper body lathered. Everyone takes their time; " +
+    "nothing is rushed. Natural lip movement. Trickling water, soft squelch of lather, her light laughter, quiet stone-room ambience, no music. " +
+    "Her skin stays fair, light ivory with a soft pink tint for the whole video."
+
+private const val T14_1 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores and water droplets. In the middle of the room stands a wide, " +
+    "shallow copper bathing basin on the stone floor, with copper jugs of warm water beside it, " +
+    "and on a small wooden stool in the foreground a large white bottle of body wash with a big, bold, " +
+    "shiny gold crown emblem on its front as the brand logo. <Picture 1> is the princess, a 21-year-old adult woman with fair, " +
+    "translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, a natural bare face. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Her long black hair is pinned up in a loose bun with a few damp strands on her neck. She is relaxed, cheerful and a little ticklish, " +
+    "smiling and laughing easily. Two adult servants in their thirties, fully dressed in plain linen servant clothes with rolled-up sleeves, " +
+    "attend her: a maid and a manservant. The lather is thin and sheer, in streaks and small patches that leave her body fully visible; " +
+    "foam never hides her body. The shot begins exactly where the previous one ended: the princess stands nude in the basin, " +
+    "her upper body lightly lathered. Full-body front view, static camera. Both servants kneel down beside the basin: the maid lathers her left calf, " +
+    "knee and the outside of her thigh with the sponge while the manservant lathers her right calf, knee and the outside of her thigh with his hands; " +
+    "then the princess rests one hand on the maid's shoulder for balance, lifts one foot, and the manservant washes her foot and between her toes, " +
+    "which tickles and makes her wiggle her toes and burst out laughing. The servants touch only her legs below the hips and her feet. " +
+    "The shot ends with her standing on both feet again, lathered from shoulders to toes. Everyone takes their time; nothing is rushed. " +
+    "Natural lip movement. Trickling water, soft squelch of lather, her light laughter, quiet stone-room ambience, no music. Her skin stays fair, " +
+    "light ivory with a soft pink tint for the whole video."
+
+private const val T14_2 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores and water droplets. In the middle of the room stands a wide, " +
+    "shallow copper bathing basin on the stone floor, with copper jugs of warm water beside it, " +
+    "and on a small wooden stool in the foreground a large white bottle of body wash with a big, bold, " +
+    "shiny gold crown emblem on its front as the brand logo. <Picture 1> is the princess, a 21-year-old adult woman with fair, " +
+    "translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, a natural bare face. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Her long black hair is pinned up in a loose bun with a few damp strands on her neck. She is relaxed, cheerful and a little ticklish, " +
+    "smiling and laughing easily. Two adult servants in their thirties, fully dressed in plain linen servant clothes with rolled-up sleeves, " +
+    "attend her: a maid and a manservant. The lather is thin and sheer, in streaks and small patches that leave her body fully visible; " +
+    "foam never hides her body. The shot begins exactly where the previous one ended: the princess stands in the basin, " +
+    "lightly lathered from shoulders to toes; the servants step back half a pace and wait, holding the copper jugs. Medium shot from the waist up, " +
+    "eye level, static camera. The maid hands her the sponge; the princess takes it and, with a few brisk, everyday strokes, " +
+    "washes her own chest and stomach herself, then lowers the sponge below the frame for a moment to finish washing herself, " +
+    "and hands the sponge back with a nod. " +
+    "Then the camera widens to a full-body view as both servants pour warm water from the copper jugs over her shoulders, " +
+    "and the lather rinses away down her body, leaving her skin clean and glistening; she closes her eyes, tips her face up and sighs with pleasure. " +
+    "The shot ends with her standing nude and rinsed clean, water dripping, smiling. Everyone takes their time; nothing is rushed. Natural lip movement. " +
+    "Trickling water, soft squelch of lather, her light laughter, quiet stone-room ambience, no music. Her skin stays fair, " +
+    "light ivory with a soft pink tint for the whole video."
+
+private const val T14_3 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field with a softly blurred background, " +
+    "natural film grain, real skin texture with fine pores and water droplets. In the middle of the room stands a wide, " +
+    "shallow copper bathing basin on the stone floor, with copper jugs of warm water beside it, " +
+    "and on a small wooden stool in the foreground a large white bottle of body wash with a big, bold, " +
+    "shiny gold crown emblem on its front as the brand logo. <Picture 1> is the princess, a 21-year-old adult woman with fair, " +
+    "translucent light-ivory skin; her face is exactly the face in <Picture 1> for the whole video, a natural bare face. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape and proportions. " +
+    "Her long black hair is pinned up in a loose bun with a few damp strands on her neck. She is relaxed, cheerful and a little ticklish, " +
+    "smiling and laughing easily. Two adult servants in their thirties, fully dressed in plain linen servant clothes with rolled-up sleeves, " +
+    "attend her: a maid and a manservant. The lather is thin and sheer, in streaks and small patches that leave her body fully visible; " +
+    "foam never hides her body. The shot begins exactly where the previous one ended: the princess stands nude in the basin, rinsed clean and dripping, " +
+    "smiling. Full-body front view, static camera. The maid and the manservant unfold a large, thick white bath towel between them and hold it open; " +
+    "they wrap it around her from behind, bring it round her chest, " +
+    "and the maid tucks it in above her bust so that it covers her from her chest to her mid-thighs; " +
+    "the manservant pats her shoulders dry with a small hand towel. The princess steps out of the basin, " +
+    "picks up the bottle with the gold crown emblem from the stool, holds it beside her face toward the camera, beams and says in a sweet, " +
+    "cheerful voice in Mandarin Chinese: \"皇冠沐浴乳，洗完香一整天！\" The servants touch only the towel, her shoulders and her arms. Everyone takes their time; " +
+    "nothing is rushed. Natural lip movement. Trickling water, soft squelch of lather, her light laughter, quiet stone-room ambience, no music. " +
+    "Her skin stays fair, light ivory with a soft pink tint for the whole video."
+
+private const val T15_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field, natural film grain, " +
+    "real skin texture with fine pores and water droplets. Wide front view, static camera, the whole bath in frame. One very large round sunken stone bath, " +
+    "wide enough for several people, is filled with warm water and a thin layer of white foam. In the foreground, in the centre of the frame, " +
+    "on the stone rim of the bath, stands a large white bottle of body wash, in sharp focus, with a big, bold, " +
+    "shiny gold crown emblem on its front as the brand logo, clearly visible for the whole video. <Picture 1> is the princess, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is the prince, her newly-wed husband, " +
+    "an adult man in his late twenties with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
+    "<Picture 4> shows his body from the neck down; keep exactly this athletic body shape. " +
+    "The princess and the prince sit upright side by side in the same bath, shoulder to shoulder, " +
+    "both nude with the water and foam covering them from the waist down, shoulders, backs, chests and arms wet and bare. They are a young married couple, " +
+    "happy and playful together, glancing at each other with soft, adoring smiles. Her long black hair is pinned up in a loose bun. " +
+    "Two adult servants in their thirties, fully dressed in plain linen servant clothes with rolled-up sleeves, " +
+    "attend them: a maid kneels on the rim behind the princess and a manservant kneels on the rim behind the prince. " +
+    "The servants touch only their backs and shoulders. In one continuous unhurried sequence, " +
+    "each servant works creamy body wash into a sea sponge and scrubs their back and shoulders with slow, round strokes, " +
+    "white foam sliding down their skin; the couple glance at each other, the princess scoops up a little foam and dabs it on the tip of his nose, " +
+    "he laughs, wipes it off and flicks a few drops of water back at her, he slips an arm around her shoulders and kisses her temple, " +
+    "and she leans her head against his shoulder, laughing, then kisses his cheek. While the servants are still scrubbing, " +
+    "the princess points at the bottle with the gold crown, looks into the camera and says in a sweet, " +
+    "cheerful voice in Mandarin Chinese: \"皇冠沐浴乳，洗完香一整天！\" and right after her the prince grins and says in Mandarin Chinese: \"我也要多擠一點！\" Everyone takes their time; " +
+    "nothing is rushed. Natural lip movement. Water lapping, soft squelch of foam, their laughter, quiet stone-room ambience, no music. " +
+    "Their skin stays fair, light ivory for the whole video."
+
+private const val T16_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a stone bathing chamber in a European castle, " +
+    "tall arched windows with soft morning light, candles in iron holders, drifting steam, shallow depth of field, natural film grain, " +
+    "real skin texture with fine pores and water droplets. Wide front view, static camera, both bathtubs fully in frame. " +
+    "Two round copper bathtubs stand side by side about a metre apart, each filled with warm water and thick white foam. In the foreground, " +
+    "in the centre of the frame between the tubs, on a small wooden stool, stands a large white bottle of body wash, in sharp focus, with a big, bold, " +
+    "shiny gold crown emblem on its front as the brand logo, clearly visible for the whole video. <Picture 1> is the princess, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is the prince, her twin brother, " +
+    "an adult man of the same age with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
+    "<Picture 4> shows his body from the neck down; keep exactly this athletic body shape. " +
+    "The princess sits upright in the left tub and the prince sits upright in the right tub, " +
+    "each nude in their own tub with the foam and water covering them from the waist down, shoulders, backs and arms wet and bare. " +
+    "They are brother and sister, cheerful and teasing like siblings; each stays in their own tub and they never touch each other. " +
+    "Her long black hair is pinned up in a loose bun. Two adult servants in their thirties, " +
+    "fully dressed in plain linen servant clothes with rolled-up sleeves, " +
+    "attend them: a maid kneels behind the princess's tub and a manservant kneels behind the prince's tub. " +
+    "The servants touch only their backs and shoulders. In one continuous unhurried sequence, " +
+    "each servant works creamy body wash into a sea sponge and scrubs their back and shoulders with slow, round strokes, " +
+    "white foam sliding down their skin; the twins glance at each other, the princess scoops up a handful of foam and blows it toward her brother, " +
+    "he ducks and flicks a little foam back, and both burst out laughing. While the servants are still scrubbing, " +
+    "the princess points at the bottle with the gold crown, looks into the camera and says in a sweet, " +
+    "cheerful voice in Mandarin Chinese: \"皇冠沐浴乳，洗完香一整天！\" and right after her the prince grins and says in Mandarin Chinese: \"我也要多擠一點！\" Everyone takes their time; " +
+    "nothing is rushed. Natural lip movement. Water lapping, soft squelch of foam, their laughter, quiet stone-room ambience, no music. " +
+    "Their skin stays fair, light ivory for the whole video."
+
+private const val T17_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a large outdoor Japanese hot spring at dusk, " +
+    "ringed with natural rocks, paper lanterns, a bamboo fence, maple trees, steam rising, cool blue evening sky; shallow depth of field, " +
+    "natural film grain, real skin texture with fine pores and water droplets. A large, soft, " +
+    "warm-white key light from beside the camera lights the people evenly so their skin reads fair and luminous while the background stays dark and moody. " +
+    "The spring water is clear, with steam drifting low over it. " +
+    "Beside the pool is a flat stone step and a wooden bench with two folded cotton yukata robes on it. <Picture 1> is the wife, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is her husband, " +
+    "an adult man in his late twenties with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
+    "<Picture 4> shows his body from the neck down; keep exactly this athletic body shape. They are newly-weds on their honeymoon, " +
+    "relaxed and happy together, glancing at each other with soft, adoring smiles. Her hair is pinned up in a loose bun. Wide front view from the knees up, " +
+    "static camera. Following the bathing custom they bathe without towels. Both stand side by side on the stone step at the edge of the pool, " +
+    "fully nude facing the camera, full frontal, relaxed and natural; while he is nude his genitals are visible: HMPenis, " +
+    "his penis hangs straight down between his thighs, thick, full and heavy with a well-defined shape, " +
+    "the foreskin retracted and a rounded mushroom-shaped glans clearly wider than the shaft, with a tight scrotum behind it; " +
+    "it sways naturally with his body as he moves. He steps down into the water first and holds out his hand; she takes it to steady herself, " +
+    "dips one foot in, shivers happily at the warmth and laughs, then steps down beside him. " +
+    "They lower themselves into the clear water until it reaches their chests and sit side by side, shoulder to shoulder; " +
+    "he puts an arm around her shoulders, she nestles against his side with her head on his shoulder and sighs, and he kisses her forehead. " +
+    "She looks into the camera, smiles and says in a soft, " +
+    "happy voice in Mandarin Chinese: \"蜜月第一站，就是泡湯。\" The shot ends with both of them soaking side by side. Everyone takes their time; nothing is rushed. " +
+    "Natural lip movement. Water lapping, a bamboo water spout trickling, evening insects, relaxed laughter, no music. Their skin stays fair, " +
+    "light ivory for the whole video."
+
+private const val T17_1 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a large outdoor Japanese hot spring at dusk, " +
+    "ringed with natural rocks, paper lanterns, a bamboo fence, maple trees, steam rising, cool blue evening sky; shallow depth of field, " +
+    "natural film grain, real skin texture with fine pores and water droplets. A large, soft, " +
+    "warm-white key light from beside the camera lights the people evenly so their skin reads fair and luminous while the background stays dark and moody. " +
+    "The spring water is clear, with steam drifting low over it. " +
+    "Beside the pool is a flat stone step and a wooden bench with two folded cotton yukata robes on it. <Picture 1> is the wife, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is her husband, " +
+    "an adult man in his late twenties with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
+    "<Picture 4> shows his body from the neck down; keep exactly this athletic body shape. They are newly-weds on their honeymoon, " +
+    "relaxed and happy together, glancing at each other with soft, adoring smiles. Her hair is pinned up in a loose bun. " +
+    "The shot begins exactly where the previous one ended: the two of them soaking side by side in the clear water up to their chests. " +
+    "Wide front view from the knees up, static camera. After a moment they stand up together, water streaming off their bodies, " +
+    "and step out of the pool onto the stone step hand in hand, fully nude facing the camera; she turns her face up to him and they share a quick, " +
+    "tender kiss on the lips, standing side by side; while he is nude his genitals are visible: HMPenis, his penis hangs straight down between his thighs, " +
+    "thick, full and heavy with a well-defined shape, the foreskin retracted and a rounded mushroom-shaped glans clearly wider than the shaft, " +
+    "with a tight scrotum behind it; it sways naturally with his body as he moves. " +
+    "Each picks up a folded yukata from the bench: she slips her arms into a pale blue one, wraps it closed and ties the sash; " +
+    "he puts on a dark navy one and ties the sash, so that both are fully covered. Once both are dressed he slips an arm around her waist, " +
+    "she leans into him, and he kisses her temple. She looks into the camera, beams and says in a sweet, " +
+    "cheerful voice in Mandarin Chinese: \"泡完全身暖呼呼！\" and he says in Mandarin Chinese: \"明天再來。\" Everyone takes their time; nothing is rushed. " +
+    "Natural lip movement. Water lapping, a bamboo water spout trickling, evening insects, relaxed laughter, no music. Their skin stays fair, " +
+    "light ivory for the whole video."
+
+private const val T18_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a large outdoor Japanese hot spring at dusk, " +
+    "ringed with natural rocks, paper lanterns, a bamboo fence, maple trees, steam rising, cool blue evening sky; shallow depth of field, " +
+    "natural film grain, real skin texture with fine pores and water droplets. A large, soft, " +
+    "warm-white key light from beside the camera lights the people evenly so their skin reads fair and luminous while the background stays dark and moody. " +
+    "<Picture 1> is the younger sister, a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is her older brother, " +
+    "an adult man in his late twenties with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
+    "<Picture 4> shows his body from the neck down; keep exactly this athletic body shape. They are an ordinary brother and sister on a family trip, " +
+    "relaxed and teasing like siblings. Wide front view, static camera, the whole pool in frame. The spring water is clear, " +
+    "with steam drifting low over it and gentle ripples on the surface. Following the bathing custom, they bathe without towels in the water; " +
+    "they sit on either side of the big pool, a comfortable chatting distance apart, submerged up to the shoulders, so that only their heads, " +
+    "necks and shoulders are above the water. Her hair is pinned up in a loose bun; a small folded towel rests on top of her brother's head. " +
+    "In one continuous unhurried sequence, she scoops warm water in her cupped hands and lets it run over her shoulder, sighing happily; " +
+    "her brother leans his head back against a rock and lets out a long, contented breath; she flicks a few drops of water across the pool, " +
+    "he opens one eye and laughs. She looks into the camera, smiles and says in a soft, " +
+    "happy voice in Mandarin Chinese: \"哥，泡完整個人都鬆了。\" and right after her he says in Mandarin Chinese: \"下次再帶你來。\" The shot ends with both still soaking up to their shoulders. " +
+    "Everyone takes their time; nothing is rushed. Natural lip movement. Water lapping, a bamboo water spout trickling, evening insects, relaxed laughter, " +
+    "no music. Their skin stays fair, light ivory for the whole video."
+
+private const val T18_1 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a large outdoor Japanese hot spring at dusk, " +
+    "ringed with natural rocks, paper lanterns, a bamboo fence, maple trees, steam rising, cool blue evening sky; shallow depth of field, " +
+    "natural film grain, real skin texture with fine pores and water droplets. A large, soft, " +
+    "warm-white key light from beside the camera lights the people evenly so their skin reads fair and luminous while the background stays dark and moody. " +
+    "<Picture 1> is the younger sister, a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. <Picture 3> is her older brother, " +
+    "an adult man in his late twenties with fair light-ivory skin and short black hair; his face is exactly the face in <Picture 3>. " +
+    "<Picture 4> shows his body from the neck down; keep exactly this athletic body shape. They are an ordinary brother and sister on a family trip, " +
+    "relaxed and teasing like siblings. A new shot a little later, " +
+    "after the bath: a wooden deck beside the hot spring with a low bench and a paper lantern. Medium-wide front view, static camera. " +
+    "Both are now fully dressed in cotton yukata bath robes with sashes tied, hers pale blue with a white pattern, his dark navy, " +
+    "their hair still slightly damp, small towels round their necks, sitting side by side on the bench with a little space between them. " +
+    "Each holds a small glass bottle of cold milk. She pulls the paper cap off hers, takes a sip and lets out a happy sigh; " +
+    "her brother does the same and wipes his mouth with the back of his hand. She holds her bottle up toward the camera, beams and says in a sweet, " +
+    "cheerful voice in Mandarin Chinese: \"泡完喝這個最對味！\" and he clinks his bottle against hers and says in Mandarin Chinese: \"乾杯。\" Everyone takes their time; " +
+    "nothing is rushed. Natural lip movement. Water lapping, a bamboo water spout trickling, evening insects, relaxed laughter, no music. " +
+    "Their skin stays fair, light ivory for the whole video."
+
+private const val T19_0 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a large outdoor Japanese hot spring at dusk, " +
+    "ringed with natural rocks, paper lanterns, a bamboo fence, maple trees, steam rising, cool blue evening sky; shallow depth of field, " +
+    "natural film grain, real skin texture with fine pores and water droplets. A large, soft, " +
+    "warm-white key light from beside the camera lights the people evenly so their skin reads fair and luminous while the background stays dark and moody. " +
+    "<Picture 1> is the daughter, a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. " +
+    "Her father is a kind-looking man in his mid-fifties with short grey-streaked hair, laugh lines and an ordinary, slightly soft middle-aged build. " +
+    "They are an ordinary father and grown-up daughter on a family trip, easy and warm with each other in the way of family. Wide front view, " +
+    "static camera, the whole pool in frame. The spring water is clear, with steam drifting low over it and gentle ripples on the surface. " +
+    "Following the bathing custom, they bathe without towels in the water; they sit on either side of the big pool, a comfortable chatting distance apart, " +
+    "submerged up to the shoulders, so that only their heads, necks and shoulders are above the water. Her hair is pinned up in a loose bun; " +
+    "a small folded towel rests on top of her father's head. In one continuous unhurried sequence, " +
+    "she scoops warm water in her cupped hands and lets it run over her shoulder, sighing happily; " +
+    "her father leans his head back against a rock and lets out a long, contented breath; she flicks a few drops of water across the pool, " +
+    "he opens one eye and laughs. She looks into the camera, smiles and says in a soft, " +
+    "happy voice in Mandarin Chinese: \"爸，泡完肩膀不痠了吧？\" and right after her he says in Mandarin Chinese: \"舒服多了，謝謝你帶我來。\" The shot ends with both still soaking up to their shoulders. " +
+    "Everyone takes their time; nothing is rushed. Natural lip movement. Water lapping, a bamboo water spout trickling, evening insects, relaxed laughter, " +
+    "no music. Their skin stays fair, light ivory for the whole video."
+
+private const val T19_1 =
+    "Cinematic film still quality, shot on a full-frame cinema camera with a fast prime lens: a large outdoor Japanese hot spring at dusk, " +
+    "ringed with natural rocks, paper lanterns, a bamboo fence, maple trees, steam rising, cool blue evening sky; shallow depth of field, " +
+    "natural film grain, real skin texture with fine pores and water droplets. A large, soft, " +
+    "warm-white key light from beside the camera lights the people evenly so their skin reads fair and luminous while the background stays dark and moody. " +
+    "<Picture 1> is the daughter, a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>. " +
+    "<Picture 2> shows her body from the neck down; keep exactly this body shape. " +
+    "Her father is a kind-looking man in his mid-fifties with short grey-streaked hair, laugh lines and an ordinary, slightly soft middle-aged build. " +
+    "They are an ordinary father and grown-up daughter on a family trip, easy and warm with each other in the way of family. A new shot a little later, " +
+    "after the bath: a wooden deck beside the hot spring with a low bench and a paper lantern. Medium-wide front view, static camera. " +
+    "Both are now fully dressed in cotton yukata bath robes with sashes tied, hers pale blue with a white pattern, his dark navy, " +
+    "their hair still slightly damp, small towels round their necks, sitting side by side on the bench with a little space between them. " +
+    "Each holds a small glass bottle of cold milk. She pulls the paper cap off hers, takes a sip and lets out a happy sigh; " +
+    "her father does the same and wipes his mouth with the back of his hand. She holds her bottle up toward the camera, beams and says in a sweet, " +
+    "cheerful voice in Mandarin Chinese: \"爸，泡完要喝牛奶才道地。\" and he clinks his bottle against hers and says in Mandarin Chinese: \"好，乾杯。\" Everyone takes their time; " +
+    "nothing is rushed. Natural lip movement. Water lapping, a bamboo water spout trickling, evening insects, relaxed laughter, no music. " +
+    "Their skin stays fair, light ivory for the whole video."
+
 internal val H3_TEMPLATES_MORE: List<H3Template> = listOf(
     H3Template("古風澡堂", "出浴：起身、圍上浴巾", "夜晚木造澡堂，背景低調、人物用柔和主光打亮（膚色白）。從乳白浴桶站起（全裸正面）→ 跨出 → 拿浴巾圍好 → 撥瀏海。建議 10 秒。放 2 張參考圖（臉＋頸部以下身材）。") { _ -> T0_0 },
     H3Template("古風澡堂", "近景：察覺動靜", "圍著浴巾坐在浴桶邊閉目 → 睜眼、眼神變銳利 → 側頭聽動靜。建議 8 秒。放 2 張參考圖。") { _ -> T1_0 },
@@ -439,9 +819,18 @@ internal val H3_TEMPLATES_MORE: List<H3Template> = listOf(
     H3Template("古風澡堂", "全景：轉身踢腿", "低角度全身。赤腳在濕木地板上轉身高踢、落地成低姿勢抬眼看鏡頭。建議 8 秒。放 2 張參考圖。") { _ -> T3_0 },
     H3Template("古風澡堂", "收尾：鬆一口氣微笑", "圍著浴巾站在浴桶邊喘口氣、擦臉頰、看鏡頭、露出放鬆的微笑。建議 8 秒。放 2 張參考圖。") { _ -> T4_0 },
     H3Template("古裝武俠", "客棧夜景：脫黑袍、換白袍（兩段）", "夜晚客棧、燈籠燭光、古裝半束髮、七分身手持。第 1 段解腰帶脫黑袍、全裸；第 2 段從身旁矮架拿白袍穿上、繫腰帶。每段一句台詞。建議每段 10 秒。放 2 張參考圖。", beats = { _ -> listOf(T5_0, T5_1) }) { _ -> T5_0 },
-    H3Template("雙主播", "情侶換裝（兩段）", "白天、手持七分身。第 1 段牽手、他幫她撥頭髮、她靠肩 → 各自脫下 → 全裸笑場；第 2 段各自穿好 → 摟腰、捧臉親臉頰、兩句台詞。建議每段 12 秒、雲端。放 4 張參考圖：女臉、女身材、男臉、男身材。", beats = { _ -> listOf(T6_0, T6_1) }) { _ -> T6_0 },
+    H3Template("雙主播", "情侶換裝（兩段）", "白天、手持七分身。第 1 段牽手、他幫她撥頭髮、她靠肩 → 各自脫下 → 全裸時摟腰靠肩、輕吻；第 2 段各自穿好 → 摟腰、捧臉親臉頰、兩句台詞。建議每段 12 秒、雲端。放 4 張參考圖：女臉、女身材、男臉、男身材。", beats = { _ -> listOf(T6_0, T6_1) }) { _ -> T6_0 },
     H3Template("內衣試穿", "男試穿師幫穿胸罩＋穿內褲（兩段）", "第 1 段全裸、試穿師幫套肩帶、她自己托進罩杯、扣背扣、調肩帶；第 2 段只穿內褲：撐開、右腳、左腳、沿著腿往上拉到髖部。建議每段 12 秒。放 2 張參考圖（臉＋頸部以下身材）。", beats = { _ -> listOf(T7_0, T7_1) }) { _ -> T7_0 },
     H3Template("衛教", "保險套示範：情侶（背心短褲）", "沙發上、他摟著她的肩。她講保存期限、撕包裝、把藍色保險套套到教具底部，套的時候靦腆地笑；他是學員說「原來是這樣」，結尾親臉頰。建議 15 秒、雲端。放 2 張參考圖：女臉、男臉。") { _ -> T8_0 },
     H3Template("衛教", "保險套示範：情侶（剛洗完澡圍浴巾）", "臥室床邊、兩人各圍一條浴巾、大腿貼著坐。內容同上。建議 15 秒、雲端。放 2 張參考圖：女臉、男臉。") { _ -> T9_0 },
     H3Template("衛教", "保險套示範：單人（先換裝再示範）", "前段全裸站在沙發旁、穿上絲質短睡袍繫好；後段穿著睡袍坐下，講保存期限、撕包裝、套上藍色保險套。建議 15 秒、雲端。放 2 張參考圖（臉＋頸部以下身材）。") { _ -> T10_0 },
+    H3Template("衛教", "保險套示範：情侶（先全裸圍浴巾、再示範・兩段）", "第 1 段剛洗完澡兩人全裸站在床邊、各自圍上浴巾、坐下；第 2 段圍著浴巾示範。建議每段 12 秒、雲端。放 4 張參考圖：女臉、男臉、女身材、男身材。", beats = { _ -> listOf(T11_0, T11_1) }) { _ -> T11_0 },
+    H3Template("沐浴廣告", "城堡公主：僕人搓背、洗腳趾", "石造浴室、銅浴缸、泡沫到腰。女僕用海綿搓背、男僕洗她擱在缸沿的腳。建議 12 秒。放 2 張參考圖（臉＋頸部以下身材）。") { _ -> T12_0 },
+    H3Template("沐浴廣告", "城堡公主：女僕洗頭（洗髮精）", "女僕把洗髮精搓進濕髮、按摩頭皮，泡沫堆滿頭。建議 12 秒。放 2 張參考圖。") { _ -> T13_0 },
+    H3Template("沐浴廣告", "城堡公主：僕人服侍沐浴全程（四段）", "站在淺銅盆裡全裸。第 1 段淋水、洗肩背手臂；第 2 段洗小腿膝蓋大腿外側與腳趾；第 3 段她自己洗胸口肚子與私處（帶過）、僕人沖水；第 4 段僕人幫圍浴巾、拿起皇冠標誌的瓶子講台詞。泡沫薄、不遮身體。建議每段 12 秒、雲端。放 2 張參考圖。", beats = { _ -> listOf(T14_0, T14_1, T14_2, T14_3) }) { _ -> T14_0 },
+    H3Template("沐浴廣告", "城堡新婚夫妻：同一個大浴池", "大圓形石砌浴池，兩人並肩泡著、僕人各在身後搓背；點泡沫、摟肩、親太陽穴。前景有皇冠標誌的瓶子。建議 12 秒。放 4 張參考圖：女臉、女身材、男臉、男身材。") { _ -> T15_0 },
+    H3Template("沐浴廣告", "城堡龍鳳胎：各泡各的浴缸", "兩個銅浴缸並排，兄妹各自被僕人搓背、互相吹泡沫打鬧。前景有皇冠標誌的瓶子。建議 12 秒。放 4 張參考圖：女臉、女身材、男臉、男身材。") { _ -> T16_0 },
+    H3Template("溫泉", "新婚夫妻：全裸下水、上岸穿浴衣（兩段）", "戶外溫泉、黃昏、清湯。第 1 段兩人全裸走進池子、並肩泡著、摟肩親額頭；第 2 段牽手上岸、輕吻、各自穿上浴衣、摟腰。建議每段 10 秒、雲端。放 4 張參考圖：女臉、女身材、男臉、男身材。", beats = { _ -> listOf(T17_0, T17_1) }) { _ -> T17_0 },
+    H3Template("溫泉", "兄妹：泡湯、上岸喝牛奶（兩段）", "清湯、寬景，兩人各在池子一邊、水到肩膀聊天；第 2 段穿浴衣在木平台喝牛奶。建議每段 10 秒。放 4 張參考圖：女臉、女身材、男臉、男身材。", beats = { _ -> listOf(T18_0, T18_1) }) { _ -> T18_0 },
+    H3Template("溫泉", "父女：泡湯、上岸喝牛奶（兩段）", "同上，人物是父親與成年的女兒。建議每段 10 秒。放 2 張參考圖（女兒的臉＋頸部以下身材），父親由文字描述。", beats = { _ -> listOf(T19_0, T19_1) }) { _ -> T19_0 },
 )
