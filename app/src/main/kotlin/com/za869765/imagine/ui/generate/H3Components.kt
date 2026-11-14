@@ -88,7 +88,7 @@ fun H3ProgressHero(status: String, route: String?, pct: Int?, etaText: String) {
     val steps = buildList {
         add("已送出" to emptyList<String>())
         add("排隊中" to listOf("queued", "hold"))
-        if (route != "local") add("機器開機" to listOf("launching", "setup"))
+        if (!com.za869765.imagine.data.h3.H3Format.isLocalRoute(route)) add("機器開機" to listOf("launching", "setup"))
         add("生成中" to listOf("running"))
         add("存進手機" to listOf("done"))
     }

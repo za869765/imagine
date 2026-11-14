@@ -162,7 +162,7 @@ fun LaptopFilesScreen(
     }
 
     ImagineScreen(
-        appBar = { ImagineTopAppBar(title = "筆電測試片", onSettingsClick = onSettingsClick) },
+        appBar = { ImagineTopAppBar(title = "測試片", onSettingsClick = onSettingsClick) },
         bottomNav = { ImagineBottomNav(active = NavTab.LAPTOP, onTabSelected = onNavSelected) },
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -188,6 +188,11 @@ fun LaptopFilesScreen(
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { Downloader.reloadLaptop(ctx, full = true) }, enabled = !loading) { Text(if (loading) "讀取中…" else "整份重讀") }
+                // v3.4.9 兩台各有自己的測試片資料夾:按一下輪流切換 自動 → 桌機 → 筆電
+                val source = Downloader.laptopSource.collectAsState().value
+                OutlinedButton(onClick = { Downloader.setLaptopSource(ctx, when (source) { "" -> "desk"; "desk" -> "local"; else -> "" }) }, enabled = !loading) {
+                    Text("來源：" + when (source) { "desk" -> "桌機"; "local" -> "筆電"; else -> "自動" })
+                }
                 Text(
                     if (files == null) "第一次讀取，要等一下" else "手機上有 ${everything.size}／$total 個" + if (loading) "，更新中" else "",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,

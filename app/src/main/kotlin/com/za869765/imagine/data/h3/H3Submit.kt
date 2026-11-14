@@ -136,10 +136,10 @@ object H3Submit {
                 if (pending.model == "prism" && pending.route == "gputw") {
                     put("unet", kotlinx.serialization.json.JsonPrimitive(H3_PRISM_UNET))
                     put("steps", kotlinx.serialization.json.JsonPrimitive(8))  // 8 步加速已燒進權重
-                } else if (pending.model == "prism" && pending.route == "local") {
+                } else if (pending.model == "prism" && H3Format.isLocalRoute(pending.route)) {
                     put("unet", kotlinx.serialization.json.JsonPrimitive(H3_LOCAL_PRISM_UNET))  // v3.2.9 筆電單選 PRISM:8 步、不掛 LoRA、不調白
                 } else if (pending.model == "v2" || pending.model == "prism") {  // 雲端 Colab 沒有 PRISM，改用 V2
-                    put("unet", kotlinx.serialization.json.JsonPrimitive(if (pending.route == "local") H3_LOCAL_V2_UNET else H3_CLOUD_V2_UNET))
+                    put("unet", kotlinx.serialization.json.JsonPrimitive(if (H3Format.isLocalRoute(pending.route)) H3_LOCAL_V2_UNET else H3_CLOUD_V2_UNET))
                 }
             }.ifEmpty { null },
             gpus = if (pending.route == "cloud" && pending.gpus.isNotEmpty()) pending.gpus else null,
@@ -150,7 +150,7 @@ object H3Submit {
             keepInStudio = false,
             seed = pending.seed,
             t2v = pending.mode == "t2v",
-            autoRef = pending.autoRef?.trim()?.takeIf { it.isNotEmpty() && pending.mode == "t2v" && pending.route == "local" && pending.subjectId == null },
+            autoRef = pending.autoRef?.trim()?.takeIf { it.isNotEmpty() && pending.mode == "t2v" && H3Format.isLocalRoute(pending.route) && pending.subjectId == null },
             refVideo = refVideo,
             rawPrompt = (pending.rawPrompt && (pending.segments == 1 || pending.beats.size >= pending.segments && pending.beats.take(pending.segments).all { it.isNotBlank() })).takeIf { it },
         )

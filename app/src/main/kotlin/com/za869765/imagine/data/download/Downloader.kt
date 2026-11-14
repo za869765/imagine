@@ -63,6 +63,13 @@ object Downloader {
     val laptopList = MutableStateFlow<List<H3LaptopFile>?>(null)
     /** 資料夾裡總共幾個(清單一頁只給 40 個) */
     val laptopTotal = MutableStateFlow(0)
+    /** v3.4.9 測試片來源:""＝自動(桌機在線就桌機)、"desk"＝桌機、"local"＝筆電;換來源就整份重讀 */
+    val laptopSource = MutableStateFlow("")
+    private fun src(): String? = laptopSource.value.ifBlank { null }
+    fun setLaptopSource(ctx: Context, s: String) {
+        laptopSource.value = s
+        reloadLaptop(ctx, full = true)
+    }
 
     /** v3.3.7 傳過的檔名記在手機(重開 APP 還在):清單標「已傳過」,一鍵全部只抓沒傳過的 */
     val laptopFetched = MutableStateFlow<Set<String>>(emptySet())
@@ -94,7 +101,7 @@ object Downloader {
         laptopError.value = null
         scope.launch {
             var msg: String? = "筆電兩分鐘內沒有回應，檔案可能還沒刪"
-            val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = name, delete = true))
+            val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = name, delete = true, source = src()))
             val runId = (created as? H3Client.Result.Ok)?.value?.runId
             if (runId == null) {
                 msg = (created as? H3Client.Result.Err)?.message ?: "伺服器沒有回單號"
@@ -173,14 +180,14 @@ object Downloader {
     private suspend fun fetchPage(ctx: Context, offset: Int): Triple<List<H3LaptopFile>, Int, String?> {
         val prefs = SecurePrefs.get(ctx.applicationContext)
         // 列清單可以放心重送:剛切回 APP 或剛換網路時,第一次連線常常失敗(送出用的連線不會自動重試),所以連不上就隔一下再試,最多三次
-        var created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
+        var created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset, source = src()))
         var tries = 0
         while (tries < 2) {
             val err = created as? H3Client.Result.Err ?: break
             if (!err.uncertain || err.code != 0) break
             tries++
             delay(1500)
-            created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset))
+            created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, offset = offset, source = src()))
         }
         val made = created
         val runId = when (made) {
@@ -225,7 +232,7 @@ object Downloader {
         tasks.update { listOf(Task(id = id, url = url, audio = audio, title = laptopName ?: url)) + it }
         scope.launch {
             val mode = if (audio) "audio" else if (height == 720) "v720" else "v1080"
-            val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = if (laptopName != null) "" else url, mode = mode, clientRequestId = id, browse = laptopName != null, name = laptopName.orEmpty()))
+            val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = if (laptopName != null) "" else url, mode = mode, clientRequestId = id, browse = laptopName != null, name = laptopName.orEmpty(), source = if (laptopName != null) src() else null))
             val runId = when (created) {
                 is H3Client.Result.Ok -> created.value.runId
                 is H3Client.Result.Err -> return@launch fail(id, created.message)

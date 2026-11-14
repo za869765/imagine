@@ -137,7 +137,7 @@ object H3Client {
 
     /** 不消耗 CU 的估算(同時拿餘額)。seconds 4..15、quality normal|fast。 */
     suspend fun estimate(prefs: SecurePrefs, seconds: Int, quality: String, route: String = "cloud", segments: Int = 1, fair: Boolean = false): Result<H3Estimate> =
-        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route&segments=$segments" + (if (fair && route == "local") "&fair=1" else ""))?.get()?.build())
+        call<H3Estimate>(prefs, http, request(prefs, "/api/app/estimate?seconds=$seconds&quality=$quality&route=$route&segments=$segments" + (if (fair && H3Format.isLocalRoute(route)) "&fair=1" else ""))?.get()?.build())
 
     /** v2.1.8 資產庫角色清單(綁角色＝臉部模型＋聲音每段都掛)。 */
     /** v2.1.9 機器看板(不花錢):各機器生成中／排隊／待機倒數／關機。 */
@@ -149,7 +149,7 @@ object H3Client {
 
     /** ⚠️ 會消耗 Colab CU — 只能在使用者於確認視窗勾選並按「確認開跑」後呼叫。 */
     suspend fun submit(prefs: SecurePrefs, body: H3JobRequest): Result<H3JobCreated> {
-        require(body.confirm && (body.estCu > 0 || (body.route == "gputw" && body.estNtd > 0) || body.route == "local") && body.clientRequestId.isNotBlank()) { "H3 送出前必須經過確認" }
+        require(body.confirm && (body.estCu > 0 || (body.route == "gputw" && body.estNtd > 0) || H3Format.isLocalRoute(body.route)) && body.clientRequestId.isNotBlank()) { "H3 送出前必須經過確認" }
         val payload = json.encodeToString(body).toRequestBody("application/json".toMediaType())
         return call<H3JobCreated>(prefs, submitHttp, request(prefs, "/api/app/jobs")?.post(payload)?.build())
     }

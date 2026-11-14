@@ -7,17 +7,22 @@ object H3Format {
     fun qualityLabel(q: String): String = if (q == "fast") "快速版（4 步）" else "正常版（bf16 20 步）"
 
     // v2.1.4 生影三級(使用者 10/28 定):超高畫質＝bf16(Colab)、高畫質＝int8(GPUtw 5090)、低畫質＝Q4(筆電,免費)
-    val VIDEO_TIERS = listOf("high", "ultra", "low")
-    fun tierRoute(t: String): String = when (t) { "ultra" -> "cloud"; "low" -> "local"; else -> "gputw" }
-    fun tierQuality(t: String): String = when (t) { "low" -> "fast"; else -> "normal" }
+    val VIDEO_TIERS = listOf("desk", "high", "ultra", "low")
+    fun tierRoute(t: String): String = when (t) { "ultra" -> "cloud"; "low" -> "local"; "desk" -> "desk"; else -> "gputw" }
+    fun tierQuality(t: String): String = when (t) { "low", "desk" -> "fast"; else -> "normal" }
+    /** v3.4.9 本機工人有兩台:筆電(low／local)與桌機 5080(desk),都免費、都用本機配方 */
+    fun isLocalTier(t: String): Boolean = t == "low" || t == "desk"
+    fun isLocalRoute(r: String?): Boolean = r == "local" || r == "desk"
     fun tierName(t: String): String = when (t) {
         "ultra" -> "超高畫質・bf16（Colab A100）"
         "low" -> "低畫質・Q4 草稿（筆電，免費）"
+        "desk" -> "桌機 5080（免費，快）"
         else -> "高畫質・int8（GPUtw 5090，建議）"
     }
     fun tierDesc(t: String): String = when (t) {
         "ultra" -> "官方 bf16 20 步・畫質基準・每 5 秒約 10 分・扣 CU"
         "low" -> "Q4 GGUF＋Acc 8 步、544×928・每 5 秒約 10 分・最長 8 秒・筆電要開著"
+        "desk" -> "和筆電同一套本機配方，快約 3～4 倍・最長 15 秒・白皙 8 秒約 6 分・桌機要開著"
         else -> "int8 未剪枝混合版 20 步＋Sol-Attn・每 5 秒約 2.8 分・扣台幣・經濟實用"
     }
 
@@ -85,7 +90,7 @@ object H3Format {
 
     /** v2.9.5 影片主模型顯示名:model＝"v2"(Singularity V2)或 "q4"(筆電 Q4／雲端官方)。 */
     fun modelName(route: String?, model: String?): String = when (route) {
-        "local" -> when (model) { "prism" -> "PRISM・8步"; "v2" -> "V2・8步HD"; else -> "Q4・8步HD" }
+        "local", "desk" -> when (model) { "prism" -> "PRISM・8步"; "v2" -> "V2・8步HD"; else -> "Q4・8步HD" }
         "gputw" -> when (model) { "prism" -> "PRISM・8步"; "v2" -> "V2・int8"; else -> "官方 int8" }
         "cloud" -> if (model == "v2" || model == "prism") "V2・int8" else "官方 bf16"
         else -> if (model == "v2" || model == "prism") "V2" else "官方"
@@ -131,7 +136,7 @@ object H3Format {
      */
     fun blockReason(e: H3Estimate, nowMs: Long = System.currentTimeMillis()): String? = when {
         // v2.1.4 GPUtw:扣台幣,只擋超過 GPUtw 餘額
-        e.route == "local" -> if (!e.gpuAlive) "筆電工人不在線，低畫質（免費）現在做不了" else null
+        isLocalRoute(e.route) -> if (!e.gpuAlive) "${routeShort(e.route)}工人不在線，免費的本機生成現在做不了" else null
         e.route == "gputw" -> if (e.ntdBalance != null && e.ntd > e.ntdBalance) "預估 NT$${ntd(e.ntd)} 超過 GPUtw 餘額 NT$${ntd(e.ntdBalance)}" else null
         e.cu <= 0.0 -> "估算結果異常（CU ≤ 0），不能送出"
         e.balance == null -> "目前 CU 餘額未知，無法確認是否足夠 — 請先按下方「更新餘額」"

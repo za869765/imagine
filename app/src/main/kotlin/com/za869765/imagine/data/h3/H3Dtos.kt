@@ -218,6 +218,8 @@ data class H3DownloadRequest(
     val offset: Int = 0,
     /** v3.3.7 browse＋name＋delete＝刪掉筆電測試資料夾裡這個檔 */
     val delete: Boolean = false,
+    /** v3.4.9 測試片來源:"desk"＝桌機、"local"＝筆電;不帶＝伺服器決定(桌機在線就桌機) */
+    val source: String? = null,
 )
 
 @Serializable

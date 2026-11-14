@@ -3,8 +3,8 @@ package com.za869765.imagine.ui.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -86,18 +86,14 @@ fun MachineLightsRow() {
     fun st(route: String): String? = b.machines.firstOrNull { it.route == route }?.state
     val cu = b.cuBalance?.let { " %.0fCU".format(it) } ?: ""
     val ntd = b.ntdBalance?.let { " $%.0f".format(it) } ?: ""
-    Column(
-        modifier = Modifier.padding(end = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        horizontalAlignment = Alignment.End,
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, bottom = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Light("桌機", st("desk"))
-            Light("筆電", st("local"))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Light("Colab$cu", st("cloud"))
-            Light("GPUtw$ntd", st("gputw"))
-        }
+        Light("桌機", st("desk"))
+        Light("筆電", st("local"))
+        Light("Colab$cu", st("cloud"))
+        Light("GPUtw$ntd", st("gputw"))
     }
 }

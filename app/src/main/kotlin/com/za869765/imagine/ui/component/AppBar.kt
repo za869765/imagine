@@ -27,11 +27,11 @@ fun ImagineTopAppBar(
     trailing: @Composable (() -> Unit)? = null,
     onSettingsClick: () -> Unit = {},
 ) {
+    androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .background(MaterialTheme.colorScheme.surface)
             .padding(start = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -50,11 +50,12 @@ fun ImagineTopAppBar(
                 .weight(1f)
                 .padding(start = 4.dp),
         )
-        MachineLightsRow()  // v3.4.8 四台機器的燈號與餘額
         if (trailing != null) {
             trailing()
         } else {
             ImagineIconButton(name = "settings", onClick = onSettingsClick)
         }
+    }
+    MachineLightsRow()  // v3.4.9 四台機器的燈號與餘額:自己一列、在標題下面,不會被手機上方的狀態列擋住
     }
 }

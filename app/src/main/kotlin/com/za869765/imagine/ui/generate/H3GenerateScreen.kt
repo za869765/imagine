@@ -209,7 +209,7 @@ fun H3GenerateScreen(
             return
         }
         val wantAutoRef = retry == null && autoRef && mode == "t2v" && extendBase == null && subjectId == null
-        if (wantAutoRef && tier != "low") {
+        if (wantAutoRef && !H3Format.isLocalTier(tier)) {
             Toast.makeText(ctx, "「先自動生參考人像」目前只在筆電畫質做，請把畫質改成筆電，或取消勾選", Toast.LENGTH_LONG).show()
             return
         }
@@ -230,7 +230,7 @@ fun H3GenerateScreen(
             seconds = if (motion) motionSec else if (tier == "low") seconds.coerceAtMost(8) else seconds,
             quality = H3Format.tierQuality(tier),
             // 續做用最後一格當首幀；筆電沒裝首幀模型，改當參考圖
-            mode = if (extendBase != null && subjectId == null && tier != "low") "first" else if (extendBase != null) "ref" else mode,
+            mode = if (extendBase != null && subjectId == null && !H3Format.isLocalTier(tier)) "first" else if (extendBase != null) "ref" else mode,
             aspect = aspect,
             route = H3Format.tierRoute(tier),
             blink = blink,
@@ -367,7 +367,7 @@ fun H3GenerateScreen(
                 }
             }
             // v2.1.9 下單前先看哪台空著:筆電(低畫質)、影片機(高畫質)、Colab(超高畫質)
-            MachineChips(board, listOf("gputw", "local", "cloud"), highlight = H3Format.tierRoute(tier))
+            MachineChips(board, listOf("desk", "gputw", "local", "cloud"), highlight = H3Format.tierRoute(tier))
 
             // v2.0.4 AI 導演台:網頁版流程=一句需求→3 方案→分鏡微調→確認 CU 才開跑
             // v2.0.5 改切到 App 內「H3 Studio」分頁(內嵌網頁),不再開外部瀏覽器
@@ -572,7 +572,7 @@ fun H3GenerateScreen(
                     Column {
                         Text("白皙（膚色調白、乳暈小而粉）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            if (tier == "low") "改用 PRISM 8 步、672×1120，成品自動調白；調白後和原片都會存到手機。8 秒約 20 分。換人模式不適用。"
+                            if (H3Format.isLocalTier(tier)) "改用 PRISM 8 步、672×1120，成品自動調白；調白後和原片都會存到手機。8 秒約 20 分。換人模式不適用。"
                             else "改用完整版 PRISM 8 步＋胸部 LoRA、768×1344，成品自動調白；調白後和原片都會存到手機。換人、首幀模式不適用。",
                             fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -597,7 +597,7 @@ fun H3GenerateScreen(
             // v2.9.0 筆電主模型可選；v2.9.5 雲端兩種畫質也可選，預設都是 Singularity V2（白皙開著時筆電固定用 PRISM，不用選）
             if (!fair) ModePicker(
                 label = "模型",
-                options = if (tier == "low") listOf(
+                options = if (H3Format.isLocalTier(tier)) listOf(
                     ModeOption("v2", "V2・8步HD（預設）", "Singularity V2 社群微調版＋8 步 HD，臉和動作較自然"),
                     ModeOption("q4", "Q4・8步HD", "原本的 Q4＋8 步 HD"),
                     // v3.2.9 單選 PRISM（不開白皙）：不掛胸部 LoRA、不調白、尺寸照原本的 544×928
@@ -753,7 +753,7 @@ private fun H3ConfirmSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // 勾選綁定「這一份估算」:估算一換(新物件)就重置,必須重新勾
     // v2.2.3 免費(筆電)不用勾選,直接可送;要花錢的照舊要勾
-    var agreed by remember(pending) { mutableStateOf(e.route == "local") }
+    var agreed by remember(pending) { mutableStateOf(H3Format.isLocalRoute(e.route)) }
     var submitting by remember(pending) { mutableStateOf(false) }
     var progressText by remember(pending) { mutableStateOf<String?>(null) }
     val block = H3Format.blockReason(e)
@@ -792,7 +792,7 @@ private fun H3ConfirmSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("確認 H3 生成", fontSize = 18.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
-            ConfirmLine("機器與畫質", when (e.route) { "gputw" -> H3Format.tierName("high"); "local" -> H3Format.tierName("low"); else -> H3Format.tierName("ultra") })
+            ConfirmLine("機器與畫質", when (e.route) { "gputw" -> H3Format.tierName("high"); "local" -> H3Format.tierName("low"); "desk" -> H3Format.tierName("desk"); else -> H3Format.tierName("ultra") })
             ConfirmLine("影片長度", "${pending.seconds} 秒（實際約 ${H3Format.minutes(e.videoSeconds)} 秒）")
             ConfirmLine(
                 "冷啟動",
@@ -800,12 +800,12 @@ private fun H3ConfirmSheet(
             )
             ConfirmLine("GPU 時間", "約 ${H3Format.minutes(e.minutes)} 分鐘")
             if (e.etaAt != null) ConfirmLine("預計完成", H3Format.eta(e.etaAt, e.etaMin, now = rememberNowMs()) + "（含前面排隊）", strong = true)
-            ConfirmLine("預估消耗", when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}（按分鐘扣台幣）"; "local" -> "免費（筆電）"; else -> "${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" }, strong = true)
+            ConfirmLine("預估消耗", when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}（按分鐘扣台幣）"; "local" -> "免費（筆電）"; "desk" -> "免費（桌機）"; else -> "${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" }, strong = true)
             ConfirmLine(
                 "目前餘額",
                 when (e.route) {
                     "gputw" -> e.ntdBalance?.let { "GPUtw NT$${H3Format.ntd(it)} → 跑完約 NT$${H3Format.ntd(it - e.ntd)}" } ?: "GPUtw 餘額未知"
-                    "local" -> "不扣任何餘額"
+                    "local", "desk" -> "不扣任何餘額"
                     else -> e.balance?.let { "${H3Format.cu(it)} CU（${H3Format.ago(e.balanceUpdatedAt)}）" } ?: "未知"
                 },
             )
@@ -861,7 +861,7 @@ private fun H3ConfirmSheet(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-            } else if (e.route == "local") {
+            } else if (H3Format.isLocalRoute(e.route)) {
                 Text("免費（筆電），不用勾選，直接送出", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
             } else {
                 Row(
@@ -872,7 +872,7 @@ private fun H3ConfirmSheet(
                 ) {
                     Checkbox(checked = agreed, onCheckedChange = { if (!submitting) agreed = it })
                     Text(
-                        "我已確認：" + when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}"; "local" -> "免費（筆電）"; else -> "預估消耗 ${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" },
+                        "我已確認：" + when (e.route) { "gputw" -> "約 NT$${H3Format.ntd(e.ntd)}"; "local" -> "免費（筆電）"; "desk" -> "免費（桌機）"; else -> "預估消耗 ${H3Format.cu(e.cu)} CU（約 NT$${H3Format.ntd(e.ntd)}）" },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = MaterialTheme.colorScheme.onSurface,
