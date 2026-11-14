@@ -122,6 +122,8 @@ fun LaptopFilesScreen(
     var view by rememberSaveable { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
     var shown by rememberSaveable { mutableIntStateOf(60) }
+    // 日期:""＝自動(最新一天);"*"＝全部;其他＝指定那一天
+    var day by rememberSaveable { mutableStateOf("") }
 
     confirmDelete?.let { name ->
         AlertDialog(
@@ -141,7 +143,7 @@ fun LaptopFilesScreen(
     fun taskOf(f: H3LaptopFile): Downloader.Task? = tasks.firstOrNull { it.url == Downloader.laptopUrl(f.name) }
     fun isDone(f: H3LaptopFile): Boolean {
         val t = taskOf(f)
-        return f.name in fetched || (t != null && (t.status == Status.RUNNING || t.status == Status.DONE))
+        return f.base in fetched || (t != null && (t.status == Status.RUNNING || t.status == Status.DONE))
     }
     fun fetch(f: H3LaptopFile) {
         val t = taskOf(f)
@@ -152,7 +154,7 @@ fun LaptopFilesScreen(
     fun statusText(f: H3LaptopFile): Pair<String, Boolean> {
         val t = taskOf(f)
         return when {
-            t == null || t.status == Status.CANCELLED -> Pair((if (f.name in fetched) "已傳過・" else "") + "%.1f MB・%s".format(f.bytes / 1e6, fmt.format(Date(f.mtime))), false)
+            t == null || t.status == Status.CANCELLED -> Pair((if (f.base in fetched) "已傳過・" else "") + "%.1f MB・%s".format(f.bytes / 1e6, fmt.format(Date(f.mtime))), false)
             t.status == Status.RUNNING -> Pair(t.stage + if (t.progress > 0f) " ${t.progress.toInt()}%" else "", false)
             t.status == Status.DONE -> Pair("已存進所有作品", false)
             else -> Pair("失敗：${t.error}", true)
@@ -164,8 +166,14 @@ fun LaptopFilesScreen(
         bottomNav = { ImagineBottomNav(active = NavTab.LAPTOP, onTabSelected = onNavSelected) },
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val all = files.orEmpty()
+            val everything = files.orEmpty()
             val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            // 依日期分:預設只看最新一天;有打搜尋字就跨所有日期找
+            fun dayOf(f: H3LaptopFile): String = f.day.ifBlank { SimpleDateFormat("yyyy-MM-dd", Locale.TAIWAN).format(Date(f.mtime)) }
+            val days = everything.map { dayOf(it) }.distinct().sortedDescending()
+            val curDay = if (day == "") days.firstOrNull() ?: "*" else day
+            val searching = words.isNotEmpty()
+            val all = if (searching || curDay == "*") everything else everything.filter { dayOf(it) == curDay }
             val list = all.filter { f ->
                 val kindOk = when (kind) {
                     1 -> f.kind != "image"
@@ -173,7 +181,7 @@ fun LaptopFilesScreen(
                     3 -> !isDone(f)
                     else -> true
                 }
-                kindOk && words.all { w -> f.name.lowercase().contains(w) }
+                kindOk && words.all { w -> f.base.lowercase().contains(w) }
             }
             val nVideo = all.count { it.kind != "image" }
             val nTodo = all.count { !isDone(it) }
@@ -181,7 +189,7 @@ fun LaptopFilesScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { Downloader.reloadLaptop(ctx, full = true) }, enabled = !loading) { Text(if (loading) "讀取中…" else "整份重讀") }
                 Text(
-                    if (files == null) "第一次讀取，要等一下" else "手機上有 ${all.size}／$total 個" + if (loading) "，更新中" else "",
+                    if (files == null) "第一次讀取，要等一下" else "手機上有 ${everything.size}／$total 個" + if (loading) "，更新中" else "",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -193,11 +201,18 @@ fun LaptopFilesScreen(
                 onValueChange = { query = it; shown = 60 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("搜尋檔名（空格隔開＝都要有，例：雙主播 修正）") },
+                label = { Text("搜尋檔名（跨所有日期；空格隔開＝都要有）") },
                 trailingIcon = { if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("清除") } },
             )
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (searching) "日期（搜尋中＝全部）" else "日期", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                days.take(14).forEach { d ->
+                    FilterChip(selected = !searching && curDay == d, onClick = { day = d; shown = 60 }, label = { Text(d.drop(5) + " (" + everything.count { dayOf(it) == d } + ")") })
+                }
+                FilterChip(selected = searching || curDay == "*", onClick = { day = "*"; shown = 60 }, label = { Text("全部 ${everything.size}") })
+            }
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("全部 ${all.size}", "影片 $nVideo", "圖片 ${all.size - nVideo}", "未傳 $nTodo").forEachIndexed { i, label ->
+                listOf("不分 ${all.size}", "影片 $nVideo", "圖片 ${all.size - nVideo}", "未傳 $nTodo").forEachIndexed { i, label ->
                     FilterChip(selected = kind == i, onClick = { kind = i; shown = 60 }, label = { Text(label) })
                 }
             }
@@ -242,11 +257,11 @@ fun LaptopFilesScreen(
                                         }
                                         Box(modifier = Modifier.padding(4.dp)) { KindTag(f) }
                                     }
-                                    Text(f.name, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                    Text(f.base, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
                                     val st = statusText(f)
                                     Text(st.first, fontSize = 11.sp, color = if (st.second) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                     Row {
-                                        FileActions(f, taskOf(f), f.name in fetched, f.name in deleting, true,
+                                        FileActions(f, taskOf(f), f.base in fetched, f.name in deleting, true,
                                             onFetch = { fetch(f) }, onOpen = onOpenVideo, onCancel = { id -> Downloader.cancel(ctx, id) }, onDelete = { confirmDelete = f.name })
                                     }
                                 }
@@ -261,10 +276,10 @@ fun LaptopFilesScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(if (f.kind != "image") VIDEO_COLOR else IMAGE_COLOR))
                         Text(
-                            (if (f.name in fetched) "✓ " else "") + f.name,
+                            (if (f.base in fetched) "✓ " else "") + f.base,
                             fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                         )
-                        FileActions(f, taskOf(f), f.name in fetched, f.name in deleting, true,
+                        FileActions(f, taskOf(f), f.base in fetched, f.name in deleting, true,
                             onFetch = { fetch(f) }, onOpen = onOpenVideo, onCancel = { id -> Downloader.cancel(ctx, id) }, onDelete = { confirmDelete = f.name })
                     }
                 }
@@ -289,7 +304,7 @@ fun LaptopFilesScreen(
                             }
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 KindTag(f)
-                                Text(f.name, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(f.base, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 val st = statusText(f)
                                 Text(st.first, fontSize = 12.sp, color = if (st.second) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                 val t = taskOf(f)
@@ -302,7 +317,7 @@ fun LaptopFilesScreen(
                                 }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                FileActions(f, taskOf(f), f.name in fetched, f.name in deleting, false,
+                                FileActions(f, taskOf(f), f.base in fetched, f.name in deleting, false,
                                     onFetch = { fetch(f) }, onOpen = onOpenVideo, onCancel = { id -> Downloader.cancel(ctx, id) }, onDelete = { confirmDelete = f.name })
                             }
                         }

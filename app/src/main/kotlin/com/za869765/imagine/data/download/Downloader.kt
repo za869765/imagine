@@ -106,7 +106,7 @@ object Downloader {
                         laptopList.update { l -> l?.filterNot { it.name == name } }
                         laptopTotal.update { (it - 1).coerceAtLeast(0) }
                         saveCache(app)
-                        setFetched(app) { it - name }
+                        setFetched(app) { it - name.substringAfterLast('/') }
                         msg = null
                     } else if (s.status == "done") {
                         msg = "筆電工人版本還不會刪檔（手上的工作做完會自己更新），晚點再試"
@@ -156,8 +156,10 @@ object Downloader {
                     val (page, total, e) = fetchPage(app, 0)
                     if (e == null) {
                         val fresh = page.filter { n -> cached.none { it.name == n.name } }
-                        laptopList.value = fresh + cached
-                        laptopTotal.value = maxOf(total, fresh.size + cached.size)
+                        // 檔案被搬進日期資料夾後路徑會變:同檔名的舊項目拿掉,免得重複
+                        val kept = cached.filter { o -> fresh.none { it.base == o.base } }
+                        laptopList.value = fresh + kept
+                        laptopTotal.value = maxOf(total, fresh.size + kept.size)
                         saveCache(app)
                     }
                     e
@@ -207,7 +209,7 @@ object Downloader {
         scope.launch {
             for (n in names) {
                 val u = laptopUrl(n)
-                if (n in laptopFetched.value || tasks.value.any { it.url == u && (it.status == Status.RUNNING || it.status == Status.DONE) }) continue
+                if (n.substringAfterLast('/') in laptopFetched.value || tasks.value.any { it.url == u && (it.status == Status.RUNNING || it.status == Status.DONE) }) continue
                 tasks.update { list -> list.filterNot { it.url == u } }
                 start(ctx, u, audio = false, height = 1080, laptopName = n)
                 while (tasks.value.any { it.url == u && it.status == Status.RUNNING }) delay(1500)
@@ -283,7 +285,7 @@ object Downloader {
             if (isCancelled(id)) return
             val saved = if (audio) saveAudio(app, tmp, title + ext) else saveVideo(app, tmp, title, url, ext)
             set(id) { it.copy(status = Status.DONE, progress = 100f, title = title, stage = "完成", savedUri = saved) }
-            if (url.startsWith(LAPTOP_PREFIX)) setFetched(app) { it + url.removePrefix(LAPTOP_PREFIX) }
+            if (url.startsWith(LAPTOP_PREFIX)) setFetched(app) { it + url.removePrefix(LAPTOP_PREFIX).substringAfterLast('/') }
             H3Client.forget(prefs, runId)
         } catch (e: Throwable) {
             fail(id, e.message ?: "存檔失敗")

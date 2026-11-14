@@ -222,7 +222,12 @@ data class H3DownloadRequest(
 
 @Serializable
 /** kind＝video／image;dur＝影片秒數;thumb＝小縮圖(JPEG 的 base64),舊版工人沒有這三欄 */
-data class H3LaptopFile(val name: String = "", val bytes: Long = 0, val mtime: Long = 0, val kind: String = "video", val dur: Double = 0.0, val thumb: String = "")
+data class H3LaptopFile(val name: String = "", val bytes: Long = 0, val mtime: Long = 0, val kind: String = "video", val dur: Double = 0.0, val thumb: String = "",
+                        /** v3.4.5 所在的日期資料夾(YYYY-MM-DD);name 可能帶「日期/」前綴 */
+                        val day: String = "") {
+    /** 不含日期資料夾的檔名(顯示、比對「已傳」用) */
+    val base: String get() = name.substringAfterLast('/')
+}
 
 @Serializable
 data class H3DownloadCreated(@SerialName("run_id") val runId: String? = null)
