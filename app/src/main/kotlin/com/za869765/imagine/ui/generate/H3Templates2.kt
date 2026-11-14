@@ -312,8 +312,8 @@ private const val T8_0 =
     "sunny living room: a light fabric sofa, a low wooden coffee table in front of it with a realistic, " +
     "skin-toned silicone anatomical condom training model, an ordinary hand-sized teaching aid standing upright on a round base, " +
     "with a smooth straight shaft and a clearly shaped rounded head, like the anatomical models used in medical sex-education classes, " +
-    "and a few sealed condom packets beside it. <Picture 1> is the female host, an adult woman in her late twenties with fair, " +
-    "translucent light-ivory skin; her face is exactly the face in <Picture 1>, her long black hair worn loose. <Picture 2> is the male host, " +
+    "and a few sealed condom packets beside it. <Picture 1> is the female host, a 21-year-old adult woman with fair, translucent light-ivory skin; " +
+    "her face is exactly the face in <Picture 1>, her long black hair worn loose. <Picture 2> is the male host, " +
     "an adult man in his late twenties with fair skin and short black hair; his face is exactly the face in <Picture 2>. " +
     "They are both fully dressed in relaxed home clothes: she wears a white ribbed spaghetti-strap camisole and soft grey lounge shorts, " +
     "he wears a white sleeveless undershirt and navy lounge shorts, like a couple at home on a lazy morning. " +
@@ -351,9 +351,9 @@ private const val T9_0 =
     "and a low wooden bench at the foot of the bed in front of them with a realistic, skin-toned silicone anatomical condom training model, " +
     "an ordinary hand-sized teaching aid standing upright on a round base, with a smooth straight shaft and a clearly shaped rounded head, " +
     "like the anatomical models used in medical sex-education classes, and a few sealed condom packets beside it. <Picture 1> is the female host, " +
-    "an adult woman in her late twenties with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>, " +
-    "her long black hair worn loose. <Picture 2> is the male host, an adult man in his late twenties with fair skin and short black hair; " +
-    "his face is exactly the face in <Picture 2>. They have just stepped out of the shower, " +
+    "a 21-year-old adult woman with fair, translucent light-ivory skin; her face is exactly the face in <Picture 1>, her long black hair worn loose. " +
+    "<Picture 2> is the male host, an adult man in his late twenties with fair skin and short black hair; his face is exactly the face in <Picture 2>. " +
+    "They have just stepped out of the shower, " +
     "their hair slightly damp and their skin fresh: she wears only a small white bath towel wrapped snugly around her chest and tucked in above her bust, " +
     "its hem ending high on her upper thighs, her shoulders, collarbones, arms and legs bare; " +
     "he wears only a small white bath towel wrapped low on his hips, his chest, shoulders and abdominal muscles bare. " +
