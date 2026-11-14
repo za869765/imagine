@@ -90,6 +90,35 @@ object Downloader {
         fetchedPrefs(app).edit().putStringSet("names", laptopFetched.value).apply()
     }
 
+    /**
+     * v3.5.0 釋放手機空間:刪掉手機裡「不在 keep 這批」的測試片。只刪手機上存的那份,桌機／筆電上的檔不動,
+     * 刪掉的會變回「未傳」,之後可以再抓。回傳(刪了幾個, 釋放幾 bytes)。
+     */
+    fun purgeLaptopExcept(ctx: Context, keep: Set<String>): Pair<Int, Long> {
+        val app = ctx.applicationContext
+        val keepStems = keep.map { it.substringBeforeLast('.') }.toSet()
+        val gone = mutableSetOf<String>()
+        var n = 0
+        var bytes = 0L
+        File(app.filesDir, "media").listFiles()?.forEach { f ->
+            val p = PromptIndex.get(app, f.name) ?: return@forEach
+            if (!p.startsWith("筆電測試片：")) return@forEach  // 只動測試片,自己生成的作品不碰
+            val title = p.removePrefix("筆電測試片：").trim()
+            if (title in keep || title in keepStems || title.substringBeforeLast('.') in keepStems) return@forEach
+            val len = f.length()
+            if (f.delete()) {
+                n++
+                bytes += len
+                PromptIndex.remove(app, f.name)
+                gone += title
+                gone += title.substringBeforeLast('.')
+            }
+        }
+        if (gone.isNotEmpty()) setFetched(app) { s -> s.filterNot { it in gone || it.substringBeforeLast('.') in gone }.toSet() }
+        tasks.update { l -> l.filterNot { it.status == Status.DONE && it.url.startsWith(LAPTOP_PREFIX) && it.url.removePrefix(LAPTOP_PREFIX).substringAfterLast('/') !in keep } }
+        return n to bytes
+    }
+
     /** 正在請筆電刪除的檔名 */
     val laptopDeleting = MutableStateFlow<Set<String>>(emptySet())
     /** 刪掉筆電測試資料夾裡的一個檔(釋出空間、清單不再出現);手機上已經存好的那份不受影響 */

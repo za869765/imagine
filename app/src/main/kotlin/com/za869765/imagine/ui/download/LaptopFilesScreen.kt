@@ -116,6 +116,8 @@ fun LaptopFilesScreen(
     val loading by Downloader.laptopLoading.collectAsState()
     val error by Downloader.laptopError.collectAsState()
     var confirmDelete by remember { mutableStateOf<String?>(null) }
+    // v3.5.0 要保留的那一天(非 null＝正在問要不要刪掉手機上其他日期的測試片)
+    var confirmPurge by remember { mutableStateOf<Pair<String, Set<String>>?>(null) }
     // 0 全部、1 影片、2 圖片、3 未傳
     var kind by rememberSaveable { mutableIntStateOf(0) }
     // 0 清單、1 格狀、2 精簡
@@ -132,6 +134,21 @@ fun LaptopFilesScreen(
             text = { Text("$name\n\n會從筆電的測試資料夾永久刪除（釋出空間、清單不再出現），刪了救不回來。手機上已經存好的那份不受影響。") },
             confirmButton = { TextButton(onClick = { Downloader.deleteLaptop(ctx, name); confirmDelete = null }) { Text("刪除") } },
             dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("取消") } },
+        )
+    }
+    confirmPurge?.let { (keepDay, keep) ->
+        AlertDialog(
+            onDismissRequest = { confirmPurge = null },
+            title = { Text("刪掉手機上 $keepDay 以外的測試片？") },
+            text = { Text("只刪手機裡存的那一份來釋放空間，$keepDay 這天的 ${keep.size} 個會留著。\n\n桌機／筆電上的檔案不會動，刪掉的會變回「未傳」，之後隨時可以再抓。你自己生成的作品不受影響。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val (n, bytes) = Downloader.purgeLaptopExcept(ctx, keep)
+                    confirmPurge = null
+                    android.widget.Toast.makeText(ctx, if (n == 0) "手機上沒有其他日期的測試片" else "已刪除 $n 個，釋放 %.0f MB".format(bytes / 1e6), android.widget.Toast.LENGTH_LONG).show()
+                }) { Text("刪除") }
+            },
+            dismissButton = { TextButton(onClick = { confirmPurge = null }) { Text("取消") } },
         )
     }
     // 進分頁:先顯示手機上存的清單,再到筆電補最新的(只要一頁,幾秒)
@@ -239,8 +256,16 @@ fun LaptopFilesScreen(
             )
             if (todo.isNotEmpty()) {
                 OutlinedButton(onClick = { Downloader.startLaptopBatch(ctx, todo.map { it.name }) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("一鍵抓未傳的 ${todo.size} 個（共 %.0f MB，一個接一個）".format(todo.sumOf { it.bytes } / 1e6))
+                    // v3.5.0 寫明範圍:選了某一天就只抓那一天的;選「全部」或正在搜尋才是跨日期
+                    val scope = if (searching) "搜尋到的" else if (curDay == "*") "全部日期" else curDay.drop(5) + " 這天"
+                    Text("一鍵抓${scope}未傳的 ${todo.size} 個（共 %.0f MB，一個接一個）".format(todo.sumOf { it.bytes } / 1e6))
                 }
+            }
+            if (!searching && curDay != "*" && everything.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = { confirmPurge = curDay to everything.filter { dayOf(it) == curDay }.map { it.base }.toSet() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("刪掉手機上 ${curDay.drop(5)} 以外的測試片（釋放空間，之後可再抓）") }
             }
 
             val page = list.take(shown)

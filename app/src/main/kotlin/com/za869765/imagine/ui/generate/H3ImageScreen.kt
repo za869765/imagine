@@ -106,7 +106,8 @@ private fun machineOptions(st: H3ImageEstimate?, board: List<com.za869765.imagin
     val cu = st?.cuBalance?.let { "・CU 餘額 ${H3Format.cu(it)}" } ?: ""
     val autoNow = st?.let { "・現在會派到：${H3Format.routeShort(it.route)}" } ?: ""
     return listOf(
-        ModeOption("auto", "自動（建議）", "筆電有空就免費 → 開著的機器順便做 → 再不然開製圖機約 NT$8$autoNow"),
+        ModeOption("auto", "自動（建議）", "桌機或筆電有空就免費 → 開著的機器順便做 → 再不然開製圖機約 NT$8$autoNow"),
+        ModeOption("desk", "桌機 5080", "免費・一張約 20～60 秒・桌機要開著" + machineNote(board, "desk")),
         ModeOption("local", "筆電 3070", "免費・一張約 1～2 分・筆電要開著" + machineNote(board, "local").ifEmpty { laptop }),
         ModeOption("local_h3", "筆電 3070・H3-Image（2K）", "免費・一張約 1 分・比較像真實照片・筆電要開著；多視角與透明背景仍用 Turbo"),
         ModeOption("gputw_image", "製圖機（GPUtw）", "約 NT$8／次（含開機 14 分）" + machineNote(board, "gputw_image").ifEmpty { gi }),
@@ -401,7 +402,7 @@ fun H3ImageScreen(
             engineSelector()
 
             // v2.1.9 下單前先看哪台空著(綠＝馬上做、黃＝要排隊、灰＝關機)
-            MachineChips(board, listOf("local", "gputw_image", "gputw", "cloud"), highlight = if (route == "auto") status?.route else route)
+            MachineChips(board, listOf("desk", "local", "gputw_image", "gputw", "cloud"), highlight = if (route == "auto") status?.route else route)
 
             if (!prefs.isH3TokenSet) {
                 ImagineCard(pad = 14, onClick = onSettingsClick) {
@@ -678,13 +679,13 @@ private fun H3ImageConfirmSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // 勾選綁定「這一份估算」:估算一換(新物件)就重置,必須重新勾
     // v2.2.3 免費(筆電)不用勾選,直接可送;要花錢的照舊要勾
-    var agreed by remember(pending) { mutableStateOf(e.route == "local") }
+    var agreed by remember(pending) { mutableStateOf(H3Format.isLocalRoute(e.route)) }
     var submitting by remember(pending) { mutableStateOf(false) }
     var progressText by remember(pending) { mutableStateOf<String?>(null) }
     val name = H3Format.routeName(e.route) + if (pending.model == "h3image") "・H3-Image" else ""
     val costText = when (e.route) {
         "cloud" -> "${H3Format.cu(e.cu)} CU ≈ NT$${H3Format.ntd(e.ntd)}"
-        "local" -> "免費"
+        "local", "desk" -> "免費"
         else -> "約 NT$${H3Format.ntd(e.ntd)}（按分鐘扣）"
     }
     // 你明確選了某台,伺服器卻派到別台 → 要讓你一眼看到;筆電版本舊的原因也要讓你知道
@@ -692,7 +693,7 @@ private fun H3ImageConfirmSheet(
     val oldWorker = e.reason.contains("版本舊")
     val balanceLine = when (e.route) {
         "cloud" -> e.cuBalance?.let { "CU ${H3Format.cu(it)} → 跑完約 ${H3Format.cu(it - e.cu)}" } ?: "CU 餘額未知"
-        "local" -> "免費，不扣任何餘額"
+        "local", "desk" -> "免費，不扣任何餘額"
         else -> e.ntdBalance?.let { "GPUtw NT$${H3Format.ntd(it)} → 跑完約 NT$${H3Format.ntd(it - e.ntd)}" } ?: "GPUtw 餘額未知"
     }
     // 阻擋原因;null = 可以送出(伺服器送出時還會再擋一次)
@@ -747,7 +748,7 @@ private fun H3ImageConfirmSheet(
                         Text(name, fontSize = 20.sp, fontWeight = FontWeight.W700, color = MaterialTheme.colorScheme.onSurface)
                         when (e.route) {
                             "cloud" -> Tag("花 CU", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
-                            "local" -> Tag("免費", Mint, Color(0xFF0F2A1C))
+                            "local", "desk" -> Tag("免費", Mint, Color(0xFF0F2A1C))
                             else -> Tag("扣台幣", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
                         }
                     }
@@ -755,7 +756,7 @@ private fun H3ImageConfirmSheet(
                         "約 ${H3Format.minutes(e.minutes)} 分鐘 · $costText",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.W700,
-                        color = if (e.route == "local") Mint else MaterialTheme.colorScheme.primary,
+                        color = if (H3Format.isLocalRoute(e.route)) Mint else MaterialTheme.colorScheme.primary,
                     )
                     // v2.1.1 開機費要有效益:要開機時提醒一次多做幾張;機器開著時告訴你免開機費
                     if (e.route == "gputw_image" || e.route == "gputw") {
@@ -828,7 +829,7 @@ private fun H3ImageConfirmSheet(
                     color = MaterialTheme.colorScheme.error,
                     lineHeight = 19.sp,
                 )
-            } else if (e.route == "local") {
+            } else if (H3Format.isLocalRoute(e.route)) {
                 Text("免費（筆電），不用勾選，直接送出", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
             } else {
                 Row(

@@ -166,6 +166,18 @@ fun HistoryScreen(
                         if (!selectMode) {
                             TextActionButton(label = "素材庫", icon = "photo_library", onClick = onOpenLibrary)
                         }
+                        if (selectMode) {
+                            // v3.5.0 全選目前篩選看得到的(先選「影片」再全選＝一次清掉所有影片),再按下方的刪除
+                            val allOn = items.isNotEmpty() && visibleSelected.size == items.size
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { selected = if (allOn) emptySet() else items.map { it.uri.toString() }.toSet() }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                            ) {
+                                Text(text = if (allOn) "全不選" else "全選 ${items.size}", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
