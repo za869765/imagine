@@ -236,7 +236,8 @@ fun H3GenerateScreen(
             blink = blink,
             gpus = colabGpus,
             segments = if (extendBase != null || motion) 1 else segCount,
-            beats = if (extendBase != null || motion) emptyList() else beats.take(segCount),
+            // 範本原文多段:第 1 段以輸入框為準(使用者可能在那裡改過字)
+            beats = if (extendBase != null || motion) emptyList() else if (rawPrompt && segCount > 1) listOf(prompt) + beats.take(segCount).drop(1) else beats.take(segCount),
             extendBase = extendBase,
             subjectId = subjectId,
             subjectName = subjects.firstOrNull { it.id == subjectId }?.name,
@@ -250,7 +251,7 @@ fun H3GenerateScreen(
             autoRef = if (wantAutoRef) autoRefText.trim() else null,
             fair = fair && !motion,
             fairMale = fair && fairMale && !motion,
-            rawPrompt = rawPrompt && !motion && extendBase == null && segCount == 1,
+            rawPrompt = rawPrompt && !motion && extendBase == null && (segCount == 1 || beats.take(segCount).drop(1).all { it.isNotBlank() }),
         )
         estimating = true
         scope.launch {
@@ -520,7 +521,16 @@ fun H3GenerateScreen(
                 templateSheet = { onApply, onDismiss ->
                     H3TemplateSheet(
                         refCount = if (mode == "t2v") 0 else sourceStrings.size,
-                        onApply = { rawPrompt = true; if (tier == "low") seconds = 8; fairMale = it.contains("HMPenis"); onApply(it) },  // 範本照 8 秒寫的（筆電上限）
+                        onApply = { rawPrompt = true; segCount = 1; if (tier == "low") seconds = 8; fairMale = it.contains("HMPenis"); onApply(it) },  // 範本照 8 秒寫的（筆電上限）
+                        // v3.4.3 多段範本:段數照範本設好,每段各放一整段提示詞;第 1 段同時放進上面的輸入框
+                        onApplyMulti = { segs ->
+                            rawPrompt = true
+                            segCount = segs.size.coerceIn(1, 4)
+                            beats = (segs + List(4) { "" }).take(4)
+                            if (tier == "low") seconds = 8
+                            fairMale = segs.any { it.contains("HMPenis") }
+                            onApply(segs[0])
+                        },
                         onDismiss = onDismiss,
                     )
                 },
@@ -540,7 +550,7 @@ fun H3GenerateScreen(
                 ) {
                     Checkbox(checked = true, onCheckedChange = { rawPrompt = it })
                     Text(
-                        "範本模式：這段提示詞原樣送給模型（不自動包裝、不翻譯、不加眨眼包）。要改回一般寫法就取消勾選。" + (if (segCount > 1) "多段時不適用，會照一般方式處理。" else ""),
+                        "範本模式：這段提示詞原樣送給模型（不自動包裝、不翻譯、不加眨眼包）。要改回一般寫法就取消勾選。" + (if (segCount > 1) "多段時每一段都要有完整的提示詞（下方「每段內容」），第 1 段以上面輸入框為準；有空白的段落就會改用一般方式處理。" else ""),
                         fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -657,7 +667,7 @@ fun H3GenerateScreen(
             }
 
             // v3.2.8 範本模式（單段）提示詞原樣送出，眨眼包與翻譯都不會套用：變灰並說明，免得看起來像有作用
-            val rawNow = rawPrompt && segCount == 1 && mode != "motion"
+            val rawNow = rawPrompt && mode != "motion" && (segCount == 1 || beats.take(segCount).drop(1).all { it.isNotBlank() })
             val offColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             if (rawNow) Text("範本模式：下面兩項不會套用（提示詞原樣送出）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(

@@ -50,7 +50,11 @@ import kotlinx.coroutines.launch
  * 這些提示詞要「原樣」送給模型才重現得出來，所以套用範本時生影頁會自動切到範本模式（不包裝、不翻譯、不加眨眼包）。
  * 參考圖：第 1 張＝臉，第 2 張＝頸部以下的身材；只有 1 張或沒有圖時句子會自動調整。
  */
-internal data class H3Template(val group: String, val title: String, val desc: String, val build: (refCount: Int) -> String)
+/** beats＝多段範本:每段一整段提示詞(v3.4.3);null＝單段,用 build */
+internal data class H3Template(val group: String, val title: String, val desc: String, val beats: ((refCount: Int) -> List<String>)? = null, val build: (refCount: Int) -> String)
+
+/** 所有範本:原本那批＋11/14 實測後加入的電影感／多段範本 */
+internal val H3_ALL_TEMPLATES: List<H3Template> by lazy { H3_TEMPLATES + H3_TEMPLATES_MORE }
 
 private const val WHO = "a 21-year-old adult woman with fair, translucent light-ivory skin with a soft peach-pink tint"  // 11/13 使用者定 21 歲（「太老裝年輕也很奇怪，確保成年就可以」）：一定保留 adult，不用 girl／少女／學生這類字；成品樣貌若不像成年人就不能用
 
@@ -264,13 +268,13 @@ internal fun h3CustomPrompt(translated: String, refs: Int, helpers: Boolean, per
 /** 生影頁「套用範本」的面板：選一張現成的，或在「自己組」用中文填欄位 → 整段填進輸入框（之後可以直接改任何字）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun H3TemplateSheet(refCount: Int, onApply: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun H3TemplateSheet(refCount: Int, onApply: (String) -> Unit, onDismiss: () -> Unit, onApplyMulti: ((List<String>) -> Unit)? = null) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
     val prefs = remember { SecurePrefs.get(ctx) }
     val custom = "自己組"
-    val groups = remember { H3_TEMPLATES.map { it.group }.distinct() + custom }
+    val groups = remember { H3_ALL_TEMPLATES.map { it.group }.distinct() + custom }
     var group by remember { mutableStateOf(groups.first()) }
     fun use(text: String) {
         onApply(text)
@@ -396,14 +400,20 @@ internal fun H3TemplateSheet(refCount: Int, onApply: (String) -> Unit, onDismiss
                     },
                 )
             } else {
-                H3_TEMPLATES.filter { it.group == group }.forEach { t ->
+                H3_ALL_TEMPLATES.filter { it.group == group }.forEach { t ->
                     ImagineCard(pad = 14) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(t.title, fontSize = 15.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
                                 Text(t.desc, fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            TextActionButton(label = "使用", onClick = { use(t.build(refCount)) })
+                            TextActionButton(label = if (t.beats != null) "使用（多段）" else "使用", onClick = {
+                                val segs = t.beats?.invoke(refCount)
+                                if (segs != null && segs.size > 1 && onApplyMulti != null) {
+                                    onApplyMulti(segs)
+                                    scope.launch { sheetState.hide(); onDismiss() }
+                                } else use(t.build(refCount))
+                            })
                         }
                     }
                 }

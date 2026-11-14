@@ -127,7 +127,7 @@ object H3Submit {
             route = pending.route,
             estNtd = confirmed.ntd,
             exp = buildMap<String, kotlinx.serialization.json.JsonElement> {
-                val raw = pending.rawPrompt && pending.segments == 1  // 範本原樣送出:眨眼包與翻譯都會改提示詞,不加
+                val raw = pending.rawPrompt && (pending.segments == 1 || pending.beats.size >= pending.segments && pending.beats.take(pending.segments).all { it.isNotBlank() })  // 範本原樣送出(單段,或多段且每段都有內容):眨眼包與翻譯都會改提示詞,不加
                 if (pending.blink && !raw) put("blink", kotlinx.serialization.json.JsonPrimitive(true))
                 if (pending.translate && !raw) put("translate", kotlinx.serialization.json.JsonPrimitive(true))
                 // v3.3.0 白皙三種機器都能做(筆電壓縮版 PRISM、GPUtw／Colab 完整 int8 版);換人、首幀模式機器端自動照一般設定
@@ -152,7 +152,7 @@ object H3Submit {
             t2v = pending.mode == "t2v",
             autoRef = pending.autoRef?.trim()?.takeIf { it.isNotEmpty() && pending.mode == "t2v" && pending.route == "local" && pending.subjectId == null },
             refVideo = refVideo,
-            rawPrompt = (pending.rawPrompt && pending.segments == 1).takeIf { it },
+            rawPrompt = (pending.rawPrompt && (pending.segments == 1 || pending.beats.size >= pending.segments && pending.beats.take(pending.segments).all { it.isNotBlank() })).takeIf { it },
         )
         return when (val r = H3Client.submit(prefs, req)) {
             is H3Client.Result.Ok -> {
