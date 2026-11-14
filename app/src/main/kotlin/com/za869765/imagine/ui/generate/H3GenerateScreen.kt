@@ -139,6 +139,11 @@ fun H3GenerateScreen(
     var extendBase by rememberSaveable {
         mutableStateOf(DraftStore.load(ctx, H3_EXTEND_BASE).also { DraftStore.save(ctx, H3_EXTEND_BASE, "") })
     }
+    // v2.1.9 機器看板＋素材小卡(預設收起)
+    val board = rememberMachineBoard(prefs)
+    var assetsOpen by rememberSaveable { mutableStateOf(true) }
+    var advOpen by rememberSaveable { mutableStateOf(false) }  // v2.2.1 預設展開（使用者：縮起來會找不到上傳位置）
+    var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     // v3.5.6 測試片「整組套用」:讀一次就清掉,照配方設好段數、每段原文、秒數、參考圖、白皙;機器放桌機
     LaunchedEffect(Unit) {
         val raw = DraftStore.load(ctx, com.za869765.imagine.data.download.Downloader.RECIPE_APPLY_DRAFT) ?: return@LaunchedEffect
@@ -156,11 +161,6 @@ fun H3GenerateScreen(
         rawPrompt = true
         android.widget.Toast.makeText(ctx, "已照測試片配方設好：${segs.size} 段、每段 ${a.seconds} 秒、參考圖 ${a.sources.size} 張", android.widget.Toast.LENGTH_LONG).show()
     }
-    // v2.1.9 機器看板＋素材小卡(預設收起)
-    val board = rememberMachineBoard(prefs)
-    var assetsOpen by rememberSaveable { mutableStateOf(true) }
-    var advOpen by rememberSaveable { mutableStateOf(false) }  // v2.2.1 預設展開（使用者：縮起來會找不到上傳位置）
-    var seconds by rememberSaveable { mutableStateOf(prefs.h3Seconds.coerceIn(4, 15)) }
     var aspect by rememberSaveable { mutableStateOf(prefs.h3Aspect) }
 
     var showLibraryPicker by remember { mutableStateOf(false) }
