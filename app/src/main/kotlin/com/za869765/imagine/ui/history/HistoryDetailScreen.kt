@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -76,6 +77,11 @@ fun HistoryDetailScreen(
 ) {
     val ctx = LocalContext.current
     var showViewer by remember { mutableStateOf(false) }
+    // v3.5.6 測試片:有配方就每段分開顯示;沒有就可以去讀
+    val clipTitle = remember(entry?.displayName) { entry?.let { com.za869765.imagine.data.download.Downloader.clipTitleOf(ctx, it.displayName) } }
+    var recipe by remember(entry?.displayName) { mutableStateOf(entry?.let { com.za869765.imagine.data.download.Downloader.clipRecipeOf(ctx, it.displayName) }) }
+    val recipeBusy by com.za869765.imagine.data.download.Downloader.clipRecipeBusy.collectAsState()
+    var applying by remember { mutableStateOf(false) }
     ImagineScreen(
         appBar = {
             ImagineTopAppBar(
@@ -133,7 +139,57 @@ fun HistoryDetailScreen(
                 )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (clipTitle != null) {
+                val r = recipe
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionHeader("測試片配方")
+                    Text(clipTitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (r == null) {
+                        val busy = entry.displayName in recipeBusy
+                        androidx.compose.material3.OutlinedButton(
+                            enabled = !busy,
+                            onClick = {
+                                com.za869765.imagine.data.download.Downloader.fetchClipRecipe(ctx, entry.displayName, "$clipTitle.mp4") { ok, m ->
+                                    if (ok) recipe = com.za869765.imagine.data.download.Downloader.clipRecipeOf(ctx, entry.displayName)
+                                    android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(if (busy) "讀取中…（桌機或筆電要開著）" else "讀取這支片的配方（提示詞、段數、參考圖）") }
+                    } else {
+                        val segs = r.beats.ifEmpty { listOf(r.prompt) }
+                        Text("${segs.size} 段・每段 ${r.seconds} 秒・參考圖 ${r.refs.size} 張（AI 生成的人物）" + (if (r.fair) "・白皙" else "") + (if (r.fairMale) "（含男性）" else "") + (r.seed?.let { "・種子 $it" } ?: ""),
+                            fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        androidx.compose.material3.Button(
+                            enabled = !applying,
+                            onClick = {
+                                applying = true
+                                com.za869765.imagine.data.download.Downloader.prepareRecipeApply(ctx, r) { err ->
+                                    applying = false
+                                    if (err != null) android.widget.Toast.makeText(ctx, err, android.widget.Toast.LENGTH_LONG).show() else onAction("apply_recipe")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(if (applying) "準備參考圖中…" else "整組套用到生影（${segs.size} 段、參考圖、白皙一起帶過去）") }
+                        segs.forEachIndexed { i, s ->
+                            ImagineCard(pad = 14) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(if (segs.size > 1) "第 ${i + 1} 段・${r.seconds} 秒" else "提示詞・${r.seconds} 秒", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                                    SelectionContainer { Text(s, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 22.sp) }
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                                        TextActionButton(label = "複製", icon = "content_copy", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            onClick = { Clipboard.copy(ctx, s, toastMsg = if (segs.size > 1) "已複製第 ${i + 1} 段" else "已複製提示詞") })
+                                        TextActionButton(label = if (segs.size > 1) "只套用這段" else MediaAction.USE_PROMPT.label, icon = MediaAction.USE_PROMPT.icon,
+                                            onClick = { onAction("use_text:$s") })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (clipTitle == null || recipe == null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("Prompt")
                 ImagineCard(pad = 14) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

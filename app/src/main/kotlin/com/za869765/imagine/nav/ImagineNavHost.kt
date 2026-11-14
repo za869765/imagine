@@ -622,7 +622,22 @@ fun ImagineRoot() {
                     onAction = { label ->
                         val e = entry ?: return@HistoryDetailScreen
                         val url = e.uri.toString()
-                        val p = e.prompt.orEmpty()
+                        // v3.5.6 測試片有配方:延長、修改用最後一段的原文(多段片接的是最後一段)
+                        val clipRec = com.za869765.imagine.data.download.Downloader.clipRecipeOf(ctx, e.displayName)
+                        val p = clipRec?.let { it.beats.lastOrNull() ?: it.prompt } ?: e.prompt.orEmpty()
+                        if (label.startsWith("use_text:")) {
+                            navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                set(KEY_INIT_PROMPT, label.removePrefix("use_text:"))
+                                set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3)
+                            }
+                            navController.navigate(Routes.GENERATE_VIDEO)
+                            return@HistoryDetailScreen
+                        }
+                        if (label == "apply_recipe") {
+                            navController.currentBackStackEntry?.savedStateHandle?.apply { set(KEY_INIT_VIDEO_ENGINE, com.za869765.imagine.ui.generate.ENGINE_H3) }
+                            navController.navigate(Routes.GENERATE_VIDEO)
+                            return@HistoryDetailScreen
+                        }
                         // label 為 MediaAction.label(UI_REDESIGN_PLAN 2.2 統一文案)
                         when (label) {
                             // 圖片 → 生影片頁 (當輸入圖)

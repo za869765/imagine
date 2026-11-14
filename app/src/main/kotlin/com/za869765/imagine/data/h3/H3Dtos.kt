@@ -255,6 +255,17 @@ data class H3DownloadStatus(
     val recipe: H3Recipe? = null,
 )
 
+/** v3.5.6 「整組套用」交給生影頁的內容(參考圖已存到手機,sources 是本機 uri) */
+@Serializable
+data class H3RecipeApply(
+    val prompt: String = "",
+    val beats: List<String> = emptyList(),
+    val seconds: Int = 8,
+    val fair: Boolean = false,
+    @SerialName("fair_male") val fairMale: Boolean = false,
+    val sources: List<String> = emptyList(),
+)
+
 /** v3.5.1 測試片的配方:送件當下的設定。refs＝參考圖檔名(到測試資料夾的 _recipes/refs/ 拿) */
 @Serializable
 data class H3Recipe(

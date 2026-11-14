@@ -12,6 +12,7 @@ import com.za869765.imagine.data.h3.H3DownloadRequest
 import com.za869765.imagine.data.h3.H3Jobs
 import com.za869765.imagine.data.h3.H3LaptopFile
 import com.za869765.imagine.data.h3.H3Recipe
+import com.za869765.imagine.data.h3.H3RecipeApply
 import com.za869765.imagine.data.h3.PendingH3
 import com.za869765.imagine.data.prefs.SecurePrefs
 import com.za869765.imagine.data.storage.PromptIndex
@@ -104,15 +105,14 @@ object Downloader {
         var n = 0
         var bytes = 0L
         File(app.filesDir, "media").listFiles()?.forEach { f ->
-            val p = PromptIndex.get(app, f.name) ?: return@forEach
-            if (!p.startsWith("筆電測試片：")) return@forEach  // 只動測試片,自己生成的作品不碰
-            val title = p.removePrefix("筆電測試片：").trim()
+            val title = clipTitleOf(app, f.name) ?: return@forEach  // 只動測試片,自己生成的作品不碰
             if (title in keep || title in keepStems || title.substringBeforeLast('.') in keepStems) return@forEach
             val len = f.length()
             if (f.delete()) {
                 n++
                 bytes += len
                 PromptIndex.remove(app, f.name)
+                clipPrefs(app).edit().remove("t:${f.name}").remove("r:${f.name}").apply()
                 gone += title
                 gone += title.substringBeforeLast('.')
             }
@@ -122,6 +122,79 @@ object Downloader {
         return n to bytes
     }
 
+    /** v3.5.6 手機上的測試片:檔名 → 測試片標題、配方(存在手機,詳情頁用) */
+    private fun clipPrefs(app: Context) = app.getSharedPreferences("test_clip_index", Context.MODE_PRIVATE)
+    fun clipTitleOf(ctx: Context, displayName: String): String? =
+        clipPrefs(ctx.applicationContext).getString("t:$displayName", null)
+            ?: PromptIndex.get(ctx, displayName)?.takeIf { it.startsWith("筆電測試片：") }?.removePrefix("筆電測試片：")?.trim()
+    fun clipRecipeOf(ctx: Context, displayName: String): H3Recipe? =
+        clipPrefs(ctx.applicationContext).getString("r:$displayName", null)?.let { runCatching { H3Client.json.decodeFromString(H3Recipe.serializer(), it) }.getOrNull() }
+    /** 配方的提示詞:多段每段標出來(存進 PromptIndex,讓所有作品搜尋得到) */
+    fun recipeText(r: H3Recipe): String {
+        val segs = r.beats.ifEmpty { listOf(r.prompt) }
+        return if (segs.size == 1) segs[0] else segs.mapIndexed { i, s -> "【第 ${i + 1} 段・${r.seconds} 秒】\n$s" }.joinToString("\n\n")
+    }
+    val clipRecipeBusy = MutableStateFlow<Set<String>>(emptySet())
+    /** 向測試片那台要這支片的配方,存起來;onDone(有沒有拿到, 訊息) 在主執行緒 */
+    fun fetchClipRecipe(ctx: Context, displayName: String, clipName: String, onDone: ((Boolean, String) -> Unit)? = null) {
+        val app = ctx.applicationContext
+        if (displayName in clipRecipeBusy.value) return
+        clipRecipeBusy.update { it + displayName }
+        scope.launch {
+            var ok = false
+            var msg = "這支片沒有留下配方（較早的片或不是用腳本送的）"
+            try {
+                val prefs = SecurePrefs.get(app)
+                val created = H3Client.submitDownload(prefs, H3DownloadRequest(url = "", mode = "v1080", clientRequestId = UUID.randomUUID().toString(), browse = true, name = clipName, recipe = true, source = src()))
+                val runId = (created as? H3Client.Result.Ok)?.value?.runId
+                if (runId == null) msg = (created as? H3Client.Result.Err)?.message ?: "伺服器沒有回單號"
+                else {
+                    for (i in 0 until 60) {
+                        delay(1500)
+                        val s = (H3Client.downloadRun(prefs, runId) as? H3Client.Result.Ok)?.value ?: continue
+                        if (s.status == "done") {
+                            val r = s.recipe
+                            if (r != null) {
+                                clipPrefs(app).edit().putString("r:$displayName", H3Client.json.encodeToString(H3Recipe.serializer(), r)).apply()
+                                PromptIndex.put(app, displayName, recipeText(r))
+                                ok = true; msg = "已讀到配方"
+                            }
+                            break
+                        }
+                        if (s.status == "failed" || s.status == "cancelled") { msg = s.error?.take(120) ?: msg; break }
+                    }
+                    H3Client.forget(prefs, runId)
+                }
+            } catch (e: Throwable) { msg = "讀配方失敗：" + (e.message ?: "") }
+            clipRecipeBusy.update { it - displayName }
+            if (onDone != null) kotlinx.coroutines.withContext(Dispatchers.Main) { onDone(ok, msg) }
+        }
+    }
+    /** 整組套用:參考圖抓到手機後寫進草稿,生影頁一打開就照配方設好(段數、每段原文、秒數、參考圖、白皙),機器先放桌機 */
+    fun prepareRecipeApply(ctx: Context, r: H3Recipe, onReady: (String?) -> Unit) {
+        val app = ctx.applicationContext
+        scope.launch {
+            var err: String? = null
+            val sources = mutableListOf<String>()
+            try {
+                val prefs = SecurePrefs.get(app)
+                val dir = File(app.filesDir, "recipe_refs").apply { mkdirs() }
+                for (name in r.refs) {
+                    val dst = File(dir, name.substringAfterLast('/'))
+                    if (!dst.exists() || dst.length() == 0L) {
+                        val bytes = fetchSmall(prefs, "_recipes/refs/" + dst.name) ?: throw IllegalStateException("參考圖抓不回來（桌機或筆電要開著）")
+                        dst.writeBytes(bytes)
+                    }
+                    sources += dst.toUri().toString()
+                }
+                val a = H3RecipeApply(prompt = r.prompt, beats = r.beats, seconds = r.seconds, fair = r.fair, fairMale = r.fairMale, sources = sources)
+                com.za869765.imagine.data.prefs.DraftStore.save(app, RECIPE_APPLY_DRAFT, H3Client.json.encodeToString(H3RecipeApply.serializer(), a))
+            } catch (e: Throwable) { err = e.message ?: "準備失敗" }
+            kotlinx.coroutines.withContext(Dispatchers.Main) { onReady(err) }
+        }
+    }
+    const val RECIPE_APPLY_DRAFT = "h3_recipe_apply"
+
     /** v3.5.1 正在把哪幾支測試片加進最近成品 */
     val laptopRecipeBusy = MutableStateFlow<Set<String>>(emptySet())
 
@@ -129,7 +202,7 @@ object Downloader {
     private fun phoneCopy(app: Context, base: String): String? {
         val stem = base.substringBeforeLast('.')
         return File(app.filesDir, "media").listFiles()?.firstOrNull { f ->
-            val t = PromptIndex.get(app, f.name)?.takeIf { it.startsWith("筆電測試片：") }?.removePrefix("筆電測試片：")?.trim()
+            val t = clipTitleOf(app, f.name)
             t != null && (t == stem || t == base)
         }?.toUri()?.toString()
     }
@@ -473,7 +546,11 @@ object Downloader {
             src.copyTo(dst, overwrite = true)
         }
         // 所有作品點進去看得到來源
-        PromptIndex.put(app, dst.name, if (url.startsWith(LAPTOP_PREFIX)) "筆電測試片：$title" else "下載：$title\n$url")
+        PromptIndex.put(app, dst.name, if (url.startsWith(LAPTOP_PREFIX)) "測試片：$title" else "下載：$title\n$url")
+        if (url.startsWith(LAPTOP_PREFIX)) {
+            clipPrefs(app).edit().putString("t:${dst.name}", title).apply()
+            fetchClipRecipe(app, dst.name, url.removePrefix(LAPTOP_PREFIX))  // v3.5.6 有配方就順便存下來(沒有也沒關係)
+        }
         return dst.toUri().toString()
     }
 

@@ -139,6 +139,23 @@ fun H3GenerateScreen(
     var extendBase by rememberSaveable {
         mutableStateOf(DraftStore.load(ctx, H3_EXTEND_BASE).also { DraftStore.save(ctx, H3_EXTEND_BASE, "") })
     }
+    // v3.5.6 測試片「整組套用」:讀一次就清掉,照配方設好段數、每段原文、秒數、參考圖、白皙;機器放桌機
+    LaunchedEffect(Unit) {
+        val raw = DraftStore.load(ctx, com.za869765.imagine.data.download.Downloader.RECIPE_APPLY_DRAFT) ?: return@LaunchedEffect
+        DraftStore.save(ctx, com.za869765.imagine.data.download.Downloader.RECIPE_APPLY_DRAFT, "")
+        val a = runCatching { H3Client.json.decodeFromString(com.za869765.imagine.data.h3.H3RecipeApply.serializer(), raw) }.getOrNull() ?: return@LaunchedEffect
+        val segs = a.beats.ifEmpty { listOf(a.prompt) }
+        tier = "desk"
+        if (a.sources.isNotEmpty()) { sourceStrings = a.sources; mode = "ref" } else mode = "t2v"
+        segCount = segs.size.coerceIn(1, 4)
+        beats = (segs + List(4) { "" }).take(4)
+        seconds = a.seconds.coerceIn(4, 15)
+        fair = a.fair
+        fairMale = a.fairMale
+        prompt = segs[0]
+        rawPrompt = true
+        android.widget.Toast.makeText(ctx, "已照測試片配方設好：${segs.size} 段、每段 ${a.seconds} 秒、參考圖 ${a.sources.size} 張", android.widget.Toast.LENGTH_LONG).show()
+    }
     // v2.1.9 機器看板＋素材小卡(預設收起)
     val board = rememberMachineBoard(prefs)
     var assetsOpen by rememberSaveable { mutableStateOf(true) }
