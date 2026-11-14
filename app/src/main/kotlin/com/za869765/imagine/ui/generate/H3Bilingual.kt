@@ -109,7 +109,7 @@ internal fun H3BilingualSheet(prompt: String, onApply: (String) -> Unit, onDismi
                 fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (busy) {
-                Text("翻譯中…（筆電正在生影的話要排隊，可能要幾分鐘）", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                Text("翻譯中…（本機正在生影的話要排隊，可能要幾分鐘）", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             error?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error) }

@@ -210,7 +210,7 @@ fun H3GenerateScreen(
         }
         val wantAutoRef = retry == null && autoRef && mode == "t2v" && extendBase == null && subjectId == null
         if (wantAutoRef && !H3Format.isLocalTier(tier)) {
-            Toast.makeText(ctx, "「先自動生參考人像」目前只在筆電畫質做，請把畫質改成筆電，或取消勾選", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, "「先自動生參考人像」只在本機（桌機或筆電）做，請把機器改成桌機或筆電，或取消勾選", Toast.LENGTH_LONG).show()
             return
         }
         if (wantAutoRef && autoRefText.isBlank()) {
@@ -466,7 +466,7 @@ fun H3GenerateScreen(
                     onClick = { pickVideo.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
                 )
                 Text(
-                    if (refVideo == null) "選一支自己拍的表演（2～15 秒最好，筆電最多用前 8 秒）。影片存在 H3 Studio 的 R2，不上傳雲端硬碟。"
+                    if (refVideo == null) "選一支自己拍的表演（2～15 秒最好，筆電最多用前 8 秒、桌機最多 15 秒）。影片存在 H3 Studio 的 R2，不上傳雲端硬碟。"
                     else "已選影片${refVideoSec?.let { "・%.1f 秒".format(it) } ?: ""}；輸出秒數跟影片走${if (tier == "low") "（筆電最多 8 秒）" else "（最多 15 秒）"}。人用上面的角色或下面的照片。",
                     fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -479,7 +479,7 @@ fun H3GenerateScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(checked = autoRef, onCheckedChange = { autoRef = it })
-                    Text("先自動生一張參考人像（筆電，多約 1 分鐘）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("先自動生一張參考人像（本機，多約 1 分鐘）", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                 }
                 if (autoRef) {
                     androidx.compose.material3.OutlinedTextField(
@@ -491,7 +491,7 @@ fun H3GenerateScreen(
                         minLines = 2,
                     )
                     Text(
-                        "筆電先照這段用 Turbo 生一張寫實半身人像，再拿它當參考圖生影片，一次送出、自動接續；臉會比純文字生影自然。人像做好會顯示在任務頁，並和影片一起存到所有作品；之後對這支影片「再生成一次」或「調整後再生成」都會沿用同一張人像，臉可以重現。只在筆電畫質做；圖不滿意只能整支重做，想先看圖請改用「生圖 → 圖生影」。",
+                        "本機先照這段用 Turbo 生一張寫實半身人像，再拿它當參考圖生影片，一次送出、自動接續；臉會比純文字生影自然。人像做好會顯示在任務頁，並和影片一起存到所有作品；之後對這支影片「再生成一次」或「調整後再生成」都會沿用同一張人像，臉可以重現。只在本機（桌機或筆電）做；圖不滿意只能整支重做，想先看圖請改用「生圖 → 圖生影」。",
                         fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -862,7 +862,7 @@ private fun H3ConfirmSheet(
                     )
                 }
             } else if (H3Format.isLocalRoute(e.route)) {
-                Text("免費（筆電），不用勾選，直接送出", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
+                Text("免費（${H3Format.routeShort(e.route)}），不用勾選，直接送出", fontSize = 14.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.primary)
             } else {
                 Row(
                     modifier = Modifier

@@ -354,7 +354,7 @@ fun ChatScreen(
             if (!imeVisible) Text(
                     text = buildString {
                         if (isLocal) {
-                            append("🔒 筆電本機・免費・不進雲端硬碟・每則約 10～30 秒")
+                            append("🔒 本機（桌機優先）・免費・不進雲端硬碟・每則約 10～30 秒")
                         } else if (provider == ApiProvider.OPENROUTER) {
                             append("本次對話 $").append(fmtUsd(sessionCost))
                             balanceText?.let { append(" · ").append(it) }

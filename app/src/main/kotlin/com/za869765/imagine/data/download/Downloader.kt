@@ -202,14 +202,16 @@ object Downloader {
                         }
                         val stem = f.base.substringBeforeLast('.')
                         val pending = PendingH3(
-                            prompt = r.prompt, sources = sources, seconds = r.seconds, quality = r.quality, mode = r.mode, aspect = r.aspect, route = r.route,
+                            prompt = r.prompt, sources = sources, seconds = r.seconds, quality = r.quality, mode = r.mode, aspect = r.aspect,
+                            // v3.5.2 舊片的配方可能是筆電／GPUtw／Colab 做的:再做一律先放桌機(主力、免費),其他機器由使用者自己改選
+                            route = "desk",
                             segments = r.segments, beats = r.beats, clientRequestId = UUID.randomUUID().toString(), estimate = null, seed = r.seed,
                             fair = r.fair, rawPrompt = r.rawPrompt, fairMale = r.fairMale,
                         )
                         H3Jobs.add(app, H3Jobs.Job(
                             runId = "clip_" + Integer.toHexString(stem.hashCode()), prompt = r.prompt, quality = r.quality, seconds = r.seconds * r.segments, estCu = 0.0,
                             createdAtMs = f.mtime, status = "done", savedUri = saved, kind = "video", meta = "測試片：$stem", keepInStudio = false, forgotten = true,
-                            route = r.route, seed = r.seed, finishedAtMs = f.mtime, sources = sources, repeatVideo = pending,
+                            route = "desk", seed = r.seed, finishedAtMs = f.mtime, sources = sources, repeatVideo = pending,
                         ))
                         msg = "已加入「最近成品」，可以再生成一次、調整後再生成、往後續做"
                     }

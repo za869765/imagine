@@ -90,7 +90,7 @@ private fun machineOptions(st: H3ImageEstimate?, board: List<com.za869765.imagin
     val laptop = when {
         st == null -> ""
         !st.localAlive -> "・現在離線"
-        st.caps?.image != true -> "・在線但工人版本舊，還不能生圖（到筆電更新一次）"
+        st.caps?.image != true -> "・在線但工人版本舊，還不能生圖（工人閒置時會自己更新）"
         else -> "・在線，可以免費做"
     }
     val gi = when {
@@ -109,7 +109,7 @@ private fun machineOptions(st: H3ImageEstimate?, board: List<com.za869765.imagin
         ModeOption("auto", "自動（建議）", "桌機或筆電有空就免費 → 開著的機器順便做 → 再不然開製圖機約 NT$8$autoNow"),
         ModeOption("desk", "桌機 5080", "免費・一張約 20～60 秒・桌機要開著" + machineNote(board, "desk")),
         ModeOption("local", "筆電 3070", "免費・一張約 1～2 分・筆電要開著" + machineNote(board, "local").ifEmpty { laptop }),
-        ModeOption("local_h3", "筆電 3070・H3-Image（2K）", "免費・一張約 1 分・比較像真實照片・筆電要開著；多視角與透明背景仍用 Turbo"),
+        ModeOption("local_h3", "本機・H3-Image（2K，桌機優先）", "免費・一張約 1 分・比較像真實照片・桌機或筆電要開著（桌機優先）；多視角與透明背景仍用 Turbo"),
         ModeOption("gputw_image", "製圖機（GPUtw）", "約 NT$8／次（含開機 14 分）" + machineNote(board, "gputw_image").ifEmpty { gi }),
         ModeOption("gputw", "GPUtw 5090（影片機）", "影片機開著時順便做・同製圖機費率" + machineNote(board, "gputw").ifEmpty { g }),
         ModeOption("cloud", "Colab A100", "花 CU・1 張約 1.04 CU ≈ NT$4・冷啟動 6 分" + machineNote(board, "cloud") + cu),
